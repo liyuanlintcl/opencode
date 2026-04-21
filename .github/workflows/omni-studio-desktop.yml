@@ -69,10 +69,16 @@ jobs:
         with:
           projectPath: packages/desktop
           args: --target x86_64-pc-windows-msvc --verbose
-          uploadWorkflowArtifacts: true
+          uploadWorkflowArtifacts: false
           releaseDraft: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Tauri artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: omni-studio-tauri-windows
+          path: packages/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/**/*
 
   build-electron:
     if: ${{ github.event.inputs.build_electron != 'false' }}

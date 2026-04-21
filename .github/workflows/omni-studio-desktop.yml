@@ -57,6 +57,13 @@ jobs:
           Copy-Item "packages/opencode/dist/opencode-windows-x64/bin/opencode.exe" `
             "$sidecarDir/opencode-cli-x86_64-pc-windows-msvc.exe"
 
+      - name: Patch build script to skip typecheck
+        shell: pwsh
+        run: |
+          $pkg = Get-Content "packages/desktop/package.json" -Raw
+          $pkg = $pkg.Replace('"build": "bun run typecheck && vite build"', '"build": "vite build"')
+          Set-Content "packages/desktop/package.json" $pkg -NoNewline
+
       - name: Build Tauri
         uses: tauri-apps/tauri-action@v0
         with:

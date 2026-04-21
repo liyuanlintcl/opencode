@@ -101,3 +101,39 @@ const table = sqliteTable("session", {
 ## Type Checking
 
 - Always run `bun typecheck` from package directories (e.g., `packages/opencode`), never `tsc` directly.
+
+## Desktop Packages
+
+The project maintains two parallel desktop clients:
+
+| | `packages/desktop/` | `packages/desktop-electron/` |
+|---|---|---|
+| **Stack** | Tauri v2 (Rust backend + system WebView) | Electron (Node.js backend + Chromium) |
+| **Version** | `1.14.19` | `1.14.19` (kept in sync) |
+| **Backend** | Rust in `src-tauri/src/` | TypeScript in `src/main/` |
+| **Renderer** | SolidJS in `src/` | SolidJS in `src/renderer/` |
+| **Bridge** | Tauri Specta generated `bindings.ts` | `contextBridge` + `ipcMain` in `src/preload/` |
+| **Storage** | `@tauri-apps/plugin-store` | `electron-store` |
+| **Updater** | `tauri-plugin-updater` | `electron-updater` |
+| **Build** | Vite + `tauri` CLI | `electron-vite` + `electron-builder` |
+| **Linux depth** | Deep DE detection (GNOME/KDE/Hyprland/Sway/i3/etc) | Standard Chromium abstraction |
+
+### Shared architecture
+
+Both renderers implement the same `Platform` interface for `@opencode-ai/app` and share:
+- Business logic/UI from `@opencode-ai/app` and `@opencode-ai/ui`
+- `publicDir` pointing to `../app/public`
+- Sidecar lifecycle: spawn `packages/opencode` → health check → SQLite migration → show main window
+- WSL path conversion, deep links (`opencode://`), file dialogs, clipboard image, notifications, webview zoom
+- Dev/Beta/Prod channels via `OPENCODE_CHANNEL`
+
+### Development entrypoints
+
+- Electron (default): `bun dev:desktop` from repo root
+- Tauri: `bun run --cwd packages/desktop tauri dev`
+
+### Tests
+
+- `packages/desktop`: Rust unit tests only (`cli.rs`, `linux_windowing.rs`, `lib.rs`). No frontend tests in this package.
+- `packages/desktop-electron`: `bun:test` in `shell-env.test.ts` and `html.test.ts`. No frontend tests in this package.
+- Frontend tests live upstream in `packages/app`.

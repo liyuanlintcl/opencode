@@ -33,6 +33,8 @@ export const dict = {
 
   "command.server.switch": "切换服务器",
 
+  "command.omniStudio.open": "打开 Omni Studio",
+
   "command.settings.open": "打开设置",
 
   "command.session.previous": "上一个会话",
@@ -593,6 +595,7 @@ export const dict = {
 
   "sidebar.menu.toggle": "切换菜单",
   "sidebar.nav.projectsAndSessions": "项目和会话",
+  "sidebar.omniStudio": "Omni Studio",
   "sidebar.settings": "设置",
   "sidebar.help": "帮助",
   "sidebar.workspaces.enable": "启用工作区",
@@ -915,4 +918,28 @@ export const dict = {
   "error.childStore.persistedProjectIconCreateFailed": "创建持久化项目图标失败",
   "error.childStore.storeCreateFailed": "创建存储失败",
   "terminal.connectionLost.abnormalClose": "WebSocket 异常关闭：{{code}}",
+
+  "omniStudio.title": "Omni Studio",
+  "omniStudio.searchPlaceholder": "搜索扩展...",
+  "omniStudio.categories.all": "全部",
+  "omniStudio.categories.skill": "技能",
+  "omniStudio.categories.agent": "智能体",
+  "omniStudio.categories.command": "命令",
+  "omniStudio.categories.tool": "工具",
+  "omniStudio.categories.plugin": "插件",
+  "omniStudio.filters.title": "筛选",
+  "omniStudio.installed": "已安装",
+  "omniStudio.enabled": "已启用",
+  "omniStudio.results": "个结果",
+  "omniStudio.emptyState": "未找到扩展",
+  "omniStudio.selectItem": "选择一个扩展以查看详情",
+  "omniStudio.actions.install": "安装",
+  "omniStudio.actions.uninstall": "卸载",
+  "omniStudio.actions.enable": "启用",
+  "omniStudio.actions.disable": "禁用",
+  "omniStudio.detail.description": "描述",
+  "omniStudio.project.overrideTitle": "项目配置",
+  "omniStudio.project.inheritGlobal": "使用全局默认设置",
+  "omniStudio.project.enabled": "已为该项目启用",
+  "omniStudio.project.disabled": "已为该项目禁用",
 } satisfies Partial<Record<Keys, string>>

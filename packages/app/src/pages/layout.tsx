@@ -1055,6 +1055,13 @@ export default function Layout(props: ParentProps) {
         onSelect: () => openServer(),
       },
       {
+        id: "omni-studio.open",
+        title: language.t("command.omniStudio.open"),
+        category: language.t("command.category.settings"),
+        keybind: "mod+shift+m",
+        onSelect: () => openOmniStudio(),
+      },
+      {
         id: "settings.open",
         title: language.t("command.settings.open"),
         category: language.t("command.category.settings"),
@@ -1219,6 +1226,10 @@ export default function Layout(props: ParentProps) {
       if (dialogDead || dialogRun !== run) return
       dialog.show(() => <x.DialogSettings />)
     })
+  }
+
+  function openOmniStudio() {
+    navigate("/omni-studio")
   }
 
   function projectRoot(directory: string) {
@@ -2347,6 +2358,9 @@ export default function Layout(props: ParentProps) {
       openProjectKeybind={() => command.keybind("project.open")}
       onOpenProject={chooseProject}
       renderProjectOverlay={projectOverlay}
+      omniStudioLabel={() => language.t("sidebar.omniStudio")}
+      omniStudioKeybind={() => command.keybind("omni-studio.open")}
+      onOpenOmniStudio={openOmniStudio}
       settingsLabel={() => language.t("sidebar.settings")}
       settingsKeybind={() => command.keybind("settings.open")}
       onOpenSettings={openSettings}

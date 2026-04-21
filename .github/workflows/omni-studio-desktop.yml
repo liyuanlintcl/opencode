@@ -21,17 +21,7 @@ concurrency:
 jobs:
   build-tauri:
     if: ${{ github.event.inputs.build_tauri != 'false' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            target: aarch64-apple-darwin
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -43,19 +33,13 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: x86_64-pc-windows-msvc
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: packages/desktop/src-tauri
-          shared-key: ${{ matrix.target }}
-
-      - name: Install dependencies (Ubuntu)
-        if: contains(matrix.os, 'ubuntu')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          shared-key: x86_64-pc-windows-msvc
 
       - name: Install project dependencies
         run: bun install
@@ -70,13 +54,13 @@ jobs:
           cd packages/desktop
           bun ./scripts/predev.ts
         env:
-          TAURI_ENV_TARGET_TRIPLE: ${{ matrix.target }}
+          TAURI_ENV_TARGET_TRIPLE: x86_64-pc-windows-msvc
 
       - name: Build Tauri
         uses: tauri-apps/tauri-action@v0
         with:
           projectPath: packages/desktop
-          args: --target ${{ matrix.target }} --verbose
+          args: --target x86_64-pc-windows-msvc --verbose
           uploadWorkflowArtifacts: true
           releaseDraft: false
         env:
@@ -84,17 +68,7 @@ jobs:
 
   build-electron:
     if: ${{ github.event.inputs.build_electron != 'false' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-latest
-            platform_flag: --mac
-          - os: ubuntu-latest
-            platform_flag: --linux
-          - os: windows-latest
-            platform_flag: --win
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -107,12 +81,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-
-      - name: Install dependencies (Ubuntu)
-        if: contains(matrix.os, 'ubuntu')
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends rpm
 
       - name: Install project dependencies
         run: bun install
@@ -127,12 +95,12 @@ jobs:
       - name: Package Electron
         run: |
           cd packages/desktop-electron
-          npx electron-builder ${{ matrix.platform_flag }} --publish never --config electron-builder.config.ts
+          npx electron-builder --win --publish never --config electron-builder.config.ts
         env:
           OPENCODE_CHANNEL: dev
 
       - name: Upload Electron artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: omni-studio-electron-${{ matrix.os }}
+          name: omni-studio-electron-windows
           path: packages/desktop-electron/dist/*

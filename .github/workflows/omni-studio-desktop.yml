@@ -50,11 +50,12 @@ jobs:
           bun run build --single
 
       - name: Prepare sidecar for Tauri
+        shell: pwsh
         run: |
-          cd packages/desktop
-          bun ./scripts/predev.ts
-        env:
-          TAURI_ENV_TARGET_TRIPLE: x86_64-pc-windows-msvc
+          $sidecarDir = "packages/desktop/src-tauri/sidecars"
+          New-Item -ItemType Directory -Force -Path $sidecarDir
+          Copy-Item "packages/opencode/dist/opencode-windows-x64/bin/opencode.exe" `
+            "$sidecarDir/opencode-cli-x86_64-pc-windows-msvc.exe"
 
       - name: Build Tauri
         uses: tauri-apps/tauri-action@v0

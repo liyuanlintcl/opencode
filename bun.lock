@@ -668,7 +668,6 @@
   },
   "trustedDependencies": [
     "esbuild",
-    "tree-sitter-powershell",
     "protobufjs",
     "electron",
     "web-tree-sitter",

@@ -669,7 +669,6 @@
   "trustedDependencies": [
     "esbuild",
     "protobufjs",
-    "electron",
     "web-tree-sitter",
     "tree-sitter-bash",
   ],

@@ -75,7 +75,7 @@
       "vite": "7.1.4",
       "@solidjs/meta": "0.29.4",
       "@solidjs/router": "0.15.4",
-      "@solidjs/start": "file:./vendor/@solidjs-start-dfb2020.tgz",
+      "@solidjs/start": "https://pkg.pr.new/@solidjs/start@dfb2020",
       "solid-js": "1.9.10",
       "vite-plugin-solid": "2.11.10",
       "@lydell/node-pty": "1.2.0-beta.10"
@@ -118,7 +118,9 @@
     "protobufjs",
     "tree-sitter",
     "tree-sitter-bash",
+    "tree-sitter-powershell",
     "web-tree-sitter",
+    "electron"
   ],
   "overrides": {
     "@types/bun": "catalog:",

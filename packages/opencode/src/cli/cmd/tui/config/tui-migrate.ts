@@ -7,10 +7,11 @@ import { Flag } from "@/flag/flag"
 import { Global } from "@/global"
 import { Filesystem, Log } from "@/util"
 import * as ConfigPaths from "@/config/paths"
+import { Brand } from "@/brand"
 
 const log = Log.create({ service: "tui.migrate" })
 
-const TUI_SCHEMA_URL = "https://opencode.ai/tui.json"
+const TUI_SCHEMA_URL = Brand.tuiSchemaUrl
 
 const LegacyTheme = TuiInfo.shape.theme.optional()
 const LegacyRecord = z.record(z.string(), z.unknown()).optional()

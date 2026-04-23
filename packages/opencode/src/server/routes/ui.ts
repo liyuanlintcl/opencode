@@ -1,4 +1,5 @@
 import { Flag } from "@/flag/flag"
+import { Brand } from "@/brand"
 import { Hono } from "hono"
 import { proxy } from "hono/proxy"
 import { getMimeType } from "hono/utils/mime"
@@ -36,11 +37,11 @@ export const UIRoutes = (): Hono =>
         return c.json({ error: "Not Found" }, 404)
       }
     } else {
-      const response = await proxy(`https://app.opencode.ai${path}`, {
+      const response = await proxy(`${Brand.webAppUrl}${path}`, {
         raw: c.req.raw,
         headers: {
           ...Object.fromEntries(c.req.raw.headers.entries()),
-          host: "app.opencode.ai",
+          host: Brand.webAppUrl.replace("https://", ""),
         },
       })
       const match = response.headers.get("content-type")?.includes("text/html")

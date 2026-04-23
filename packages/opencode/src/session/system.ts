@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from "effect"
 
 import { Instance } from "../project/instance"
+import { Brand } from "../brand"
 
 import PROMPT_ANTHROPIC from "./prompt/anthropic.txt"
 import PROMPT_DEFAULT from "./prompt/default.txt"
@@ -16,20 +17,35 @@ import type { Agent } from "@/agent/agent"
 import { Permission } from "@/permission"
 import { Skill } from "@/skill"
 
+function applyBrand(text: string): string {
+  return text
+    .replaceAll("https://github.com/anomalyco/opencode/issues", Brand.githubIssuesUrl)
+    .replaceAll("https://github.com/anomalyco/opencode", `https://github.com/${Brand.githubOrg}/${Brand.githubRepo}`)
+    .replaceAll("https://opencode.ai", Brand.docsUrl)
+    .replaceAll("opencode.ai", Brand.docsUrl.replace("https://", ""))
+    .replaceAll("OpenCode", Brand.assistantName)
+    .replaceAll("opencode", Brand.assistantNameLower)
+    .replaceAll("Anomaly", Brand.company)
+    .replaceAll("anomalyco", Brand.companyLower)
+}
+
 export function provider(model: Provider.Model) {
-  if (model.api.id.includes("gpt-4") || model.api.id.includes("o1") || model.api.id.includes("o3"))
-    return [PROMPT_BEAST]
-  if (model.api.id.includes("gpt")) {
-    if (model.api.id.includes("codex")) {
-      return [PROMPT_CODEX]
+  const raw = (() => {
+    if (model.api.id.includes("gpt-4") || model.api.id.includes("o1") || model.api.id.includes("o3"))
+      return [PROMPT_BEAST]
+    if (model.api.id.includes("gpt")) {
+      if (model.api.id.includes("codex")) {
+        return [PROMPT_CODEX]
+      }
+      return [PROMPT_GPT]
     }
-    return [PROMPT_GPT]
-  }
-  if (model.api.id.includes("gemini-")) return [PROMPT_GEMINI]
-  if (model.api.id.includes("claude")) return [PROMPT_ANTHROPIC]
-  if (model.api.id.toLowerCase().includes("trinity")) return [PROMPT_TRINITY]
-  if (model.api.id.toLowerCase().includes("kimi")) return [PROMPT_KIMI]
-  return [PROMPT_DEFAULT]
+    if (model.api.id.includes("gemini-")) return [PROMPT_GEMINI]
+    if (model.api.id.includes("claude")) return [PROMPT_ANTHROPIC]
+    if (model.api.id.toLowerCase().includes("trinity")) return [PROMPT_TRINITY]
+    if (model.api.id.toLowerCase().includes("kimi")) return [PROMPT_KIMI]
+    return [PROMPT_DEFAULT]
+  })()
+  return raw.map(applyBrand)
 }
 
 export interface Interface {

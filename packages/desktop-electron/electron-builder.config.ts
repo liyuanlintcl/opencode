@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 
 import type { Configuration } from "electron-builder"
+import { Brand } from "../../opencode/src/brand"
 
 const execFileAsync = promisify(execFile)
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
@@ -54,7 +55,7 @@ const getBase = (): Configuration => ({
     sign: true,
   },
   protocols: {
-    name: "Omni Studio",
+    name: Brand.appName,
     schemes: ["opencode"],
   },
   win: {
@@ -85,7 +86,7 @@ function getConfig() {
       return {
         ...base,
         appId: "ai.opencode.desktop.dev",
-        productName: "Omni Studio Dev",
+        productName: `${Brand.appName} Dev`,
         rpm: { packageName: "opencode-dev" },
       }
     }
@@ -93,8 +94,8 @@ function getConfig() {
       return {
         ...base,
         appId: "ai.opencode.desktop.beta",
-        productName: "Omni Studio Beta",
-        protocols: { name: "Omni Studio Beta", schemes: ["opencode"] },
+        productName: `${Brand.appName} Beta`,
+        protocols: { name: `${Brand.appName} Beta`, schemes: ["opencode"] },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
         rpm: { packageName: "opencode-beta" },
       }
@@ -103,8 +104,8 @@ function getConfig() {
       return {
         ...base,
         appId: "ai.opencode.desktop",
-        productName: "Omni Studio",
-        protocols: { name: "Omni Studio", schemes: ["opencode"] },
+        productName: Brand.appName,
+        protocols: { name: Brand.appName, schemes: ["opencode"] },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
         rpm: { packageName: "opencode" },
       }

@@ -1,4 +1,5 @@
 import z from "zod"
+import { Brand } from "@/brand"
 import os from "os"
 import fuzzysort from "fuzzysort"
 import { Config } from "../config"
@@ -395,8 +396,8 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         autoload: false,
         options: {
           headers: {
-            "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "HTTP-Referer": Brand.docsUrl,
+            "X-Title": Brand.assistantNameLower,
             "X-Source": "opencode",
           },
         },
@@ -406,8 +407,8 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         autoload: false,
         options: {
           headers: {
-            "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "HTTP-Referer": Brand.docsUrl,
+            "X-Title": Brand.assistantNameLower,
           },
         },
       }),
@@ -416,8 +417,8 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         autoload: false,
         options: {
           headers: {
-            "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "HTTP-Referer": Brand.docsUrl,
+            "X-Title": Brand.assistantNameLower,
           },
         },
       }),
@@ -426,8 +427,8 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         autoload: false,
         options: {
           headers: {
-            "http-referer": "https://opencode.ai/",
-            "x-title": "opencode",
+            "http-referer": Brand.docsUrl,
+            "x-title": Brand.assistantNameLower,
           },
         },
       }),
@@ -524,8 +525,8 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         autoload: false,
         options: {
           headers: {
-            "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "HTTP-Referer": Brand.docsUrl,
+            "X-Title": Brand.assistantNameLower,
           },
         },
       }),
@@ -809,8 +810,8 @@ function custom(dep: CustomDep): Record<string, CustomLoader> {
         autoload: false,
         options: {
           headers: {
-            "HTTP-Referer": "https://opencode.ai/",
-            "X-Title": "opencode",
+            "HTTP-Referer": Brand.docsUrl,
+            "X-Title": Brand.assistantNameLower,
           },
         },
       }),

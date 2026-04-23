@@ -25,3 +25,10 @@ export const dict = {
   "desktop.cli.failed.title": "Installation Failed",
   "desktop.cli.failed.message": "Failed to install CLI: {{error}}",
 }
+
+import { Brand } from "../../../../app/src/brand"
+for (const key of Object.keys(dict)) {
+  dict[key] = dict[key]
+    .replaceAll("OpenCode", Brand.appName)
+    .replaceAll("opencode.ai", Brand.docsUrl.replace("https://", ""))
+}

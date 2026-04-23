@@ -979,3 +979,10 @@ export const dict = {
   "omniStudio.project.enabled": "Enabled for this project",
   "omniStudio.project.disabled": "Disabled for this project",
 }
+
+import { Brand } from "../brand"
+for (const key of Object.keys(dict)) {
+  dict[key] = dict[key]
+    .replaceAll("OpenCode", Brand.appName)
+    .replaceAll("opencode.ai", Brand.docsUrl.replace("https://", ""))
+}

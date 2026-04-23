@@ -945,3 +945,10 @@ export const dict = {
   "omniStudio.project.enabled": "已为该项目启用",
   "omniStudio.project.disabled": "已为该项目禁用",
 } satisfies Partial<Record<Keys, string>>
+
+import { Brand } from "../brand"
+for (const key of Object.keys(dict)) {
+  dict[key] = dict[key]
+    .replaceAll("OpenCode", Brand.appName)
+    .replaceAll("opencode.ai", Brand.docsUrl.replace("https://", ""))
+}

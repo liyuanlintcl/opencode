@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "OpenCode Dev",
+  "productName": "Omni Studio Dev",
   "identifier": "ai.opencode.desktop.dev",
-  "mainBinaryName": "OpenCode",
+  "mainBinaryName": "Omni Studio",
   "version": "../package.json",
   "build": {
     "beforeDevCommand": "bun run dev",

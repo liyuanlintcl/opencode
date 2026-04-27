@@ -1,4 +1,4 @@
-import { Flag } from "@/flag/flag"
+import { Flag } from "@opencode-ai/core/flag/flag"
 import { Brand } from "@/brand"
 import { Hono } from "hono"
 import { proxy } from "hono/proxy"

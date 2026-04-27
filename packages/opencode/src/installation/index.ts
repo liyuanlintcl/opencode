@@ -175,6 +175,7 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | ChildPro
         Effect.orDie,
       )
 
+      const result: Interface = {
         info: Effect.fn("Installation.info")(function* () {
           return {
             version: InstallationVersion,

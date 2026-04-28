@@ -1,17 +1,16 @@
 import { Button } from "@opencode-ai/ui/button"
-import { Icon } from "@opencode-ai/ui/icon"
+import { Icon, type IconProps } from "@opencode-ai/ui/icon"
 import { TextField } from "@opencode-ai/ui/text-field"
 import { useLanguage } from "@/context/language"
 import type { Category } from "../types"
 import { useOmniStudio } from "../context"
 
-const CATEGORIES: { key: Category; icon: string }[] = [
-  { key: "all", icon: "grid" },
-  { key: "skill", icon: "sparkles" },
-  { key: "agent", icon: "bot" },
-  { key: "command", icon: "terminal" },
-  { key: "tool", icon: "wrench" },
-  { key: "plugin", icon: "plug" },
+const CATEGORIES: { key: Category; icon: IconProps["name"] }[] = [
+  { key: "all", icon: "grid" as IconProps["name"] },
+  { key: "skill", icon: "sparkles" as IconProps["name"] },
+  { key: "agent", icon: "bot" as IconProps["name"] },
+  { key: "tool", icon: "wrench" as IconProps["name"] },
+  { key: "plugin", icon: "plug" as IconProps["name"] },
 ]
 
 export function MarketplaceSidebar() {
@@ -55,7 +54,7 @@ export function MarketplaceSidebar() {
           <Button
             variant={state.activeCategory === "installed" ? "primary" : "ghost"}
             size="small"
-            icon="download"
+            icon={"download" as IconProps["name"]}
             class="justify-start w-full"
             onClick={() => actions.setActiveCategory("installed")}
           >
@@ -64,7 +63,7 @@ export function MarketplaceSidebar() {
           <Button
             variant={state.activeCategory === "enabled" ? "primary" : "ghost"}
             size="small"
-            icon="check-circle"
+            icon={"circle-check" as IconProps["name"]}
             class="justify-start w-full"
             onClick={() => actions.setActiveCategory("enabled")}
           >

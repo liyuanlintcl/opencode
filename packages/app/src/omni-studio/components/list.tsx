@@ -30,7 +30,7 @@ export function MarketplaceList() {
             {filteredItems().length} {t("results")}
           </span>
           <Show when={state.loading}>
-            <Spinner size="small" />
+            <Spinner class="w-4 h-4" />
           </Show>
         </div>
       </div>
@@ -40,7 +40,7 @@ export function MarketplaceList() {
           when={!state.loading || filteredItems().length > 0}
           fallback={
             <div class="flex items-center justify-center h-full">
-              <Spinner size="normal" />
+              <Spinner class="w-6 h-6" />
             </div>
           }
         >

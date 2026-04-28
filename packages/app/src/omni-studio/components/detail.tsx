@@ -13,6 +13,12 @@ export function MarketplaceDetail() {
   const t = (key: string) => language.t(`omniStudio.${key}`)
   const item = () => state.items.find((i) => i.id === state.selectedItemId)
   const isActionLoading = () => (item() ? state.actionLoading[item()!.id] ?? false : false)
+  const displayVersion = () => {
+    const it = item()
+    if (!it) return "-"
+    if (it.version !== "-") return it.version
+    return state.detailVersions[it.id] ?? "-"
+  }
 
   return (
     <Show
@@ -29,23 +35,21 @@ export function MarketplaceDetail() {
           <div class="flex-1 overflow-y-auto p-5">
             <div class="flex items-start gap-4 mb-4">
               <div class="w-16 h-16 rounded-xl bg-surface-raised-base flex items-center justify-center shrink-0 text-28-regular">
-                {ext().type === "skill" ? "✨" : ext().type === "agent" ? "🤖" : ext().type === "command" ? "⌨️" : ext().type === "tool" ? "🔧" : "🔌"}
+                {ext().type === "skill" ? "✨" : ext().type === "agent" ? "🤖" : ext().type === "tool" ? "🔧" : "🔌"}
               </div>
               <div class="min-w-0">
                 <h3 class="text-18-semibold text-text-strong">{ext().name}</h3>
                 <div class="flex items-center gap-2 mt-1 flex-wrap">
                   <Tag size="normal" class="capitalize">{ext().type}</Tag>
-                  <span class="text-12-regular text-text-weak">v{ext().version}</span>
+                  {displayVersion() !== "-" && (
+                    <span class="text-12-regular text-text-weak">v{displayVersion()}</span>
+                  )}
                   <span class="text-12-regular text-text-weak">by {ext().author}</span>
-                  <span class="text-12-regular text-text-weak flex items-center gap-1">
-                    <span>★</span>
-                    {ext().stars.toLocaleString()}
-                  </span>
                 </div>
               </div>
             </div>
 
-            <Show when={!isActionLoading()} fallback={<Spinner size="normal" class="my-4" />}>
+            <Show when={!isActionLoading()} fallback={<Spinner class="w-6 h-6 my-4" />}>
               <div class="flex items-center gap-2 mb-6">
                 {!ext().installed ? (
                   <Button

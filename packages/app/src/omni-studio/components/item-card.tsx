@@ -28,7 +28,7 @@ export function ItemCard(props: { item: ExtensionItem }) {
       <div class="flex items-start justify-between gap-3">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-10 h-10 rounded-lg bg-surface-raised-base flex items-center justify-center shrink-0">
-            <span class="text-20-regular">{item().type === "skill" ? "✨" : item().type === "agent" ? "🤖" : item().type === "command" ? "⌨️" : item().type === "tool" ? "🔧" : "🔌"}</span>
+            <span class="text-20-regular">{item().type === "skill" ? "✨" : item().type === "agent" ? "🤖" : item().type === "tool" ? "🔧" : "🔌"}</span>
           </div>
           <div class="min-w-0">
             <div class="flex items-center gap-2">
@@ -48,20 +48,16 @@ export function ItemCard(props: { item: ExtensionItem }) {
       <div class="flex items-center justify-between pl-[52px]">
         <div class="flex items-center gap-3 text-11-regular text-text-weak">
           <span class="capitalize">{item().type}</span>
-          <span>v{item().version}</span>
-          <span class="flex items-center gap-1">
-            <span>★</span>
-            {item().stars.toLocaleString()}
-          </span>
+          {item().version !== "-" && <span>v{item().version}</span>}
         </div>
 
-        <Show when={!isActionLoading()} fallback={<Spinner size="small" />}>
+        <Show when={!isActionLoading()} fallback={<Spinner class="w-4 h-4" />}>
           <div class="flex items-center gap-1">
             {!item().installed ? (
               <Button
                 size="small"
                 variant="primary"
-                onClick={(e) => {
+                onClick={(e: MouseEvent) => {
                   e.stopPropagation()
                   void actions.install(item().id)
                 }}
@@ -73,7 +69,7 @@ export function ItemCard(props: { item: ExtensionItem }) {
                 <Button
                   size="small"
                   variant={item().enabled ? "ghost" : "primary"}
-                  onClick={(e) => {
+                  onClick={(e: MouseEvent) => {
                     e.stopPropagation()
                     void actions.toggleGlobal(item().id)
                   }}
@@ -84,7 +80,7 @@ export function ItemCard(props: { item: ExtensionItem }) {
                   size="small"
                   variant="ghost"
                   icon="trash"
-                  onClick={(e) => {
+                  onClick={(e: MouseEvent) => {
                     e.stopPropagation()
                     void actions.uninstall(item().id)
                   }}

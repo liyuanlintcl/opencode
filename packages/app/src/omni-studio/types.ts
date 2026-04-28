@@ -1,4 +1,4 @@
-export type ExtensionType = "skill" | "agent" | "command" | "tool" | "plugin"
+export type ExtensionType = "skill" | "agent" | "tool" | "plugin"
 
 export type ExtensionItem = {
   id: string
@@ -7,7 +7,6 @@ export type ExtensionItem = {
   description: string
   version: string
   author: string
-  stars: number
   icon?: string
   installed: boolean
   enabled: boolean

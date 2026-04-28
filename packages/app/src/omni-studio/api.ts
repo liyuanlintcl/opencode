@@ -1,172 +1,155 @@
 import type { ExtensionItem, ExtensionType, MarketplaceQuery, ProjectExtensionConfig } from "./types"
 
-const MOCK_ITEMS: ExtensionItem[] = [
-  {
-    id: "skill-code-review",
-    type: "skill",
-    name: "Code Review",
-    description: "AI-powered code review assistant with inline suggestions and best practice checks.",
-    version: "1.2.0",
-    author: "opencode",
-    stars: 1240,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "skill-debugging",
-    type: "skill",
-    name: "Debugging Expert",
-    description: "Advanced debugging skill that analyzes stack traces and suggests fixes.",
-    version: "0.9.5",
-    author: "community",
-    stars: 856,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "agent-planner",
-    type: "agent",
-    name: "Task Planner",
-    description: "Autonomous agent that breaks down complex tasks into actionable steps.",
-    version: "2.1.0",
-    author: "opencode",
-    stars: 3200,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "agent-explorer",
-    type: "agent",
-    name: "Code Explorer",
-    description: "Navigates large codebases and finds relevant files and functions.",
-    version: "1.5.2",
-    author: "opencode",
-    stars: 2100,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "command-init",
-    type: "command",
-    name: "Project Init",
-    description: "Quickly scaffold new projects with customizable templates.",
-    version: "1.0.0",
-    author: "opencode",
-    stars: 540,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "command-review",
-    type: "command",
-    name: "PR Review",
-    description: "Automated pull request review with diff analysis.",
-    version: "1.3.0",
-    author: "community",
-    stars: 980,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "tool-shell-enhanced",
-    type: "tool",
-    name: "Enhanced Shell",
-    description: "Extended shell execution with environment isolation and caching.",
-    version: "1.1.0",
-    author: "opencode",
-    stars: 1500,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "tool-git-advanced",
-    type: "tool",
-    name: "Git Advanced",
-    description: "Advanced git operations including interactive rebase and conflict resolution.",
-    version: "2.0.0",
-    author: "community",
-    stars: 760,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "plugin-auth-codex",
-    type: "plugin",
-    name: "Codex Auth",
-    description: "Authentication plugin for OpenAI Codex integration.",
-    version: "1.0.3",
-    author: "opencode",
-    stars: 430,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "plugin-auth-copilot",
-    type: "plugin",
-    name: "Copilot Auth",
-    description: "GitHub Copilot authentication and token management.",
-    version: "1.2.1",
-    author: "opencode",
-    stars: 2100,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "skill-documentation",
-    type: "skill",
-    name: "Doc Writer",
-    description: "Automatically generates documentation from code comments and types.",
-    version: "0.8.0",
-    author: "community",
-    stars: 670,
-    installed: false,
-    enabled: false,
-  },
-  {
-    id: "agent-test-writer",
-    type: "agent",
-    name: "Test Writer",
-    description: "Generates comprehensive unit and integration tests.",
-    version: "1.4.0",
-    author: "community",
-    stars: 1120,
-    installed: false,
-    enabled: false,
-  },
-]
+const API_BASE = import.meta.env.VITE_VXAGENT_API_URL ?? "http://127.0.0.1:18000/api/v1"
 
-const STORAGE_KEY = "omni-studio.installed"
+const USER_ID_KEY = "omni-studio.user-id"
 const PROJECT_CONFIG_KEY = "omni-studio.project-config"
 
-function readInstalled(): Set<string> {
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (!raw) return new Set()
+function getUserId(): string | null {
+  if (typeof localStorage === "undefined") return null
   try {
-    return new Set(JSON.parse(raw) as string[])
+    return localStorage.getItem(USER_ID_KEY)
   } catch {
-    return new Set()
+    return null
   }
 }
 
-function writeInstalled(ids: Set<string>) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(ids)))
+function apiUrl(path: string): string {
+  return `${API_BASE}${path}`
 }
 
-function readEnabled(): Set<string> {
-  const raw = localStorage.getItem(STORAGE_KEY + ":enabled")
-  if (!raw) return new Set()
-  try {
-    return new Set(JSON.parse(raw) as string[])
-  } catch {
-    return new Set()
+async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+  const userId = getUserId()
+  const headers = new Headers(options?.headers)
+  if (!headers.has("Content-Type") && !(options?.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json")
+  }
+  if (userId) headers.set("X-User-Id", userId)
+
+  const resp = await fetch(url, { ...options, headers })
+  const result = await resp.json()
+  if (!result.success) throw new Error(result.message ?? "API error")
+  return result.data as T
+}
+
+function toPlural(type: ExtensionType): string {
+  const map: Record<ExtensionType, string> = {
+    skill: "skills",
+    tool: "tools",
+    plugin: "plugins",
+    agent: "agents",
+  }
+  return map[type]
+}
+
+function registryToItem(type: ExtensionType, registry: any): ExtensionItem {
+  return {
+    id: registry.slug,
+    type,
+    name: registry.displayName ?? registry.slug,
+    description: registry.description ?? "",
+    version: "-",
+    author: registry.ownerId ?? "unknown",
+    installed: false,
+    enabled: false,
   }
 }
 
-function writeEnabled(ids: Set<string>) {
-  localStorage.setItem(STORAGE_KEY + ":enabled", JSON.stringify(Array.from(ids)))
+async function fetchMyItems(type?: ExtensionType): Promise<Map<string, { enabled: boolean; version: string }>> {
+  const userId = getUserId()
+  if (!userId) return new Map()
+
+  const result = new Map<string, { enabled: boolean; version: string }>()
+
+  const fetchPackageMy = async (et: string) => {
+    try {
+      const data = await apiFetch<{ items: any[] }>(apiUrl(`/packages/${et}/my?size=1000`))
+      for (const item of data.items) {
+        result.set(item.slug, { enabled: item.enabled, version: item.version ?? "-" })
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  const types = type ? [toPlural(type)] : ["skills", "tools", "plugins", "agents"]
+  await Promise.all(types.map(fetchPackageMy))
+
+  return result
 }
 
-function readProjectConfig(): ProjectExtensionConfig {
+export async function fetchMarketplace(query?: MarketplaceQuery): Promise<ExtensionItem[]> {
+  const type = query?.type
+  const keyword = query?.q
+  const params = new URLSearchParams({ size: "1000" })
+  if (keyword) params.set("keyword", keyword)
+
+  let items: ExtensionItem[] = []
+
+  const types = type ? [toPlural(type)] : ["skills", "tools", "plugins", "agents"]
+  await Promise.all(
+    types.map(async (et) => {
+      try {
+        const data = await apiFetch<{ records: any[] }>(apiUrl(`/packages/${et}?${params}`))
+        const extType = et.slice(0, -1) as ExtensionType
+        items.push(...data.records.map((r) => registryToItem(extType, r)))
+      } catch {
+        // ignore
+      }
+    }),
+  )
+
+  const myItems = await fetchMyItems(type)
+  return items.map((item) => {
+    const my = myItems.get(item.id)
+    if (!my) return item
+    return { ...item, installed: true, enabled: my.enabled, version: my.version }
+  })
+}
+
+export async function fetchPackageDetail(type: ExtensionType, slug: string): Promise<string> {
+  const et = toPlural(type)
+  try {
+    const data = await apiFetch<{ revisions?: any[] }>(apiUrl(`/packages/${et}/${slug}`))
+    if (data.revisions && data.revisions.length > 0) {
+      return data.revisions[0].version ?? "-"
+    }
+    return "-"
+  } catch {
+    return "-"
+  }
+}
+
+export async function installExtension(id: string, type: ExtensionType): Promise<void> {
+  const et = toPlural(type)
+  await apiFetch(apiUrl(`/packages/${et}/my`), {
+    method: "POST",
+    body: JSON.stringify({ slug: id, version: null, enabled: true }),
+  })
+}
+
+export async function uninstallExtension(id: string, type: ExtensionType): Promise<void> {
+  const et = toPlural(type)
+  await apiFetch(apiUrl(`/packages/${et}/my/${id}`), { method: "DELETE" })
+}
+
+export async function enableExtension(id: string, type: ExtensionType): Promise<void> {
+  const et = toPlural(type)
+  await apiFetch(apiUrl(`/packages/${et}/my/${id}`), {
+    method: "PATCH",
+    body: JSON.stringify({ enabled: true }),
+  })
+}
+
+export async function disableExtension(id: string, type: ExtensionType): Promise<void> {
+  const et = toPlural(type)
+  await apiFetch(apiUrl(`/packages/${et}/my/${id}`), {
+    method: "PATCH",
+    body: JSON.stringify({ enabled: false }),
+  })
+}
+
+export async function getProjectConfig(): Promise<ProjectExtensionConfig> {
   const raw = localStorage.getItem(PROJECT_CONFIG_KEY)
   if (!raw) return { enabled: [], inherit_global: true }
   try {
@@ -176,83 +159,8 @@ function readProjectConfig(): ProjectExtensionConfig {
   }
 }
 
-function writeProjectConfig(config: ProjectExtensionConfig) {
-  localStorage.setItem(PROJECT_CONFIG_KEY, JSON.stringify(config))
-}
-
-export async function fetchMarketplace(query?: MarketplaceQuery): Promise<ExtensionItem[]> {
-  await new Promise((resolve) => setTimeout(resolve, 300))
-
-  const installed = readInstalled()
-  const enabled = readEnabled()
-
-  let items = MOCK_ITEMS.map((item) => ({
-    ...item,
-    installed: installed.has(item.id),
-    enabled: enabled.has(item.id),
-  }))
-
-  if (query?.type && query.type !== "all") {
-    items = items.filter((item) => item.type === query.type)
-  }
-
-  if (query?.q) {
-    const q = query.q.toLowerCase()
-    items = items.filter(
-      (item) =>
-        item.name.toLowerCase().includes(q) ||
-        item.description.toLowerCase().includes(q) ||
-        item.author.toLowerCase().includes(q),
-    )
-  }
-
-  return items
-}
-
-export async function installExtension(id: string): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 600))
-  const installed = readInstalled()
-  installed.add(id)
-  writeInstalled(installed)
-
-  const enabled = readEnabled()
-  enabled.add(id)
-  writeEnabled(enabled)
-}
-
-export async function uninstallExtension(id: string): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 400))
-  const installed = readInstalled()
-  installed.delete(id)
-  writeInstalled(installed)
-
-  const enabled = readEnabled()
-  enabled.delete(id)
-  writeEnabled(enabled)
-}
-
-export async function enableExtension(id: string): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 200))
-  const enabled = readEnabled()
-  enabled.add(id)
-  writeEnabled(enabled)
-}
-
-export async function disableExtension(id: string): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 200))
-  const enabled = readEnabled()
-  enabled.delete(id)
-  writeEnabled(enabled)
-}
-
-export async function getProjectConfig(): Promise<ProjectExtensionConfig> {
-  await new Promise((resolve) => setTimeout(resolve, 100))
-  return readProjectConfig()
-}
-
 export async function setProjectConfig(config: ProjectExtensionConfig): Promise<void> {
-  await new Promise((resolve) => setTimeout(resolve, 200))
-  writeProjectConfig(config)
+  localStorage.setItem(PROJECT_CONFIG_KEY, JSON.stringify(config))
 }
 
 export function getEffectiveEnabled(

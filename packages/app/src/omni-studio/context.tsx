@@ -1,10 +1,11 @@
-import { createContext, createEffect, createSignal, onCleanup, onMount, useContext, type Accessor } from "solid-js"
+import { createContext, createEffect, useContext, type Accessor } from "solid-js"
 import { createStore, produce } from "solid-js/store"
 import type { Category, ExtensionItem, ExtensionType, ProjectExtensionConfig } from "./types"
 import {
   disableExtension,
   enableExtension,
   fetchMarketplace,
+  fetchPackageDetail,
   getEffectiveEnabled,
   getProjectConfig,
   installExtension,
@@ -21,6 +22,7 @@ type OmniStudioState = {
   selectedItemId: string | null
   projectConfig: ProjectExtensionConfig
   actionLoading: Record<string, boolean>
+  detailVersions: Record<string, string>
 }
 
 type OmniStudioActions = {
@@ -51,6 +53,7 @@ export function OmniStudioProvider(props: { children: any }) {
     selectedItemId: null,
     projectConfig: { enabled: [], inherit_global: true },
     actionLoading: {},
+    detailVersions: {},
   })
 
   const effectiveEnabled = () => {
@@ -86,16 +89,21 @@ export function OmniStudioProvider(props: { children: any }) {
     void load()
   })
 
-  const filteredItems = () => {
-    let items = state.items
-    if (state.activeCategory === "installed") {
-      items = items.filter((i) => i.installed)
-    }
-    if (state.activeCategory === "enabled") {
-      items = items.filter((i) => effectiveEnabled().has(i.id))
-    }
-    return items
-  }
+  createEffect(() => {
+    const id = state.selectedItemId
+    if (!id) return
+    const item = state.items.find((i) => i.id === id)
+    if (!item) return
+    if (item.version !== "-") return
+    if (state.detailVersions[id]) return
+
+    void (async () => {
+      const version = await fetchPackageDetail(item.type, item.id)
+      setState(produce((s) => {
+        s.detailVersions[id] = version
+      }))
+    })()
+  })
 
   const setActionLoading = (id: string, value: boolean) => {
     setState(produce((s) => {
@@ -115,14 +123,18 @@ export function OmniStudioProvider(props: { children: any }) {
       setState("selectedItemId", id)
     },
     install: async (id) => {
+      const item = state.items.find((i) => i.id === id)
+      if (!item) return
       setActionLoading(id, true)
-      await installExtension(id)
+      await installExtension(id, item.type)
       await load()
       setActionLoading(id, false)
     },
     uninstall: async (id) => {
+      const item = state.items.find((i) => i.id === id)
+      if (!item) return
       setActionLoading(id, true)
-      await uninstallExtension(id)
+      await uninstallExtension(id, item.type)
       if (state.selectedItemId === id) setState("selectedItemId", null)
       await load()
       setActionLoading(id, false)
@@ -131,8 +143,8 @@ export function OmniStudioProvider(props: { children: any }) {
       const item = state.items.find((i) => i.id === id)
       if (!item) return
       setActionLoading(id, true)
-      if (item.enabled) await disableExtension(id)
-      else await enableExtension(id)
+      if (item.enabled) await disableExtension(id, item.type)
+      else await enableExtension(id, item.type)
       await load()
       setActionLoading(id, false)
     },

@@ -49,22 +49,24 @@ export function SettingsPanel() {
         />
       </div>
 
-      <div class="border-t border-border-subtle pt-3 flex flex-col gap-2">
-        <span class="text-12-medium text-text-weak uppercase tracking-wider">Account</span>
-        {state.userInfo && (
-          <div class="flex items-center justify-between px-1">
-            <span class="text-14-regular text-text-base">{state.userInfo.fullName || state.userInfo.username}</span>
-          </div>
-        )}
-        <Button
-          variant="ghost"
-          size="small"
-          class="justify-start w-full"
-          onClick={() => void actions.logout()}
-        >
-          {t("actions.logout")}
-        </Button>
-      </div>
+      {state.userToken && (
+        <div class="border-t border-border-subtle pt-3 flex flex-col gap-2">
+          <span class="text-12-medium text-text-weak uppercase tracking-wider">Account</span>
+          {state.userInfo && (
+            <div class="flex items-center justify-between px-1">
+              <span class="text-14-regular text-text-base">{state.userInfo.fullName || state.userInfo.username}</span>
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="small"
+            class="justify-start w-full"
+            onClick={() => void actions.logout()}
+          >
+            {t("actions.logout")}
+          </Button>
+        </div>
+      )}
     </div>
   )
 }

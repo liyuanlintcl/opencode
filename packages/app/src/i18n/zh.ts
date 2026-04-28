@@ -953,6 +953,8 @@ export const dict = {
   "omniStudio.project.inheritGlobal": "使用全局默认设置",
   "omniStudio.project.enabled": "已为该项目启用",
   "omniStudio.project.disabled": "已为该项目禁用",
+  "omniStudio.settings.show": "设置",
+  "omniStudio.settings.hide": "关闭设置",
 } satisfies Partial<Record<Keys, string>>
 
 import { Brand } from "../brand"

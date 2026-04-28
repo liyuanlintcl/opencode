@@ -992,6 +992,8 @@ export const dict = {
   "omniStudio.project.inheritGlobal": "Use global defaults",
   "omniStudio.project.enabled": "Enabled for this project",
   "omniStudio.project.disabled": "Disabled for this project",
+  "omniStudio.settings.show": "Settings",
+  "omniStudio.settings.hide": "Close Settings",
 }
 
 import { Brand } from "../brand"

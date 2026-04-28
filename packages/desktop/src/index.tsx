@@ -85,9 +85,6 @@ const createPlatform = (): Platform => {
   Object.assign(window as any, {
     api: {
       ...(window as any).api,
-      downloadExtension: (type: string, slug: string, version: string, apiBase: string, token: string) =>
-        commands.downloadExtension(type, slug, version, apiBase, token),
-      removeExtensionDir: (type: string, slug: string) => commands.removeExtensionDir(type, slug),
       updateExtensionState: (type: string, slug: string, enabled: boolean) =>
         commands.updateExtensionState(type, slug, enabled),
       syncOmniStudioConfig: (apiBase: string, authBase: string, token: { accessToken: string; refreshToken: string }) =>

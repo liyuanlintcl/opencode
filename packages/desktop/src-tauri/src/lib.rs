@@ -389,8 +389,6 @@ fn make_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             wsl_path,
             resolve_app_path,
             open_path,
-            omni_studio::download_extension,
-            omni_studio::remove_extension_dir,
             omni_studio::update_extension_state,
             omni_studio::sync_omni_studio_config,
             omni_studio::remove_omni_studio_config,

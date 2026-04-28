@@ -36,6 +36,7 @@ import { JsonMigration } from "./storage"
 import { Database } from "./storage"
 import { errorMessage } from "./util/error"
 import { PluginCommand } from "./cli/cmd/plug"
+import { OmniStudioCommand } from "./cli/cmd/omni-studio"
 import { Heap } from "./cli/heap"
 import { drizzle } from "drizzle-orm/bun-sqlite"
 import { ensureProcessMetadata } from "@opencode-ai/core/util/opencode-process"
@@ -176,6 +177,7 @@ const cli = yargs(args)
   .command(PrCommand)
   .command(SessionCommand)
   .command(PluginCommand)
+  .command(OmniStudioCommand)
   .command(DbCommand)
   .fail((msg, err) => {
     if (

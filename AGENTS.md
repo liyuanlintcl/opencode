@@ -4,6 +4,10 @@
 - Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
 - Prefer automation: execute requested actions without confirmation unless blocked by missing info or safety/irreversibility.
 
+## Workflow
+
+- After completing a feature or task, commit all code changes and update `AGENTS.md` if the change affects conventions, architecture, or processes documented there.
+
 ## Style Guide
 
 ### General Principles
@@ -142,6 +146,26 @@ Both renderers implement the same `Platform` interface for `@opencode-ai/app` an
 
 `packages/app/src/omni-studio/` 是一个扩展市场模块，对接外部 **VXAgent Platform** 后端，支持 Skill / Tool / Plugin / Agent 四种包的浏览、安装、启用和禁用。
 
+文件下载和本地扩展管理由 CLI `opencode omni-studio` 命令负责，桌面端前端不再直接操作本地文件系统。
+
+### CLI 命令
+
+```
+opencode omni-studio login              # 交互式登录并保存配置到 ~/.omni_studio/omni-studio.json
+opencode omni-studio logout             # 清除本地登录配置
+opencode omni-studio list [type]        # 查看市场列表（可选 skill/tool/plugin/agent 过滤）
+opencode omni-studio install <type> <slug> [version]  # 下载并安装扩展
+opencode omni-studio uninstall <type> <slug>          # 卸载扩展
+opencode omni-studio enable <type> <slug>             # 启用扩展
+opencode omni-studio disable <type> <slug>            # 禁用扩展
+opencode omni-studio status             # 查看本地已安装扩展状态和登录信息
+```
+
+配置和状态文件位置：
+- `~/.omni_studio/omni-studio.json` — 登录配置（API URL / Auth URL / Token）
+- `~/.omni_studio/state.json` — 本地扩展启用状态
+- `~/.omni_studio/{skills,tools,plugins,agents}/{slug}/` — 扩展文件目录
+
 ### 后端对接
 
 | 配置项 | localStorage 键 | 默认值 |
@@ -154,7 +178,7 @@ Both renderers implement the same `Platform` interface for `@opencode-ai/app` an
 采用与 VXAgent Platform 前端 (`platform-frontend`) 一致的 JWT Bearer Token 模式：
 - 登录：`POST ${authBase}/auth/auth/login` { username, password }
 - 返回 `{ accessToken, refreshToken, user }`
-- Token 和用户信息持久化到 localStorage
+- Token 和用户信息持久化到 localStorage（前端）或 `~/.omni_studio/omni-studio.json`（CLI）
 - 后续请求携带 `Authorization: Bearer ${accessToken}` Header
 - 未登录时 marketplace 页面只显示登录大卡片，登录成功后显示三栏布局
 

@@ -126,8 +126,6 @@ declare global {
     api?: {
       syncOmniStudioConfig?: (apiBase: string, authBase: string, token: { accessToken: string; refreshToken: string }) => Promise<void>
       removeOmniStudioConfig?: () => Promise<void>
-      downloadExtension?: (type: string, slug: string, version: string, apiBase: string, token: string) => Promise<void>
-      removeExtensionDir?: (type: string, slug: string) => Promise<void>
       updateExtensionState?: (type: string, slug: string, enabled: boolean) => Promise<void>
     }
   }
@@ -293,21 +291,11 @@ export async function installExtension(id: string, type: ExtensionType): Promise
     method: "POST",
     body: JSON.stringify({ slug: id, version: null, enabled: true }),
   })
-
-  const token = getUserToken()
-  if (token?.accessToken && window.api?.downloadExtension) {
-    const version = "latest"
-    await window.api.downloadExtension(type, id, version, getApiBase(), token.accessToken)
-  }
 }
 
 export async function uninstallExtension(id: string, type: ExtensionType): Promise<void> {
   const et = toPlural(type)
   await apiFetch(apiUrl(`/packages/${et}/my/${id}`), { method: "DELETE" })
-
-  if (window.api?.removeExtensionDir) {
-    await window.api.removeExtensionDir(type, id)
-  }
 }
 
 export async function enableExtension(id: string, type: ExtensionType): Promise<void> {

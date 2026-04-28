@@ -19,9 +19,6 @@ export const commands = {
 	wslPath: (path: string, mode: "windows" | "linux" | null) => __TAURI_INVOKE<string>("wsl_path", { path, mode }),
 	resolveAppPath: (appName: string) => __TAURI_INVOKE<string | null>("resolve_app_path", { appName }),
 	openPath: (path: string, appName: string | null) => __TAURI_INVOKE<null>("open_path", { path, appName }),
-	downloadExtension: (ty: string, slug: string, version: string, apiBase: string, token: string) =>
-		__TAURI_INVOKE<void>("download_extension", { ty, slug, version, apiBase, token }),
-	removeExtensionDir: (ty: string, slug: string) => __TAURI_INVOKE<void>("remove_extension_dir", { ty, slug }),
 	updateExtensionState: (ty: string, slug: string, enabled: boolean) =>
 		__TAURI_INVOKE<void>("update_extension_state", { ty, slug, enabled }),
 	syncOmniStudioConfig: (apiBase: string, authBase: string, token: UserToken) =>

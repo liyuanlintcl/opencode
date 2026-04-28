@@ -29,6 +29,7 @@ import { LspTool } from "./lsp"
 import * as Truncate from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
 import { Glob } from "@opencode-ai/core/util/glob"
+import fs from "fs"
 import path from "path"
 import { pathToFileURL } from "url"
 import { Effect, Layer, Context } from "effect"
@@ -168,12 +169,12 @@ export const layer: Layer.Layer<
         const omniStudioToolsDir = path.join(os.homedir(), ".omni_studio", "tools")
         try {
           const statePath = path.join(os.homedir(), ".omni_studio", "state.json")
-          const raw = await import("node:fs/promises").then((fs) => fs.readFile(statePath, "utf-8"))
+          const raw = fs.readFileSync(statePath, "utf-8")
           const state = JSON.parse(raw) as { tools?: Record<string, { enabled: boolean }> }
           for (const [slug, info] of Object.entries(state.tools ?? {})) {
             if (!info.enabled) continue
             const toolDir = path.join(omniStudioToolsDir, slug)
-            if ((await import("node:fs/promises").then((fs) => fs.stat(toolDir).then((s) => s.isDirectory()).catch(() => false)))) {
+            if (fs.existsSync(toolDir) && fs.statSync(toolDir).isDirectory()) {
               const toolMatches = Glob.scanSync("*.{js,ts}", { cwd: toolDir, absolute: true, dot: true, symlink: true })
               matches.push(...toolMatches)
             }

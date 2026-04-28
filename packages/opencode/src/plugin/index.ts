@@ -1,3 +1,4 @@
+import fs from "fs"
 import type {
   Hooks,
   PluginInput,
@@ -166,13 +167,12 @@ export const layer = Layer.effect(
         const omniStudioPluginsDir = path.join(os.homedir(), ".omni_studio", "plugins")
         try {
           const statePath = path.join(os.homedir(), ".omni_studio", "state.json")
-          const raw = await import("node:fs/promises").then((fs) => fs.readFile(statePath, "utf-8"))
+          const raw = fs.readFileSync(statePath, "utf-8")
           const state = JSON.parse(raw) as { plugins?: Record<string, { enabled: boolean }> }
           for (const [slug, info] of Object.entries(state.plugins ?? {})) {
             if (!info.enabled) continue
             const pluginDir = path.join(omniStudioPluginsDir, slug)
-            const stat = await import("node:fs/promises").then((fs) => fs.stat(pluginDir).catch(() => null))
-            if (stat?.isDirectory()) {
+            if (fs.existsSync(pluginDir) && fs.statSync(pluginDir).isDirectory()) {
               plugins = [...plugins, pluginDir]
             }
           }

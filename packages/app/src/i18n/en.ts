@@ -981,6 +981,7 @@ export const dict = {
   "omniStudio.actions.login": "Login",
   "omniStudio.actions.logout": "Logout",
   "omniStudio.login.title": "Account Login",
+  "omniStudio.login.subtitle": "Sign in to browse and manage extensions",
   "omniStudio.login.username": "Username",
   "omniStudio.login.password": "Password",
   "omniStudio.login.submit": "Login",

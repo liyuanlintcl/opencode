@@ -4,8 +4,7 @@ import { TextField } from "@opencode-ai/ui/text-field"
 import { useLanguage } from "@/context/language"
 import type { Category } from "../types"
 import { useOmniStudio } from "../context"
-import { getApiBase, getAuthBase, setApiBase, setAuthBase } from "../api"
-import { LoginForm } from "./login-form"
+import { SettingsPanel } from "./settings-panel"
 
 const CATEGORIES: { key: Category; icon: IconProps["name"] }[] = [
   { key: "all", icon: "grid" as IconProps["name"] },
@@ -23,8 +22,17 @@ export function MarketplaceSidebar() {
 
   return (
     <div class="flex flex-col h-full w-full bg-surface-base border-r border-border-subtle">
-      <div class="px-4 pt-4 pb-2">
-        <h2 class="text-16-semibold text-text-strong mb-3">{t("title")}</h2>
+      <div class="px-4 pt-4 pb-2 flex items-center justify-between gap-2">
+        <h2 class="text-16-semibold text-text-strong">{t("title")}</h2>
+        <Button
+          variant={state.showSettings ? "primary" : "ghost"}
+          size="small"
+          icon={"settings-gear" as IconProps["name"]}
+          onClick={() => actions.toggleSettings()}
+        />
+      </div>
+
+      <div class="px-4 pb-2">
         <TextField
           placeholder={t("searchPlaceholder")}
           value={state.searchQuery}
@@ -74,58 +82,7 @@ export function MarketplaceSidebar() {
         </div>
       </div>
 
-      <div class="px-3 py-3 border-t border-border-subtle flex flex-col gap-2">
-        <span class="text-11-medium text-text-weak uppercase tracking-wider">Backend</span>
-        <TextField
-          placeholder="API URL"
-          value={getApiBase()}
-          onChange={(v) => {
-            setApiBase(v)
-            void actions.refresh()
-          }}
-          variant="ghost"
-          class="w-full"
-        />
-        <TextField
-          placeholder="Auth URL"
-          value={getAuthBase()}
-          onChange={(v) => {
-            setAuthBase(v)
-          }}
-          variant="ghost"
-          class="w-full"
-        />
-      </div>
-
-      <div class="px-3 py-3 border-t border-border-subtle flex flex-col gap-2">
-        <span class="text-11-medium text-text-weak uppercase tracking-wider">Account</span>
-        {state.userInfo ? (
-          <div class="flex flex-col gap-2">
-            <div class="flex items-center gap-2 px-2">
-              <span class="text-14-regular text-text-base">{state.userInfo.fullName || state.userInfo.username}</span>
-            </div>
-            <Button
-              variant="ghost"
-              size="small"
-              class="justify-start w-full"
-              onClick={() => void actions.logout()}
-            >
-              {t("actions.logout")}
-            </Button>
-          </div>
-        ) : state.showLoginForm ? (
-          <LoginForm />
-        ) : (
-          <Button
-            variant="primary"
-            size="small"
-            class="justify-start w-full"
-            onClick={() => actions.setShowLoginForm(true)}
-          >
-            {t("actions.login")}
-          </Button>
-        )}
-      </div>
+      {state.showSettings && <SettingsPanel />}
     </div>
   )
 }

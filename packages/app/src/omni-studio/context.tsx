@@ -31,6 +31,7 @@ type OmniStudioState = {
   userInfo: UserInfo | null
   userToken: UserToken | null
   showLoginForm: boolean
+  showSettings: boolean
 }
 
 type OmniStudioActions = {
@@ -46,6 +47,7 @@ type OmniStudioActions = {
   login: (username: string, password: string) => Promise<void>
   logout: () => Promise<void>
   setShowLoginForm: (value: boolean) => void
+  toggleSettings: () => void
 }
 
 const OmniStudioContext = createContext<{
@@ -68,6 +70,7 @@ export function OmniStudioProvider(props: { children: any }) {
     userInfo: getUserInfo(),
     userToken: getUserToken(),
     showLoginForm: false,
+    showSettings: false,
   })
 
   const effectiveEnabled = () => {
@@ -196,6 +199,9 @@ export function OmniStudioProvider(props: { children: any }) {
     },
     setShowLoginForm: (value) => {
       setState("showLoginForm", value)
+    },
+    toggleSettings: () => {
+      setState("showSettings", (v) => !v)
     },
   }
 

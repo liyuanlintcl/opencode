@@ -942,6 +942,7 @@ export const dict = {
   "omniStudio.actions.login": "登录",
   "omniStudio.actions.logout": "退出登录",
   "omniStudio.login.title": "账号登录",
+  "omniStudio.login.subtitle": "登录后浏览和管理扩展",
   "omniStudio.login.username": "用户名",
   "omniStudio.login.password": "密码",
   "omniStudio.login.submit": "登录",

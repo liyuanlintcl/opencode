@@ -1,3 +1,4 @@
+import { createSignal } from "solid-js"
 import { Button } from "@opencode-ai/ui/button"
 import { TextField } from "@opencode-ai/ui/text-field"
 import { useLanguage } from "@/context/language"
@@ -7,6 +8,8 @@ import { getApiBase, getAuthBase, setApiBase, setAuthBase } from "../api"
 export function SettingsPanel() {
   const language = useLanguage()
   const { state, actions } = useOmniStudio()
+  const [apiBase, setApiBaseState] = createSignal(getApiBase())
+  const [authBase, setAuthBaseState] = createSignal(getAuthBase())
 
   const t = (key: string) => language.t(`omniStudio.${key}`)
 
@@ -26,8 +29,9 @@ export function SettingsPanel() {
         <label class="text-11-regular text-text-weak">API URL</label>
         <TextField
           placeholder="http://127.0.0.1:18000/api/v1"
-          value={getApiBase()}
+          value={apiBase()}
           onChange={(v) => {
+            setApiBaseState(v)
             setApiBase(v)
             void actions.refresh()
           }}
@@ -40,8 +44,9 @@ export function SettingsPanel() {
         <label class="text-11-regular text-text-weak">Auth URL</label>
         <TextField
           placeholder="http://127.0.0.1:18000/api/v1"
-          value={getAuthBase()}
+          value={authBase()}
           onChange={(v) => {
+            setAuthBaseState(v)
             setAuthBase(v)
           }}
           variant="ghost"

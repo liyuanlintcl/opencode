@@ -137,3 +137,42 @@ Both renderers implement the same `Platform` interface for `@opencode-ai/app` an
 - `packages/desktop`: Rust unit tests only (`cli.rs`, `linux_windowing.rs`, `lib.rs`). No frontend tests in this package.
 - `packages/desktop-electron`: `bun:test` in `shell-env.test.ts` and `html.test.ts`. No frontend tests in this package.
 - Frontend tests live upstream in `packages/app`.
+
+## Omni Studio Marketplace
+
+`packages/app/src/omni-studio/` 是一个扩展市场模块，对接外部 **VXAgent Platform** 后端，支持 Skill / Tool / Plugin / Agent 四种包的浏览、安装、启用和禁用。
+
+### 后端对接
+
+| 配置项 | localStorage 键 | 默认值 |
+|--------|----------------|--------|
+| API URL | `omni-studio.api-base` | `http://127.0.0.1:18000/api/v1` |
+| Auth URL | `omni-studio.auth-base` | 与 API URL 相同 |
+
+### 登录系统
+
+采用与 VXAgent Platform 前端 (`platform-frontend`) 一致的 JWT Bearer Token 模式：
+- 登录：`POST ${authBase}/auth/auth/login` { username, password }
+- 返回 `{ accessToken, refreshToken, user }`
+- Token 和用户信息持久化到 localStorage
+- 后续请求携带 `Authorization: Bearer ${accessToken}` Header
+- 未登录时 marketplace 页面只显示登录大卡片，登录成功后显示三栏布局
+
+### 文件结构
+
+```
+src/omni-studio/
+├── api.ts              # HTTP 客户端、登录/登出、 marketplace 数据获取
+├── types.ts            # ExtensionItem / UserToken / UserInfo 等类型
+├── context.tsx         # OmniStudioProvider：状态管理、登录状态检测
+├── pages/marketplace.tsx   # 页面入口：未登录 → LoginPage，已登录 → 三栏
+├── components/
+│   ├── sidebar.tsx     # 左侧分类 + 搜索 + 齿轮设置按钮
+│   ├── list.tsx        # 中间列表
+│   ├── detail.tsx      # 右侧详情
+│   ├── item-card.tsx   # 列表项卡片
+│   ├── login-page.tsx  # 居中大卡片登录界面
+│   ├── login-form.tsx  # 登录表单（内嵌于 sidebar 或 login-page）
+│   ├── settings-panel.tsx  # 配置面板（API URL / Auth URL / 账户 / 登出）
+│   └── project-toggle.tsx  # 项目级启用开关
+```

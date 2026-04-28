@@ -66,6 +66,12 @@ const api: ElectronAPI = {
   checkUpdate: () => ipcRenderer.invoke("check-update"),
   installUpdate: () => ipcRenderer.invoke("install-update"),
   setBackgroundColor: (color: string) => ipcRenderer.invoke("set-background-color", color),
+  downloadExtension: (type, slug, version, apiBase, token) =>
+    ipcRenderer.invoke("download-extension", type, slug, version, apiBase, token),
+  removeExtensionDir: (type, slug) => ipcRenderer.invoke("remove-extension-dir", type, slug),
+  updateExtensionState: (type, slug, enabled) => ipcRenderer.invoke("update-extension-state", type, slug, enabled),
+  syncOmniStudioConfig: (apiBase, authBase, token) => ipcRenderer.invoke("sync-omni-studio-config", apiBase, authBase, token),
+  removeOmniStudioConfig: () => ipcRenderer.invoke("remove-omni-studio-config"),
 }
 
 contextBridge.exposeInMainWorld("api", api)

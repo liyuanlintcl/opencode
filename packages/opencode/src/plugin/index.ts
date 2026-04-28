@@ -158,10 +158,28 @@ export const layer = Layer.effect(
           if (init._tag === "Some") hooks.push(init.value)
         }
 
-        const plugins = Flag.OPENCODE_PURE ? [] : (cfg.plugin_origins ?? [])
+        let plugins = Flag.OPENCODE_PURE ? [] : (cfg.plugin_origins ?? [])
         if (Flag.OPENCODE_PURE && cfg.plugin_origins?.length) {
           log.info("skipping external plugins in pure mode", { count: cfg.plugin_origins.length })
         }
+
+        const omniStudioPluginsDir = path.join(os.homedir(), ".omni_studio", "plugins")
+        try {
+          const statePath = path.join(os.homedir(), ".omni_studio", "state.json")
+          const raw = await import("node:fs/promises").then((fs) => fs.readFile(statePath, "utf-8"))
+          const state = JSON.parse(raw) as { plugins?: Record<string, { enabled: boolean }> }
+          for (const [slug, info] of Object.entries(state.plugins ?? {})) {
+            if (!info.enabled) continue
+            const pluginDir = path.join(omniStudioPluginsDir, slug)
+            const stat = await import("node:fs/promises").then((fs) => fs.stat(pluginDir).catch(() => null))
+            if (stat?.isDirectory()) {
+              plugins = [...plugins, pluginDir]
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         if (plugins.length) yield* config.waitForDependencies()
 
         const loaded = yield* Effect.promise(() =>

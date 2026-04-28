@@ -112,6 +112,29 @@ async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   return result.data as T
 }
 
+declare global {
+  interface Window {
+    api?: {
+      syncOmniStudioConfig?: (apiBase: string, authBase: string, token: { accessToken: string; refreshToken: string }) => Promise<void>
+      removeOmniStudioConfig?: () => Promise<void>
+      downloadExtension?: (type: string, slug: string, version: string, apiBase: string, token: string) => Promise<void>
+      removeExtensionDir?: (type: string, slug: string) => Promise<void>
+      updateExtensionState?: (type: string, slug: string, enabled: boolean) => Promise<void>
+    }
+  }
+}
+
+async function syncConfigToDesktop() {
+  const token = getUserToken()
+  if (!token || !window.api?.syncOmniStudioConfig) return
+  await window.api.syncOmniStudioConfig(getApiBase(), getAuthBase(), token)
+}
+
+async function removeConfigFromDesktop() {
+  if (!window.api?.removeOmniStudioConfig) return
+  await window.api.removeOmniStudioConfig()
+}
+
 export async function login(username: string, password: string): Promise<{ token: UserToken; user: UserInfo }> {
   const data = await authFetch<{ accessToken: string; refreshToken: string; user: UserInfo }>(authUrl("/auth/auth/login"), {
     method: "POST",
@@ -120,6 +143,7 @@ export async function login(username: string, password: string): Promise<{ token
   const token: UserToken = { accessToken: data.accessToken, refreshToken: data.refreshToken }
   setUserToken(token)
   setUserInfo(data.user)
+  await syncConfigToDesktop()
   return { token, user: data.user }
 }
 
@@ -149,6 +173,7 @@ export async function logout(): Promise<void> {
     // ignore
   } finally {
     clearUser()
+    await removeConfigFromDesktop()
   }
 }
 
@@ -246,11 +271,21 @@ export async function installExtension(id: string, type: ExtensionType): Promise
     method: "POST",
     body: JSON.stringify({ slug: id, version: null, enabled: true }),
   })
+
+  const token = getUserToken()
+  if (token?.accessToken && window.api?.downloadExtension) {
+    const version = "latest"
+    await window.api.downloadExtension(type, id, version, getApiBase(), token.accessToken)
+  }
 }
 
 export async function uninstallExtension(id: string, type: ExtensionType): Promise<void> {
   const et = toPlural(type)
   await apiFetch(apiUrl(`/packages/${et}/my/${id}`), { method: "DELETE" })
+
+  if (window.api?.removeExtensionDir) {
+    await window.api.removeExtensionDir(type, id)
+  }
 }
 
 export async function enableExtension(id: string, type: ExtensionType): Promise<void> {
@@ -259,6 +294,10 @@ export async function enableExtension(id: string, type: ExtensionType): Promise<
     method: "PATCH",
     body: JSON.stringify({ enabled: true }),
   })
+
+  if (window.api?.updateExtensionState) {
+    await window.api.updateExtensionState(type, id, true)
+  }
 }
 
 export async function disableExtension(id: string, type: ExtensionType): Promise<void> {
@@ -267,6 +306,10 @@ export async function disableExtension(id: string, type: ExtensionType): Promise
     method: "PATCH",
     body: JSON.stringify({ enabled: false }),
   })
+
+  if (window.api?.updateExtensionState) {
+    await window.api.updateExtensionState(type, id, false)
+  }
 }
 
 export async function getProjectConfig(): Promise<ProjectExtensionConfig> {

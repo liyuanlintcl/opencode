@@ -18,6 +18,7 @@ import { ConfigMarkdown } from "../config"
 import { Glob } from "@opencode-ai/core/util/glob"
 import { Log } from "../util"
 import { Discovery } from "./discovery"
+import { getEnabledSlugs, type OmniStudioState } from "../omni-studio/state"
 
 const log = Log.create({ service: "skill" })
 const EXTERNAL_DIRS = [".claude", ".agents"]
@@ -189,6 +190,24 @@ const discoverSkills = Effect.fnUntraced(function* (
     const pulledDirs = yield* discovery.pull(url)
     for (const dir of pulledDirs) {
       yield* scan(state, dir, SKILL_PATTERN)
+    }
+  }
+
+  const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+  const omniState = yield* Effect.tryPromise({
+    try: async () => {
+      const data = await import("node:fs/promises").then((fs) => fs.readFile(path.join(omniStudioDir, "state.json"), "utf-8"))
+      return JSON.parse(data) as OmniStudioState
+    },
+    catch: () => null,
+  })
+
+  if (omniState) {
+    for (const slug of getEnabledSlugs(omniState, "skills")) {
+      const skillDir = path.join(omniStudioDir, "skills", slug)
+      if (yield* fsys.isDir(skillDir)) {
+        yield* scan(state, skillDir, SKILL_PATTERN)
+      }
     }
   }
 

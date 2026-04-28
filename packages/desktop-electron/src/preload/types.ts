@@ -76,4 +76,10 @@ export type ElectronAPI = {
   checkUpdate: () => Promise<{ updateAvailable: boolean; version?: string }>
   installUpdate: () => Promise<void>
   setBackgroundColor: (color: string) => Promise<void>
+
+  downloadExtension: (type: string, slug: string, version: string, apiBase: string, token: string) => Promise<void>
+  removeExtensionDir: (type: string, slug: string) => Promise<void>
+  updateExtensionState: (type: string, slug: string, enabled: boolean) => Promise<void>
+  syncOmniStudioConfig: (apiBase: string, authBase: string, token: { accessToken: string; refreshToken: string }) => Promise<void>
+  removeOmniStudioConfig: () => Promise<void>
 }

@@ -10,6 +10,13 @@ import type {
   WindowConfig,
   WslConfig,
 } from "../preload/types"
+import {
+  downloadAndInstallExtension,
+  removeExtension,
+  removeOmniStudioConfig,
+  syncOmniStudioConfig,
+  updateExtensionState,
+} from "./omni-studio"
 import { getStore } from "./store"
 import { setTitlebar } from "./windows"
 
@@ -188,6 +195,28 @@ export function registerIpcHandlers(deps: Deps) {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
     setTitlebar(win, theme)
+  })
+
+  ipcMain.handle(
+    "download-extension",
+    async (_event: IpcMainInvokeEvent, type: string, slug: string, version: string, apiBase: string, token: string) => {
+      await downloadAndInstallExtension(type, slug, version, apiBase, token)
+    },
+  )
+  ipcMain.handle("remove-extension-dir", async (_event: IpcMainInvokeEvent, type: string, slug: string) => {
+    await removeExtension(type, slug)
+  })
+  ipcMain.handle("update-extension-state", async (_event: IpcMainInvokeEvent, type: string, slug: string, enabled: boolean) => {
+    await updateExtensionState(type, slug, enabled)
+  })
+  ipcMain.handle(
+    "sync-omni-studio-config",
+    async (_event: IpcMainInvokeEvent, apiBase: string, authBase: string, token: { accessToken: string; refreshToken: string }) => {
+      await syncOmniStudioConfig(apiBase, authBase, token)
+    },
+  )
+  ipcMain.handle("remove-omni-studio-config", async () => {
+    await removeOmniStudioConfig()
   })
 }
 

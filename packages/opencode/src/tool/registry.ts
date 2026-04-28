@@ -164,6 +164,24 @@ export const layer: Layer.Layer<
         const matches = dirs.flatMap((dir) =>
           Glob.scanSync("{tool,tools}/*.{js,ts}", { cwd: dir, absolute: true, dot: true, symlink: true }),
         )
+
+        const omniStudioToolsDir = path.join(os.homedir(), ".omni_studio", "tools")
+        try {
+          const statePath = path.join(os.homedir(), ".omni_studio", "state.json")
+          const raw = await import("node:fs/promises").then((fs) => fs.readFile(statePath, "utf-8"))
+          const state = JSON.parse(raw) as { tools?: Record<string, { enabled: boolean }> }
+          for (const [slug, info] of Object.entries(state.tools ?? {})) {
+            if (!info.enabled) continue
+            const toolDir = path.join(omniStudioToolsDir, slug)
+            if ((await import("node:fs/promises").then((fs) => fs.stat(toolDir).then((s) => s.isDirectory()).catch(() => false)))) {
+              const toolMatches = Glob.scanSync("*.{js,ts}", { cwd: toolDir, absolute: true, dot: true, symlink: true })
+              matches.push(...toolMatches)
+            }
+          }
+        } catch {
+          // ignore
+        }
+
         if (matches.length) yield* config.waitForDependencies()
         for (const match of matches) {
           const namespace = path.basename(match, path.extname(match))

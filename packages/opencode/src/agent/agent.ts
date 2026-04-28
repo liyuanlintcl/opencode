@@ -18,12 +18,16 @@ import { Global } from "@opencode-ai/core/global"
 import path from "path"
 import { Plugin } from "@/plugin"
 import { Skill } from "../skill"
-import { Effect, Context, Layer, Schema } from "effect"
+import { Effect, Context, Layer, Schema, Exit } from "effect"
 import { InstanceState } from "@/effect"
 import * as Option from "effect/Option"
 import * as OtelTracer from "@effect/opentelemetry/Tracer"
 import { zod } from "@/util/effect-zod"
 import { withStatics, type DeepMutable } from "@/util/schema"
+import os from "os"
+import { Glob } from "@opencode-ai/core/util/glob"
+import { ConfigAgent } from "../config/agent"
+import { parse as parseMarkdown } from "../config/markdown"
 
 export const Info = Schema.Struct({
   name: Schema.String,
@@ -103,6 +107,33 @@ export const layer = Layer.effect(
         })
 
         const user = Permission.fromConfig(cfg.permission ?? {})
+
+        const omniStudioAgents = yield* Effect.promise(async () => {
+          const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+          const statePath = path.join(omniStudioDir, "state.json")
+          try {
+            const raw = await import("node:fs/promises").then((fs) => fs.readFile(statePath, "utf-8"))
+            const state = JSON.parse(raw) as { agents?: Record<string, { enabled: boolean }> }
+            const result: Record<string, Info> = {}
+            for (const [slug, info] of Object.entries(state.agents ?? {})) {
+              if (!info.enabled) continue
+              const agentDir = path.join(omniStudioDir, "agents", slug)
+              const mdFiles = await Glob.scan("*.md", { cwd: agentDir, absolute: true, dot: true, symlink: true })
+              for (const mdFile of mdFiles) {
+                const md = await parseMarkdown(mdFile).catch(() => undefined)
+                if (!md) continue
+                const config = { name: slug, ...md.data, prompt: md.content.trim() }
+                const parsed = Schema.decodeUnknownExit(ConfigAgent.Info)(config, { errors: "all", propertyOrder: "original" })
+                if (Exit.isSuccess(parsed)) {
+                  result[slug] = parsed.value as unknown as Info
+                }
+              }
+            }
+            return result
+          } catch {
+            return {}
+          }
+        })
 
         const agents: Record<string, Info> = {
           build: {
@@ -231,6 +262,8 @@ export const layer = Layer.effect(
             prompt: PROMPT_SUMMARY,
           },
         }
+
+        Object.assign(agents, omniStudioAgents)
 
         for (const [key, value] of Object.entries(cfg.agent ?? {})) {
           if (value.disable) {

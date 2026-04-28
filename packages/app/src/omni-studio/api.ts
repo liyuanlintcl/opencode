@@ -36,12 +36,18 @@ export function setApiBase(url: string): void {
   lsSet(API_BASE_KEY, url)
 }
 
+function normalizeAuthBase(url: string): string {
+  return url.replace(/\/auth\/auth\/login\/?$/, "").replace(/\/$/, "")
+}
+
 export function getAuthBase(): string {
-  return lsGet(AUTH_BASE_KEY) ?? DEFAULT_AUTH_BASE
+  const raw = lsGet(AUTH_BASE_KEY)
+  if (raw) return normalizeAuthBase(raw)
+  return DEFAULT_AUTH_BASE
 }
 
 export function setAuthBase(url: string): void {
-  lsSet(AUTH_BASE_KEY, url)
+  lsSet(AUTH_BASE_KEY, normalizeAuthBase(url))
 }
 
 export function getUserToken(): UserToken | null {
@@ -91,9 +97,11 @@ async function authFetch<T>(url: string, options?: RequestInit): Promise<T> {
     headers.set("Content-Type", "application/json")
   }
 
+  console.log("[OmniStudio] authFetch", url, options?.method ?? "GET")
   const resp = await fetch(url, { ...options, headers })
   const result = await resp.json()
-  if (result.code !== 200) throw new Error(result.message ?? "API error")
+  console.log("[OmniStudio] authFetch response", url, result)
+  if (result.code !== 200) throw new Error(`${result.message ?? "API error"} (code: ${result.code})`)
   return result.data as T
 }
 

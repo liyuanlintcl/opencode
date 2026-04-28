@@ -4,6 +4,7 @@ import { TextField } from "@opencode-ai/ui/text-field"
 import { useLanguage } from "@/context/language"
 import type { Category } from "../types"
 import { useOmniStudio } from "../context"
+import { getApiBase, getUserId, setApiBase, setUserId } from "../api"
 
 const CATEGORIES: { key: Category; icon: IconProps["name"] }[] = [
   { key: "all", icon: "grid" as IconProps["name"] },
@@ -70,6 +71,30 @@ export function MarketplaceSidebar() {
             {t("enabled")}
           </Button>
         </div>
+      </div>
+
+      <div class="px-3 py-3 border-t border-border-subtle flex flex-col gap-2">
+        <span class="text-11-medium text-text-weak uppercase tracking-wider">Backend</span>
+        <TextField
+          placeholder="API URL"
+          value={getApiBase()}
+          onChange={(v) => {
+            setApiBase(v)
+            void actions.refresh()
+          }}
+          variant="ghost"
+          class="w-full"
+        />
+        <TextField
+          placeholder="User ID"
+          value={getUserId() ?? ""}
+          onChange={(v) => {
+            setUserId(v || null)
+            void actions.refresh()
+          }}
+          variant="ghost"
+          class="w-full"
+        />
       </div>
     </div>
   )

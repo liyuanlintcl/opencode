@@ -1,11 +1,30 @@
 import type { ExtensionItem, ExtensionType, MarketplaceQuery, ProjectExtensionConfig } from "./types"
 
-const API_BASE = import.meta.env.VITE_VXAGENT_API_URL ?? "http://127.0.0.1:18000/api/v1"
-
+const API_BASE_KEY = "omni-studio.api-base"
 const USER_ID_KEY = "omni-studio.user-id"
 const PROJECT_CONFIG_KEY = "omni-studio.project-config"
 
-function getUserId(): string | null {
+const DEFAULT_API_BASE = "http://127.0.0.1:18000/api/v1"
+
+export function getApiBase(): string {
+  if (typeof localStorage === "undefined") return DEFAULT_API_BASE
+  try {
+    return localStorage.getItem(API_BASE_KEY) ?? DEFAULT_API_BASE
+  } catch {
+    return DEFAULT_API_BASE
+  }
+}
+
+export function setApiBase(url: string): void {
+  if (typeof localStorage === "undefined") return
+  try {
+    localStorage.setItem(API_BASE_KEY, url)
+  } catch {
+    // ignore
+  }
+}
+
+export function getUserId(): string | null {
   if (typeof localStorage === "undefined") return null
   try {
     return localStorage.getItem(USER_ID_KEY)
@@ -14,8 +33,18 @@ function getUserId(): string | null {
   }
 }
 
+export function setUserId(id: string | null): void {
+  if (typeof localStorage === "undefined") return
+  try {
+    if (id !== null) localStorage.setItem(USER_ID_KEY, id)
+    else localStorage.removeItem(USER_ID_KEY)
+  } catch {
+    // ignore
+  }
+}
+
 function apiUrl(path: string): string {
-  return `${API_BASE}${path}`
+  return `${getApiBase()}${path}`
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {

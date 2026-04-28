@@ -6,7 +6,7 @@ const USER_TOKEN_KEY = "omni-studio.user-token"
 const USER_INFO_KEY = "omni-studio.user-info"
 const PROJECT_CONFIG_KEY = "omni-studio.project-config"
 
-const DEFAULT_API_BASE = "http://10.17.174.2:18000/api/v1"
+const DEFAULT_API_BASE = "http://192.88.1.63:18000/api/v1"
 const DEFAULT_AUTH_BASE = "http://10.17.174.2:18079"
 
 function lsGet(key: string): string | null {

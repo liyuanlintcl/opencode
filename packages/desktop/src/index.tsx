@@ -82,6 +82,20 @@ const createPlatform = (): Platform => {
     return commands.wslPath(result, "linux").catch(() => result) as any
   }
 
+  Object.assign(window as any, {
+    api: {
+      ...(window as any).api,
+      downloadExtension: (type: string, slug: string, version: string, apiBase: string, token: string) =>
+        commands.downloadExtension(type, slug, version, apiBase, token),
+      removeExtensionDir: (type: string, slug: string) => commands.removeExtensionDir(type, slug),
+      updateExtensionState: (type: string, slug: string, enabled: boolean) =>
+        commands.updateExtensionState(type, slug, enabled),
+      syncOmniStudioConfig: (apiBase: string, authBase: string, token: { accessToken: string; refreshToken: string }) =>
+        commands.syncOmniStudioConfig(apiBase, authBase, token),
+      removeOmniStudioConfig: () => commands.removeOmniStudioConfig(),
+    },
+  })
+
   return {
     platform: "desktop",
     os,

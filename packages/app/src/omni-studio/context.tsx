@@ -1,14 +1,19 @@
 import { createContext, createEffect, useContext, type Accessor } from "solid-js"
 import { createStore, produce } from "solid-js/store"
-import type { Category, ExtensionItem, ExtensionType, ProjectExtensionConfig } from "./types"
+import type { Category, ExtensionItem, ExtensionType, ProjectExtensionConfig, UserInfo, UserToken } from "./types"
 import {
+  clearUser,
   disableExtension,
   enableExtension,
   fetchMarketplace,
   fetchPackageDetail,
   getEffectiveEnabled,
   getProjectConfig,
+  getUserInfo,
+  getUserToken,
   installExtension,
+  login,
+  logout,
   setProjectConfig,
   uninstallExtension,
 } from "./api"
@@ -23,6 +28,9 @@ type OmniStudioState = {
   projectConfig: ProjectExtensionConfig
   actionLoading: Record<string, boolean>
   detailVersions: Record<string, string>
+  userInfo: UserInfo | null
+  userToken: UserToken | null
+  showLoginForm: boolean
 }
 
 type OmniStudioActions = {
@@ -35,6 +43,9 @@ type OmniStudioActions = {
   toggleProject: (id: string) => Promise<void>
   setInheritGlobal: (value: boolean) => Promise<void>
   refresh: () => Promise<void>
+  login: (username: string, password: string) => Promise<void>
+  logout: () => Promise<void>
+  setShowLoginForm: (value: boolean) => void
 }
 
 const OmniStudioContext = createContext<{
@@ -54,6 +65,9 @@ export function OmniStudioProvider(props: { children: any }) {
     projectConfig: { enabled: [], inherit_global: true },
     actionLoading: {},
     detailVersions: {},
+    userInfo: getUserInfo(),
+    userToken: getUserToken(),
+    showLoginForm: false,
   })
 
   const effectiveEnabled = () => {
@@ -163,6 +177,26 @@ export function OmniStudioProvider(props: { children: any }) {
       setState("projectConfig", next)
     },
     refresh: load,
+    login: async (username, password) => {
+      const result = await login(username, password)
+      setState(produce((s) => {
+        s.userInfo = result.user
+        s.userToken = result.token
+        s.showLoginForm = false
+      }))
+      await load()
+    },
+    logout: async () => {
+      await logout()
+      setState(produce((s) => {
+        s.userInfo = null
+        s.userToken = null
+        s.items = []
+      }))
+    },
+    setShowLoginForm: (value) => {
+      setState("showLoginForm", value)
+    },
   }
 
   return (

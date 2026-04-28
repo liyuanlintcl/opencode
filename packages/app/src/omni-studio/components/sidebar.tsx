@@ -4,7 +4,8 @@ import { TextField } from "@opencode-ai/ui/text-field"
 import { useLanguage } from "@/context/language"
 import type { Category } from "../types"
 import { useOmniStudio } from "../context"
-import { getApiBase, getUserId, setApiBase, setUserId } from "../api"
+import { getApiBase, getAuthBase, setApiBase, setAuthBase } from "../api"
+import { LoginForm } from "./login-form"
 
 const CATEGORIES: { key: Category; icon: IconProps["name"] }[] = [
   { key: "all", icon: "grid" as IconProps["name"] },
@@ -86,15 +87,44 @@ export function MarketplaceSidebar() {
           class="w-full"
         />
         <TextField
-          placeholder="User ID"
-          value={getUserId() ?? ""}
+          placeholder="Auth URL"
+          value={getAuthBase()}
           onChange={(v) => {
-            setUserId(v || null)
-            void actions.refresh()
+            setAuthBase(v)
           }}
           variant="ghost"
           class="w-full"
         />
+      </div>
+
+      <div class="px-3 py-3 border-t border-border-subtle flex flex-col gap-2">
+        <span class="text-11-medium text-text-weak uppercase tracking-wider">Account</span>
+        {state.userInfo ? (
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center gap-2 px-2">
+              <span class="text-14-regular text-text-base">{state.userInfo.fullName || state.userInfo.username}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="small"
+              class="justify-start w-full"
+              onClick={() => void actions.logout()}
+            >
+              {t("actions.logout")}
+            </Button>
+          </div>
+        ) : state.showLoginForm ? (
+          <LoginForm />
+        ) : (
+          <Button
+            variant="primary"
+            size="small"
+            class="justify-start w-full"
+            onClick={() => actions.setShowLoginForm(true)}
+          >
+            {t("actions.login")}
+          </Button>
+        )}
       </div>
     </div>
   )

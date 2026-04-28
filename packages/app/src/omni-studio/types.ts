@@ -12,6 +12,18 @@ export type ExtensionItem = {
   enabled: boolean
 }
 
+export type UserToken = {
+  accessToken: string
+  refreshToken: string
+}
+
+export type UserInfo = {
+  userId: number
+  username: string
+  fullName?: string
+  openid?: string
+}
+
 export type ProjectExtensionConfig = {
   enabled: string[]
   inherit_global: boolean

@@ -1,64 +1,155 @@
-import type { ExtensionItem, ExtensionType, MarketplaceQuery, ProjectExtensionConfig } from "./types"
+import type { ExtensionItem, ExtensionType, MarketplaceQuery, ProjectExtensionConfig, UserInfo, UserToken } from "./types"
 
 const API_BASE_KEY = "omni-studio.api-base"
-const USER_ID_KEY = "omni-studio.user-id"
+const AUTH_BASE_KEY = "omni-studio.auth-base"
+const USER_TOKEN_KEY = "omni-studio.user-token"
+const USER_INFO_KEY = "omni-studio.user-info"
 const PROJECT_CONFIG_KEY = "omni-studio.project-config"
 
 const DEFAULT_API_BASE = "http://127.0.0.1:18000/api/v1"
 
-export function getApiBase(): string {
-  if (typeof localStorage === "undefined") return DEFAULT_API_BASE
-  try {
-    return localStorage.getItem(API_BASE_KEY) ?? DEFAULT_API_BASE
-  } catch {
-    return DEFAULT_API_BASE
-  }
-}
-
-export function setApiBase(url: string): void {
-  if (typeof localStorage === "undefined") return
-  try {
-    localStorage.setItem(API_BASE_KEY, url)
-  } catch {
-    // ignore
-  }
-}
-
-export function getUserId(): string | null {
+function lsGet(key: string): string | null {
   if (typeof localStorage === "undefined") return null
   try {
-    return localStorage.getItem(USER_ID_KEY)
+    return localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
-export function setUserId(id: string | null): void {
+function lsSet(key: string, value: string | null): void {
   if (typeof localStorage === "undefined") return
   try {
-    if (id !== null) localStorage.setItem(USER_ID_KEY, id)
-    else localStorage.removeItem(USER_ID_KEY)
+    if (value !== null) localStorage.setItem(key, value)
+    else localStorage.removeItem(key)
   } catch {
     // ignore
   }
+}
+
+export function getApiBase(): string {
+  return lsGet(API_BASE_KEY) ?? DEFAULT_API_BASE
+}
+
+export function setApiBase(url: string): void {
+  lsSet(API_BASE_KEY, url)
+}
+
+export function getAuthBase(): string {
+  return lsGet(AUTH_BASE_KEY) ?? getApiBase()
+}
+
+export function setAuthBase(url: string): void {
+  lsSet(AUTH_BASE_KEY, url)
+}
+
+export function getUserToken(): UserToken | null {
+  const raw = lsGet(USER_TOKEN_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as UserToken
+  } catch {
+    return null
+  }
+}
+
+export function setUserToken(token: UserToken | null): void {
+  lsSet(USER_TOKEN_KEY, token ? JSON.stringify(token) : null)
+}
+
+export function getUserInfo(): UserInfo | null {
+  const raw = lsGet(USER_INFO_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as UserInfo
+  } catch {
+    return null
+  }
+}
+
+export function setUserInfo(info: UserInfo | null): void {
+  lsSet(USER_INFO_KEY, info ? JSON.stringify(info) : null)
+}
+
+export function clearUser(): void {
+  setUserToken(null)
+  setUserInfo(null)
 }
 
 function apiUrl(path: string): string {
   return `${getApiBase()}${path}`
 }
 
-async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
-  const userId = getUserId()
+function authUrl(path: string): string {
+  return `${getAuthBase()}${path}`
+}
+
+async function authFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const headers = new Headers(options?.headers)
   if (!headers.has("Content-Type") && !(options?.body instanceof FormData)) {
     headers.set("Content-Type", "application/json")
   }
-  if (userId) headers.set("X-User-Id", userId)
 
   const resp = await fetch(url, { ...options, headers })
   const result = await resp.json()
   if (!result.success) throw new Error(result.message ?? "API error")
   return result.data as T
+}
+
+async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+  const token = getUserToken()
+  const headers = new Headers(options?.headers)
+  if (!headers.has("Content-Type") && !(options?.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json")
+  }
+  if (token?.accessToken) {
+    headers.set("Authorization", `Bearer ${token.accessToken}`)
+  }
+
+  const resp = await fetch(url, { ...options, headers })
+  const result = await resp.json()
+  if (!result.success) throw new Error(result.message ?? "API error")
+  return result.data as T
+}
+
+export async function login(username: string, password: string): Promise<{ token: UserToken; user: UserInfo }> {
+  const data = await authFetch<{ accessToken: string; refreshToken: string; user: UserInfo }>(authUrl("/auth/auth/login"), {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  })
+  const token: UserToken = { accessToken: data.accessToken, refreshToken: data.refreshToken }
+  setUserToken(token)
+  setUserInfo(data.user)
+  return { token, user: data.user }
+}
+
+export async function refreshToken(): Promise<UserToken> {
+  const current = getUserToken()
+  if (!current?.refreshToken) throw new Error("No refresh token")
+
+  const data = await authFetch<{ accessToken: string; refreshToken: string }>(authUrl("/auth/auth/refresh-token"), {
+    method: "POST",
+    body: JSON.stringify({ accessToken: current.accessToken, refreshToken: current.refreshToken }),
+  })
+  const token: UserToken = { accessToken: data.accessToken, refreshToken: data.refreshToken }
+  setUserToken(token)
+  return token
+}
+
+export async function logout(): Promise<void> {
+  try {
+    const token = getUserToken()
+    if (token?.accessToken) {
+      await authFetch(authUrl("/auth/auth/logout"), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token.accessToken}` },
+      })
+    }
+  } catch {
+    // ignore
+  } finally {
+    clearUser()
+  }
 }
 
 function toPlural(type: ExtensionType): string {
@@ -85,8 +176,8 @@ function registryToItem(type: ExtensionType, registry: any): ExtensionItem {
 }
 
 async function fetchMyItems(type?: ExtensionType): Promise<Map<string, { enabled: boolean; version: string }>> {
-  const userId = getUserId()
-  if (!userId) return new Map()
+  const token = getUserToken()
+  if (!token?.accessToken) return new Map()
 
   const result = new Map<string, { enabled: boolean; version: string }>()
 

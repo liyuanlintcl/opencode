@@ -125,10 +125,38 @@ export const layer = Layer.effect(
       const entry = state.extensions.find((e) => e.type === type && e.slug === slug)
       if (!entry) return yield* Effect.fail("Extension not installed")
 
+      const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(type), slug)
+      const scripts = yield* detectScripts(targetDir)
+
+      /** 启用时执行 start 脚本；失败则保持禁用状态 */
+      if (enabled && scripts.start) {
+        yield* runScript(targetDir, "start", scripts).pipe(
+          Effect.catch((error) =>
+            Effect.gen(function* () {
+              console.warn(`Start script failed for ${slug}: ${error}`)
+              return yield* Effect.fail(`Enable failed: ${error}`)
+            }),
+          ),
+        )
+      }
+
+      /** 更新状态 */
       const updated = state.extensions.map((e) =>
         e.type === type && e.slug === slug ? { ...e, enabled } : e,
       )
       yield* configSvc.writeState({ extensions: updated }).pipe(Effect.orDie)
+
+      /** 禁用时执行 stop 脚本；失败仅警告 */
+      if (!enabled && scripts.stop) {
+        yield* runScript(targetDir, "stop", scripts).pipe(
+          Effect.catch((error) =>
+            Effect.sync(() => {
+              console.warn(`Stop script failed for ${slug}: ${error}`)
+              return { exitCode: 0, stdout: "", stderr: "" }
+            }),
+          ),
+        )
+      }
     })
 
     /** 查看登录状态和本地扩展列表 */

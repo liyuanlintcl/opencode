@@ -99,12 +99,12 @@ interface ExtensionScripts {
 type Command =
   | { cmd: "login" }
   | { cmd: "logout" }
-  | { cmd: "list"; type?: ExtensionType }
+  | { cmd: "list"; type?: ExtensionType }          // 交互式：展示远程列表 + 本地安装状态，支持选中安装
   | { cmd: "install"; type: ExtensionType; slug: string; version?: string }
   | { cmd: "uninstall"; type: ExtensionType; slug: string }
   | { cmd: "enable"; type: ExtensionType; slug: string }
   | { cmd: "disable"; type: ExtensionType; slug: string }
-  | { cmd: "status" }
+  | { cmd: "status" }                               // 交互式：展示本地扩展，支持选中启用/禁用/卸载
 ```
 
 ### 4.2 Auth API
@@ -182,15 +182,40 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 10. 输出安装成功信息
 ```
 
-### 5.3 状态查询流程
+### 5.3 列表交互流程（list）
 
 ```
-1. 读取 omni-studio.json → 显示登录状态（用户/URL）
-2. 读取 state.json → 列出所有本地扩展及启用状态
-3. 如未登录，提示使用 login 命令
+1. 调用 Market API 获取远程扩展列表
+2. 调用 Store.getStatus() 获取本地已安装扩展
+3. 构建 prompts.select 选项：
+   - 每个选项显示：name (v1.0.0) [已安装] / [未安装]
+   - 末尾增加「退出」选项
+4. 用户选择扩展：
+   - 未安装 → confirm("Install {slug}?") → 是则执行 install → 成功/失败提示 → 返回列表
+   - 已安装 → log.info("Already installed") → 返回列表
+   - 退出 → 结束交互
+5. 使用 while 循环支持连续操作
 ```
 
-### 5.4 卸载流程
+### 5.4 状态交互流程（status）
+
+```
+1. 调用 Store.getStatus() 获取本地扩展列表
+2. 如无扩展，log.warn("No extensions installed") → 结束
+3. 构建 prompts.select 选项：
+   - 每个选项显示：slug (v1.0.0) [enabled/disabled]
+   - 末尾增加「退出」选项
+4. 用户选择扩展后，再次 select 动作：
+   - 启用 / 禁用 / 卸载 / 返回
+5. 执行对应操作：
+   - enable/disable → 调用 setEnabled → 成功提示 → 返回状态列表
+   - uninstall → 调用 uninstall → 成功提示 → 返回状态列表
+   - 返回 → 直接回到状态列表
+   - 退出 → 结束交互
+6. 使用 while 循环支持连续操作
+```
+
+### 5.5 卸载流程
 
 ```
 1. 读取 state.json 确认扩展已安装
@@ -204,7 +229,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 6. 输出卸载成功信息
 ```
 
-### 5.5 启用流程（enable）
+### 5.6 启用流程（enable）
 
 ```
 1. 读取 state.json 确认扩展存在且当前为 disabled
@@ -217,7 +242,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 5. 输出启用成功信息
 ```
 
-### 5.6 禁用流程（disable）
+### 5.7 禁用流程（disable）
 
 ```
 1. 读取 state.json 确认扩展存在且当前为 enabled
@@ -230,7 +255,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 5. 输出禁用成功信息
 ```
 
-### 5.7 脚本执行规则
+### 5.8 脚本执行规则
 
 ```
 - Shell 脚本（.sh）：在 Unix 系统通过 /bin/bash 或 /bin/sh 执行

@@ -18,12 +18,12 @@
 |---|---|---|
 | F1 | 交互式登录：`opencode omni-studio login` | P0 |
 | F2 | 登出：`opencode omni-studio logout` | P0 |
-| F3 | 列出市场扩展：`opencode omni-studio list [type]` | P0 |
+| F3 | 交互式列出市场扩展：`opencode omni-studio list [type]`，显示本地安装状态并支持选中直接安装 | P0 |
 | F4 | 安装扩展：`opencode omni-studio install <type> <slug> [version]` | P0 |
 | F5 | 卸载扩展：`opencode omni-studio uninstall <type> <slug>` | P0 |
 | F6 | 启用扩展：`opencode omni-studio enable <type> <slug>` | P0 |
 | F7 | 禁用扩展：`opencode omni-studio disable <type> <slug>` | P0 |
-| F8 | 查看状态：`opencode omni-studio status` | P0 |
+| F8 | 交互式查看本地扩展状态：`opencode omni-studio status`，支持选中扩展进行启用/禁用/卸载操作 | P0 |
 
 ## 4. 非功能需求
 

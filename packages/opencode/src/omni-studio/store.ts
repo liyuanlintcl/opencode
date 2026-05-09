@@ -5,6 +5,7 @@ import { AppFileSystem } from "@opencode-ai/core/filesystem"
 import { extractZip } from "@/util/archive"
 import { OmniStudioConfig } from "./config"
 import { OmniStudioMarket } from "./market"
+import { detectScripts, runScript } from "./executor"
 import type { Extension, ExtensionType, ExtensionEntry, OmniStudioConfig as OmniStudioConfigType } from "./types"
 
 /** 将 ExtensionType 单数映射为目录名复数形式 */
@@ -63,6 +64,18 @@ export const layer = Layer.effect(
             catch: (error) => (error instanceof Error ? error.message : String(error)),
           })
 
+          const scripts = yield* detectScripts(targetDir)
+          if (scripts.install) {
+            yield* runScript(targetDir, "install", scripts).pipe(
+              Effect.catch((error) =>
+                Effect.gen(function* () {
+                  yield* fs.remove(targetDir, { recursive: true, force: true }).pipe(Effect.catch(() => Effect.void))
+                  return yield* Effect.fail(error)
+                }),
+              ),
+            )
+          }
+
           const updated = [
             ...state.extensions.filter((e) => !(e.type === ext.type && e.slug === ext.slug)),
             {
@@ -87,6 +100,19 @@ export const layer = Layer.effect(
       if (!entry) return yield* Effect.fail("Extension not installed")
 
       const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(type), slug)
+
+      const scripts = yield* detectScripts(targetDir)
+      if (scripts.uninstall) {
+        yield* runScript(targetDir, "uninstall", scripts).pipe(
+          Effect.catch((error) =>
+            Effect.sync(() => {
+              console.warn(`Uninstall script failed for ${slug}: ${error}`)
+              return { exitCode: 0, stdout: "", stderr: "" }
+            }),
+          ),
+        )
+      }
+
       yield* fs.remove(targetDir, { recursive: true, force: true }).pipe(Effect.catch(() => Effect.void))
 
       const updated = state.extensions.filter((e) => !(e.type === type && e.slug === slug))

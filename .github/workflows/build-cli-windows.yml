@@ -28,8 +28,18 @@ jobs:
           cd packages/opencode
           bun run build --single
 
+      - name: Verify build output
+        run: |
+          Get-ChildItem -Path packages/opencode/dist/opencode-windows-x64/bin/ -Recurse
+
+      - name: Stage artifact for upload
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact
+          Copy-Item packages/opencode/dist/opencode-windows-x64/bin/opencode.exe artifact/opencode.exe
+
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
           name: opencode-cli-windows
-          path: packages/opencode/dist/opencode-windows-x64/bin/opencode.exe
+          path: artifact/opencode.exe
+          if-no-files-found: error

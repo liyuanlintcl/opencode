@@ -100,8 +100,21 @@ export const layer = Layer.effect(
       if (!entry) return yield* Effect.fail("Extension not installed")
 
       const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(type), slug)
-
       const scripts = yield* detectScripts(targetDir)
+
+      /** 若扩展当前处于启用状态，先执行 stop 脚本 */
+      if (entry.enabled && scripts.stop) {
+        yield* runScript(targetDir, "stop", scripts).pipe(
+          Effect.catch((error) =>
+            Effect.sync(() => {
+              console.warn(`Stop script failed for ${slug}: ${error}`)
+              return { exitCode: 0, stdout: "", stderr: "" }
+            }),
+          ),
+        )
+      }
+
+      /** 执行 uninstall 脚本 */
       if (scripts.uninstall) {
         yield* runScript(targetDir, "uninstall", scripts).pipe(
           Effect.catch((error) =>

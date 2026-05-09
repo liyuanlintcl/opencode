@@ -31,10 +31,10 @@ Task 1: 类型定义 & 配置模块
 | # | 任务 | 验收标准 | 预估 |
 |---|---|---|---|
 | T1 | 创建 `src/omni-studio/` 目录及 `types.ts`、`config.ts` | 类型定义完整，配置读写通过单测 | 2h | ✅ |
-| T2 | 实现 Auth 模块（login / logout / getAuthHeaders） | 可成功登录并持久化 token，登出后配置清空 | 3h | ⏳ |
-| T3 | 实现登录交互流程（密码输入隐藏、已登录提示） | 交互体验与主 CLI 一致 | 2h | ⏳ |
-| T4 | 实现 Market HTTP 客户端（list / getExtensionMeta / download） | 可正常调用 API 并处理 401/404 错误 | 3h | ⏳ |
-| T5 | 实现 Store 模块（install / uninstall / enable / disable / status） | 文件正确写入 `~/.omni_studio/`，状态持久化 | 3h | ⏳ |
+| T2 | 实现 Auth 模块（login / logout / getAuthHeaders） | 可成功登录并持久化 token，登出后配置清空 | 3h | ✅ |
+| T3 | 实现登录交互流程（密码输入隐藏、已登录提示） | 交互体验与主 CLI 一致 | 2h | ✅ |
+| T4 | 实现 Market HTTP 客户端（list / getExtensionMeta / download） | 可正常调用 API 并处理 401/404 错误 | 3h | ✅ |
+| T5 | 实现 Store 模块（install / uninstall / enable / disable / status） | 文件正确写入 `~/.omni_studio/`，状态持久化 | 3h | ✅ |
 | T6 | 实现 Executor 模块（detectScripts / runScript / activate 处理） | 支持 .sh/.bat/.ps1，activate 先执行，超时处理 | 3h | ✅ |
 | T7 | 实现 CLI 命令路由与参数解析 | 8 个命令全部可调用，帮助信息完整 | 3h | ⏳ |
 | T8 | 集成测试：端到端验证各命令组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ⏳ |

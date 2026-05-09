@@ -59,6 +59,23 @@ Task 1: 类型定义 & 配置模块
 | T17 | 扩展搜索（`list --search <keyword>`） | 支持按关键词过滤远程列表 | 2h | ⏳ |
 | T18 | 批量安装（`install` 支持从配置文件读取列表） | 可从 `omni-studio.packages.json` 批量安装 | 3h | ⏳ |
 
+## Task 交付规范
+
+每个 Task 完成后必须执行以下步骤：
+
+1. **更新 plan.md**：
+   - 在「任务拆分」表格中，将该 Task 的状态标记从 `⏳` 改为 `✅`
+   - 在「进度记录」中，将该 Task 的 `[ ]` 改为 `[x]`
+2. **代码质量要求**：
+   - 所有生成的代码必须包含必要的中文注释（JSDoc 和行内注释）
+   - 遵循 AGENTS.md 中的代码风格约定（snake_case 字段、Effect-based 服务、避免 `else`/`try-catch` 等）
+3. **验证**：
+   - 运行 `bun typecheck` 确保类型安全
+   - 如有单测，确保全部通过
+4. **提交与推送**：
+   - 使用 `git commit` 提交本次 Task 的全部变更
+   - 推送到 `origin/cli` 和 `omni-studio/cli` 两个远程仓库
+
 ## 执行建议
 
 1. **第一周**：完成 T1–T7（核心 CLI 功能）

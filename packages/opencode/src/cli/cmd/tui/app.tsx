@@ -39,6 +39,7 @@ import { CommandProvider, useCommandDialog } from "@tui/component/dialog-command
 import { DialogAgent } from "@tui/component/dialog-agent"
 import { DialogSessionList } from "@tui/component/dialog-session-list"
 import { DialogConsoleOrg } from "@tui/component/dialog-console-org"
+import { DialogOmniStudio } from "@tui/component/dialog-omni-studio"
 import { KeybindProvider, useKeybind } from "@tui/context/keybind"
 import { ThemeProvider, useTheme } from "@tui/context/theme"
 import { Home } from "@tui/routes/home"
@@ -590,6 +591,18 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         dialog.replace(() => <DialogStatus />)
       },
       category: "System",
+    },
+    {
+      title: "Omni Studio",
+      value: "omni-studio",
+      category: "System",
+      slash: {
+        name: "omni-studio",
+        aliases: ["omni"],
+      },
+      onSelect: () => {
+        dialog.replace(() => <DialogOmniStudio />)
+      },
     },
     {
       title: "Switch theme",

@@ -40,7 +40,7 @@ Task 1: 类型定义 & 配置模块
 | T8 | 集成测试：端到端验证各命令组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ✅ |
 | T9 | 交互式 list 命令：远程列表混合本地安装状态并支持一键安装 | 选中未安装扩展后 confirm 并调用 install，操作后循环返回列表 | 2h | ✅ |
 | T10 | 交互式 status 命令：本地扩展列表支持 enable/disable/uninstall | 选中扩展后二次选择动作，执行后循环返回列表 | 2h | ✅ |
-| T11 | TUI slash 命令集成：`/omni-studio` 在终端界面中显示管理菜单 | DialogOmniStudio 组件实现，在 app.tsx 中注册 slash 命令，支持 status/list/login/logout | 3h | ⏳ |
+| T11 | TUI slash 命令集成：`/omni-studio` 在终端界面中显示管理菜单 | DialogOmniStudio 组件实现，在 app.tsx 中注册 slash 命令，支持 status/list/login/logout | 3h | ✅ |
 
 ### P1 — 完善与优化
 
@@ -95,7 +95,7 @@ Task 1: 类型定义 & 配置模块
 - [x] T8 — 集成测试（已完成）
 - [x] T9 — 交互式 list 命令（已完成）
 - [x] T10 — 交互式 status 命令（已完成）
-- [ ] T11 — TUI slash 命令集成（未开始）
+- [x] T11 — TUI slash 命令集成（已完成）
 - [ ] T12 — 扩展包解压支持（未开始）
 - [ ] T13 — 安装/更新冲突处理（未开始）
 - [ ] T14 — 下载进度条显示（未开始）

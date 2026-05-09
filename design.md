@@ -31,6 +31,7 @@ omni-studio.json             {skills,tools,...}/
 | `executor.ts` | 扩展生命周期脚本执行（install/start/stop/uninstall/activate） | `src/omni-studio/executor.ts` |
 | `config.ts` | 配置文件读写 | `src/omni-studio/config.ts` |
 | `types.ts` | 共享类型定义 | `src/omni-studio/types.ts` |
+| `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio 菜单（status/list/login/logout） | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
 
 ## 3. 数据模型
 
@@ -106,6 +107,29 @@ type Command =
   | { cmd: "disable"; type: ExtensionType; slug: string }
   | { cmd: "status" }                               // 交互式：展示本地扩展，支持选中启用/禁用/卸载
 ```
+
+### 4.1a TUI Slash 命令接口
+
+TUI 中的 slash 命令（`/` 触发）与 CLI 子命令独立注册，通过 `app.tsx` 的 `command.register` 机制注入。
+
+```ts
+// app.tsx 中注册的 slash 命令示例
+{
+  title: "Omni Studio",
+  value: "omni-studio",
+  category: "Omni Studio",
+  slash: { name: "omni-studio", aliases: ["omni"] },
+  onSelect: () => dialog.replace(() => <DialogOmniStudio />),
+}
+```
+
+`DialogOmniStudio` 组件内部使用 `DialogSelect` 展示子菜单：
+- **Status**：调用 `Store.getStatus()`，展示登录状态和本地扩展列表
+- **List**：调用 `Market.list()`，展示远程扩展列表
+- **Login**：调用 `interactiveLogin()`，在 TUI 中保持终端控制权的交互式登录
+- **Logout**：调用 `Auth.logout()`，清除本地 token
+
+slash 命令的数据流与 CLI 命令共享同一套 Effect Service（`OmniStudioAuth`、`OmniStudioMarket`、`OmniStudioStore`），通过 `Effect.provide(defaultLayer)` 注入依赖。
 
 ### 4.2 Auth API
 
@@ -255,7 +279,26 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 5. 输出禁用成功信息
 ```
 
-### 5.8 脚本执行规则
+### 5.8 TUI Slash 命令流程
+
+```
+1. 用户在 TUI 输入框中输入 "/" 触发 slash 命令补全
+2. 输入 "omni-studio" 或 "omni" 后回车
+3. TUI 打开 DialogOmniStudio 组件（DialogSelect 菜单）
+4. 用户选择子操作：
+   - Status → 调用 Store.getStatus() → 在文本框中展示登录状态和扩展列表
+   - List   → 调用 Market.list() → 在文本框中展示远程扩展列表
+   - Login  → 调用 interactiveLogin() → 展示登录结果（成功/失败）
+   - Logout → 调用 Auth.logout() → 展示登出结果
+5. 按 esc 返回菜单，再次按 esc 关闭对话框
+```
+
+**设计约束**：
+- TUI 中不直接复用 `@clack/prompts` 的交互（会与 TUI 终端控制冲突）
+- `interactiveLogin` 内部已处理终端控制，在 TUI 中通过 `dialog.clear()` 释放终端后调用
+- 信息展示使用纯文本框（`<text>` 组件），不引入复杂交互
+
+### 5.9 脚本执行规则
 
 ```
 - Shell 脚本（.sh）：在 Unix 系统通过 /bin/bash 或 /bin/sh 执行

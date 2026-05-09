@@ -24,6 +24,7 @@
 | F6 | 启用扩展：`opencode omni-studio enable <type> <slug>` | P0 |
 | F7 | 禁用扩展：`opencode omni-studio disable <type> <slug>` | P0 |
 | F8 | 交互式查看本地扩展状态：`opencode omni-studio status`，支持选中扩展进行启用/禁用/卸载操作 | P0 |
+| F9 | TUI slash 命令：`/omni-studio` 在终端界面中显示 Omni Studio 管理菜单，支持 status / list / login / logout | P0 |
 
 ## 4. 非功能需求
 
@@ -57,3 +58,4 @@
 - [ ] 启用/禁用时如扩展包含 `start`/`stop` 脚本，脚本被正确执行
 - [ ] 执行任何生命周期脚本前，如存在 `activate` 脚本，先 source/调用 activate
 - [ ] 脚本执行失败时给出清晰错误信息，install/start 失败回滚状态
+- [ ] TUI 模式下输入 `/omni-studio` 显示 Omni Studio 管理菜单（status / list / login / logout）

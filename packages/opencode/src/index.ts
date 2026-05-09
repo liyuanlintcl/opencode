@@ -28,6 +28,7 @@ import { AcpCommand } from "./cli/cmd/acp"
 import { EOL } from "os"
 import { WebCommand } from "./cli/cmd/web"
 import { PrCommand } from "./cli/cmd/pr"
+import { OmniStudioCommand } from "./cli/cmd/omni-studio"
 import { SessionCommand } from "./cli/cmd/session"
 import { DbCommand } from "./cli/cmd/db"
 import path from "path"
@@ -177,6 +178,7 @@ const cli = yargs(args)
   .command(SessionCommand)
   .command(PluginCommand)
   .command(DbCommand)
+  .command(OmniStudioCommand)
   .fail((msg, err) => {
     if (
       msg?.startsWith("Unknown argument") ||

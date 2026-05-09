@@ -34,9 +34,10 @@ export const layer = Layer.effect(
 
     /** 登录：调用认证 API 并持久化 token */
     const login = Effect.fn("OmniStudioAuth.login")(function* (credentials: { username: string; password: string }, apiBase: string) {
+      const base = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase
       const response = yield* Effect.tryPromise({
         try: () =>
-          fetch(`${apiBase}/auth/auth/login`, {
+          fetch(`${base}/auth/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(credentials),
@@ -52,21 +53,32 @@ export const layer = Layer.effect(
         return yield* Effect.fail(text || `Login failed with status ${response.status}`)
       }
 
-      const data = yield* Effect.tryPromise({
+      const result = yield* Effect.tryPromise({
         try: () => response.json() as Promise<{
-          accessToken: string
-          refreshToken: string
-          user: { id: string; username: string }
+          code: number
+          data: {
+            accessToken: string
+            refreshToken: string
+            userId: number
+            username: string
+          }
+          message: string
         }>,
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
+
+      if (result.code !== 200) {
+        return yield* Effect.fail(result.message || `Login failed with code ${result.code}`)
+      }
+
+      const data = result.data
 
       const config: OmniStudioConfigType = {
         api_base: apiBase,
         auth_base: apiBase,
         access_token: data.accessToken,
         refresh_token: data.refreshToken,
-        user: data.user,
+        user: { id: String(data.userId), username: data.username },
       }
 
       yield* configSvc.write(config)

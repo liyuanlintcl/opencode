@@ -12,6 +12,8 @@ concurrency:
 jobs:
   build-cli-windows:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -43,3 +45,27 @@ jobs:
           name: opencode-cli-windows
           path: artifact/opencode.exe
           if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          # 检查 cli-latest release 是否存在，不存在则创建
+          $release = gh release view cli-latest --repo ${{ github.repository }} 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Creating cli-latest pre-release..."
+            gh release create cli-latest `
+              --title "CLI Windows Nightly" `
+              --notes "Windows CLI 自动构建产物，每次 push 到 cli 分支时更新。" `
+              --prerelease `
+              --target cli `
+              --repo ${{ github.repository }}
+          } else {
+            Write-Host "cli-latest release exists, uploading asset..."
+          }
+          # 上传/覆盖 exe asset
+          gh release upload cli-latest artifact/opencode.exe `
+            --clobber `
+            --repo ${{ github.repository }}
+          Write-Host "Release asset uploaded successfully."

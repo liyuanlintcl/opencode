@@ -35,7 +35,7 @@ Task 1: 类型定义 & 配置模块
 | T3 | 实现登录交互流程（密码输入隐藏、已登录提示） | 交互体验与主 CLI 一致 | 2h | ⏳ |
 | T4 | 实现 Market HTTP 客户端（list / getExtensionMeta / download） | 可正常调用 API 并处理 401/404 错误 | 3h | ⏳ |
 | T5 | 实现 Store 模块（install / uninstall / enable / disable / status） | 文件正确写入 `~/.omni_studio/`，状态持久化 | 3h | ⏳ |
-| T6 | 实现 Executor 模块（detectScripts / runScript / activate 处理） | 支持 .sh/.bat/.ps1，activate 先执行，超时处理 | 3h | ⏳ |
+| T6 | 实现 Executor 模块（detectScripts / runScript / activate 处理） | 支持 .sh/.bat/.ps1，activate 先执行，超时处理 | 3h | ✅ |
 | T7 | 实现 CLI 命令路由与参数解析 | 8 个命令全部可调用，帮助信息完整 | 3h | ⏳ |
 | T8 | 集成测试：端到端验证各命令组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ⏳ |
 
@@ -70,7 +70,7 @@ Task 1: 类型定义 & 配置模块
 - [x] T3 — 登录交互流程（已完成）
 - [x] T4 — Market HTTP 客户端（已完成）
 - [x] T5 — Store 模块（已完成）
-- [ ] T6 — Executor 模块（未开始）
+- [x] T6 — Executor 模块（已完成）
 - [ ] T7 — CLI 命令路由与参数解析（未开始）
 - [ ] T8 — 集成测试（未开始）
 - [ ] T9 — 扩展包解压支持（未开始）

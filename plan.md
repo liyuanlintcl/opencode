@@ -37,7 +37,7 @@ Task 1: 类型定义 & 配置模块
 | T5 | 实现 Store 模块（install / uninstall / enable / disable / status） | 文件正确写入 `~/.omni_studio/`，状态持久化 | 3h | ✅ |
 | T6 | 实现 Executor 模块（detectScripts / runScript / activate 处理） | 支持 .sh/.bat/.ps1，activate 先执行，超时处理 | 3h | ✅ |
 | T7 | 实现 CLI 命令路由与参数解析（list/status 为交互式） | 8 个命令全部可调用，帮助信息完整；list 支持交互安装，status 支持交互管理 | 3h | ✅ |
-| T8 | 集成测试：端到端验证各命令组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ⏳ |
+| T8 | 集成测试：端到端验证各命令组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ✅ |
 | T9 | 交互式 list 命令：远程列表混合本地安装状态并支持一键安装 | 选中未安装扩展后 confirm 并调用 install，操作后循环返回列表 | 2h | ⏳ |
 | T10 | 交互式 status 命令：本地扩展列表支持 enable/disable/uninstall | 选中扩展后二次选择动作，执行后循环返回列表 | 2h | ⏳ |
 
@@ -74,7 +74,7 @@ Task 1: 类型定义 & 配置模块
 - [x] T5 — Store 模块（已完成）
 - [x] T6 — Executor 模块（已完成）
 - [x] T7 — CLI 命令路由与参数解析（已完成）
-- [ ] T8 — 集成测试（未开始）
+- [x] T8 — 集成测试（已完成）
 - [ ] T9 — 交互式 list 命令（未开始）
 - [ ] T10 — 交互式 status 命令（未开始）
 - [ ] T11 — 扩展包解压支持（未开始）

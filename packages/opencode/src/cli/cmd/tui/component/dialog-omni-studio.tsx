@@ -1,19 +1,52 @@
 import { TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
-import { useDialog } from "@tui/ui/dialog"
+import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogAlert } from "../ui/dialog-alert"
+import { DialogConfirm } from "../ui/dialog-confirm"
+import { DialogPrompt } from "../ui/dialog-prompt"
 import { createResource, Show, createSignal } from "solid-js"
 import { Effect } from "effect"
 import { OmniStudioAuth } from "@/omni-studio/auth"
 import { OmniStudioStore } from "@/omni-studio/store"
 import { OmniStudioMarket } from "@/omni-studio/market"
 import { interactiveLogin } from "@/omni-studio/interactive"
+import type { ExtensionType, Extension } from "@/omni-studio/types"
+
+/**
+ * 通用选择对话框辅助函数。
+ * 使用 DialogSelect 展示选项，返回用户选中的值或 null（取消）。
+ */
+function showSelect<T>(
+  dialog: DialogContext,
+  title: string,
+  options: Array<{ title: string; value: T; description?: string }>,
+): Promise<T | null> {
+  return new Promise((resolve) => {
+    dialog.replace(
+      () => (
+        <DialogSelect
+          title={title}
+          options={options.map((opt) => ({
+            title: opt.title,
+            value: opt.value,
+            description: opt.description,
+            onSelect: () => {
+              dialog.clear()
+              resolve(opt.value)
+            },
+          }))}
+        />
+      ),
+      () => resolve(null),
+    )
+  })
+}
 
 /**
  * Omni Studio TUI 对话框。
  * 在终端界面中提供扩展市场管理功能，
- * 支持查看状态、列出扩展、登录和登出。
+ * 支持查看状态、列出扩展、安装、卸载、启用、禁用、登录和登出。
  */
 export function DialogOmniStudio() {
   const dialog = useDialog()
@@ -22,7 +55,6 @@ export function DialogOmniStudio() {
 
   /**
    * 异步获取本地状态：登录信息和已安装扩展列表。
-   * 使用 createResource 在 SolidJS 中管理异步数据。
    */
   const [status] = createResource(async () => {
     try {
@@ -39,7 +71,6 @@ export function DialogOmniStudio() {
 
   /**
    * 异步获取远程市场扩展列表。
-   * 若未登录或网络失败，返回错误信息。
    */
   const [marketList] = createResource(async () => {
     try {
@@ -56,8 +87,7 @@ export function DialogOmniStudio() {
 
   /**
    * 处理登录操作。
-   * 先关闭当前对话框释放终端控制权，
-   * 再调用交互式登录流程（内部使用 @clack/prompts）。
+   * 先关闭当前对话框释放终端控制权，再调用交互式登录流程。
    */
   const handleLogin = async () => {
     dialog.clear()
@@ -71,7 +101,6 @@ export function DialogOmniStudio() {
 
   /**
    * 处理登出操作。
-   * 调用 Auth 服务清除本地 token。
    */
   const handleLogout = async () => {
     try {
@@ -87,8 +116,151 @@ export function DialogOmniStudio() {
   }
 
   /**
+   * 处理安装操作。
+   * 流程：选择类型 → 输入 slug → 获取元数据 → 确认 → 安装。
+   */
+  const handleInstall = async () => {
+    const type = await showSelect<ExtensionType>(dialog, "选择扩展类型", [
+      { title: "Skill", value: "skill" },
+      { title: "Tool", value: "tool" },
+      { title: "Plugin", value: "plugin" },
+      { title: "Agent", value: "agent" },
+    ])
+    if (!type) return
+
+    const slug = await DialogPrompt.show(dialog, "输入扩展标识符", {
+      placeholder: "例如: my-extension",
+    })
+    if (!slug) return
+
+    try {
+      const ext = await Effect.runPromise(
+        OmniStudioMarket.Service.use((svc) => svc.getMeta(type, slug)).pipe(
+          Effect.provide(OmniStudioMarket.defaultLayer),
+        ),
+      )
+      const confirmed = await DialogConfirm.show(
+        dialog,
+        "确认安装",
+        `安装 ${ext.name} (${ext.type}) v${ext.version}?`,
+      )
+      if (!confirmed) return
+
+      await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.install(ext)).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      DialogAlert.show(dialog, "安装成功", `${ext.name} 已安装并启用`)
+    } catch (e) {
+      DialogAlert.show(dialog, "安装失败", String(e))
+    }
+  }
+
+  /**
+   * 获取本地扩展列表并让用户选择。
+   * @param filterFn 过滤函数，用于 enable/disable 时筛选特定状态的扩展
+   */
+  const selectLocalExtension = async (
+    filterFn?: (ext: { type: ExtensionType; slug: string; version: string; enabled: boolean }) => boolean,
+  ): Promise<{ type: ExtensionType; slug: string } | null> => {
+    try {
+      const result = await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.getStatus()).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      const extensions = filterFn ? result.extensions.filter(filterFn) : result.extensions
+      if (extensions.length === 0) {
+        DialogAlert.show(dialog, "Omni Studio", "没有符合条件的扩展")
+        return null
+      }
+      return await showSelect(dialog, "选择扩展",
+        extensions.map((ext) => ({
+          title: `${ext.slug} (${ext.type}) v${ext.version}`,
+          value: { type: ext.type, slug: ext.slug },
+          description: ext.enabled ? "已启用" : "已禁用",
+        })),
+      )
+    } catch (e) {
+      DialogAlert.show(dialog, "错误", String(e))
+      return null
+    }
+  }
+
+  /**
+   * 处理卸载操作。
+   */
+  const handleUninstall = async () => {
+    const selected = await selectLocalExtension()
+    if (!selected) return
+
+    const confirmed = await DialogConfirm.show(
+      dialog,
+      "确认卸载",
+      `卸载 ${selected.slug} (${selected.type})? 此操作不可恢复。`,
+      "卸载",
+    )
+    if (!confirmed) return
+
+    try {
+      await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.uninstall(selected.type, selected.slug)).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      DialogAlert.show(dialog, "卸载成功", `${selected.slug} 已卸载`)
+    } catch (e) {
+      DialogAlert.show(dialog, "卸载失败", String(e))
+    }
+  }
+
+  /**
+   * 处理启用操作。
+   */
+  const handleEnable = async () => {
+    const selected = await selectLocalExtension((ext) => !ext.enabled)
+    if (!selected) return
+
+    const confirmed = await DialogConfirm.show(dialog, "确认启用", `启用 ${selected.slug} (${selected.type})?`)
+    if (!confirmed) return
+
+    try {
+      await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.setEnabled(selected.type, selected.slug, true)).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      DialogAlert.show(dialog, "启用成功", `${selected.slug} 已启用`)
+    } catch (e) {
+      DialogAlert.show(dialog, "启用失败", String(e))
+    }
+  }
+
+  /**
+   * 处理禁用操作。
+   */
+  const handleDisable = async () => {
+    const selected = await selectLocalExtension((ext) => ext.enabled)
+    if (!selected) return
+
+    const confirmed = await DialogConfirm.show(dialog, "确认禁用", `禁用 ${selected.slug} (${selected.type})?`)
+    if (!confirmed) return
+
+    try {
+      await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.setEnabled(selected.type, selected.slug, false)).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      DialogAlert.show(dialog, "禁用成功", `${selected.slug} 已禁用`)
+    } catch (e) {
+      DialogAlert.show(dialog, "禁用失败", String(e))
+    }
+  }
+
+  /**
    * 根据状态数据生成展示文本。
-   * 包含登录状态、API 地址、用户名和扩展列表。
    */
   const statusMessage = () => {
     const s = status()
@@ -109,7 +281,6 @@ export function DialogOmniStudio() {
 
   /**
    * 根据市场数据生成展示文本。
-   * 列出远程扩展的名称、类型、版本和作者。
    */
   const listMessage = () => {
     const l = marketList()
@@ -161,6 +332,30 @@ export function DialogOmniStudio() {
             value: "list",
             description: "列出市场中的扩展",
             onSelect: () => setView("list"),
+          },
+          {
+            title: "安装",
+            value: "install",
+            description: "从市场安装扩展",
+            onSelect: handleInstall,
+          },
+          {
+            title: "卸载",
+            value: "uninstall",
+            description: "卸载本地扩展",
+            onSelect: handleUninstall,
+          },
+          {
+            title: "启用",
+            value: "enable",
+            description: "启用已禁用的扩展",
+            onSelect: handleEnable,
+          },
+          {
+            title: "禁用",
+            value: "disable",
+            description: "禁用已启用的扩展",
+            onSelect: handleDisable,
           },
           {
             title: "登录",

@@ -87,7 +87,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const base = yield* getApiBase()
       const headers = yield* authSvc.getAuthHeaders()
       const entityType = toEntityType(type ?? "skill")
-      const url = `${base}/api/v1/packages/${entityType}?page=0&size=100`
+      const url = `${base}/api/v1/packages/${entityType}?page=0&size=20`
       const response = yield* Effect.tryPromise({
         try: () => fetch(url, { headers }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),

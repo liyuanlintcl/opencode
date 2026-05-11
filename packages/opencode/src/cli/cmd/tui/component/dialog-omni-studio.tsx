@@ -90,6 +90,123 @@ type ListResult =
   | { kind: "error"; message: string }
 
 /**
+ * Omni Studio 状态视图。
+ * 直接用 dialog.replace 渲染，不使用 Show 组件。
+ */
+function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void }) {
+  const { theme } = useTheme()
+  const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
+
+  createEffect(() => {
+    debugLog("[OmniStudio] StatusView 挂载，开始刷新")
+    void (async () => {
+      setStatus({ kind: "loading" })
+      try {
+        const result = await Effect.runPromise(
+          OmniStudioStore.Service.use((svc) => svc.getStatus()).pipe(
+            Effect.provide(OmniStudioStore.defaultLayer),
+          ),
+        )
+        setStatus({ kind: "ok", config: result.config, extensions: result.extensions })
+      } catch (e) {
+        setStatus({ kind: "error", message: String(e) })
+      }
+    })()
+  })
+
+  const message = () => {
+    const s = status()
+    if (s.kind === "loading") return "加载中..."
+    if (s.kind === "error") return `错误: ${s.message}`
+    const lines = [
+      `登录状态: ${s.config ? "已登录" : "未登录"}`,
+      s.config ? `API 地址: ${s.config.api_base}` : "",
+      s.config ? `用户名: ${s.config.user.username}` : "",
+      `扩展数量: ${s.extensions.length}`,
+      ...s.extensions.map(
+        (ext) =>
+          `  ${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`,
+      ),
+    ]
+    return lines.filter(Boolean).join("\n")
+  }
+
+  return (
+    <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Omni Studio 状态
+        </text>
+        <text
+          fg={theme.textMuted}
+          onMouseUp={() => props.onBack()}
+        >
+          esc
+        </text>
+      </box>
+      <box paddingBottom={1}>
+        <text fg={theme.textMuted}>{message()}</text>
+      </box>
+    </box>
+  )
+}
+
+/**
+ * Omni Studio 列表视图。
+ * 直接用 dialog.replace 渲染，不使用 Show 组件。
+ */
+function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }) {
+  const { theme } = useTheme()
+  const [marketList, setMarketList] = createSignal<ListResult>({ kind: "loading" })
+
+  createEffect(() => {
+    debugLog("[OmniStudio] ListView 挂载，开始刷新")
+    void (async () => {
+      setMarketList({ kind: "loading" })
+      try {
+        const result = await Effect.runPromise(
+          OmniStudioMarket.Service.use((svc) => svc.list()).pipe(
+            Effect.provide(OmniStudioMarket.defaultLayer),
+          ),
+        )
+        setMarketList({ kind: "ok", data: result })
+      } catch (e) {
+        setMarketList({ kind: "error", message: String(e) })
+      }
+    })()
+  })
+
+  const message = () => {
+    const l = marketList()
+    if (l.kind === "loading") return "加载中..."
+    if (l.kind === "error") return `错误: ${l.message}`
+    if (!Array.isArray(l.data) || l.data.length === 0) return "未找到扩展"
+    return l.data
+      .map((ext) => `${ext.name} (${ext.type}) v${ext.version} - ${ext.author}`)
+      .join("\n")
+  }
+
+  return (
+    <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Omni Studio 扩展列表
+        </text>
+        <text
+          fg={theme.textMuted}
+          onMouseUp={() => props.onBack()}
+        >
+          esc
+        </text>
+      </box>
+      <box paddingBottom={1}>
+        <text fg={theme.textMuted}>{message()}</text>
+      </box>
+    </box>
+  )
+}
+
+/**
  * Omni Studio TUI 对话框。
  * 在终端界面中提供扩展市场管理功能，
  * 支持查看状态、列出扩展、安装、卸载、启用、禁用、登录和登出。
@@ -97,58 +214,11 @@ type ListResult =
 export function DialogOmniStudio() {
   const dialog = useDialog()
   const { theme } = useTheme()
-  const [view, setView] = createSignal<"menu" | "status" | "list">("menu")
-  createEffect(() => debugLog("[OmniStudio] view changed:", view()))
 
-  const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
-  const [marketList, setMarketList] = createSignal<ListResult>({ kind: "loading" })
-
-  createEffect(() => debugLog("[OmniStudio] marketList changed:", marketList()))
-  createEffect(() => debugLog("[OmniStudio] status changed:", status()))
-
-  /**
-   * 重新获取本地状态（登录信息 + 已安装扩展）。
-   */
-  const refreshStatus = async () => {
-    debugLog("[OmniStudio] refreshStatus start")
-    setStatus({ kind: "loading" })
-    try {
-      const result = await Effect.runPromise(
-        OmniStudioStore.Service.use((svc) => svc.getStatus()).pipe(
-          Effect.provide(OmniStudioStore.defaultLayer),
-        ),
-      )
-      debugLog("[OmniStudio] refreshStatus success:", result)
-      setStatus({ kind: "ok", config: result.config, extensions: result.extensions })
-    } catch (e) {
-      debugLog("[OmniStudio] refreshStatus error:", e)
-      setStatus({ kind: "error", message: String(e) })
-    }
-  }
-
-  /**
-   * 重新获取远程市场扩展列表。
-   */
-  const refreshMarketList = async () => {
-    debugLog("[OmniStudio] refreshMarketList start")
-    setMarketList({ kind: "loading" })
-    try {
-      const result = await Effect.runPromise(
-        OmniStudioMarket.Service.use((svc) => svc.list()).pipe(
-          Effect.provide(OmniStudioMarket.defaultLayer),
-        ),
-      )
-      debugLog("[OmniStudio] refreshMarketList success, count:", result.length)
-      setMarketList({ kind: "ok", data: result })
-    } catch (e) {
-      debugLog("[OmniStudio] refreshMarketList error:", e)
-      setMarketList({ kind: "error", message: String(e) })
-    }
-  }
+  debugLog("[OmniStudio] DialogOmniStudio 挂载")
 
   /**
    * 显示操作结果提示，确认后返回 Omni Studio 菜单。
-   * 不修改通用 DialogAlert 组件，利用 await 后 dialog 已被 clear 的特性重新打开菜单。
    */
   const showResult = async (title: string, message: string) => {
     debugLog("[OmniStudio] showResult:", title, message)
@@ -158,18 +228,20 @@ export function DialogOmniStudio() {
   }
 
   /**
+   * 返回菜单。
+   */
+  const backToMenu = () => {
+    debugLog("[OmniStudio] backToMenu")
+    dialog.replace(() => <DialogOmniStudio />)
+  }
+
+  /**
    * 处理登录操作。
-   * 仅输入 username / password，api_base 从配置读取。
    */
   const handleLogin = async () => {
-    const username = await DialogPrompt.show(dialog, "用户名", {
-      placeholder: "admin",
-    })
+    const username = await DialogPrompt.show(dialog, "用户名", { placeholder: "admin" })
     if (!username) return
-
-    const password = await DialogPrompt.show(dialog, "密码（输入内容可见）", {
-      placeholder: "输入密码",
-    })
+    const password = await DialogPrompt.show(dialog, "密码（输入内容可见）", { placeholder: "输入密码" })
     if (!password) return
 
     try {
@@ -186,7 +258,6 @@ export function DialogOmniStudio() {
 
   /**
    * 处理地址配置操作。
-   * 设置 api_base，认证和 API 调用使用同一地址。
    */
   const handleSetup = async () => {
     const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址", {
@@ -225,7 +296,6 @@ export function DialogOmniStudio() {
 
   /**
    * 处理安装操作。
-   * 流程：选择类型 → 输入 slug → 获取元数据 → 确认 → 安装。
    */
   const handleInstall = async () => {
     const type = await showSelect<ExtensionType>(dialog, "选择扩展类型", [
@@ -247,11 +317,7 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioMarket.defaultLayer),
         ),
       )
-      const confirmed = await DialogConfirm.show(
-        dialog,
-        "确认安装",
-        `安装 ${ext.name} (${ext.type}) v${ext.version}?`,
-      )
+      const confirmed = await DialogConfirm.show(dialog, "确认安装", `安装 ${ext.name} (${ext.type}) v${ext.version}?`)
       if (!confirmed) return
 
       await Effect.runPromise(
@@ -267,7 +333,6 @@ export function DialogOmniStudio() {
 
   /**
    * 获取本地扩展列表并让用户选择。
-   * @param filterFn 过滤函数，用于 enable/disable 时筛选特定状态的扩展
    */
   const selectLocalExtension = async (
     filterFn?: (ext: { type: ExtensionType; slug: string; version: string; enabled: boolean }) => boolean,
@@ -367,139 +432,71 @@ export function DialogOmniStudio() {
     }
   }
 
-  /**
-   * 根据状态数据生成展示文本。
-   */
-  const statusMessage = () => {
-    const s = status()
-    if (s.kind === "loading") return "加载中..."
-    if (s.kind === "error") return `错误: ${s.message}`
-    const lines = [
-      `登录状态: ${s.config ? "已登录" : "未登录"}`,
-      s.config ? `API 地址: ${s.config.api_base}` : "",
-      s.config ? `用户名: ${s.config.user.username}` : "",
-      `扩展数量: ${s.extensions.length}`,
-      ...s.extensions.map(
-        (ext) =>
-          `  ${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`,
-      ),
-    ]
-    return lines.filter(Boolean).join("\n")
-  }
-
-  /**
-   * 根据市场数据生成展示文本。
-   */
-  const listMessage = () => {
-    const l = marketList()
-    if (l.kind === "loading") return "加载中..."
-    if (l.kind === "error") return `错误: ${l.message}`
-    if (!Array.isArray(l.data) || l.data.length === 0) return "未找到扩展"
-    return l.data
-      .map((ext) => `${ext.name} (${ext.type}) v${ext.version} - ${ext.author}`)
-      .join("; ")
-  }
-
   return (
-    <Show
-      when={view() === "menu"}
-      fallback={
-        <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
-          <box flexDirection="row" justifyContent="space-between">
-            <text fg={theme.text} attributes={TextAttributes.BOLD}>
-              {view() === "status" ? "Omni Studio 状态" : "Omni Studio 扩展列表"}
-            </text>
-            <text
-              fg={theme.textMuted}
-              onMouseUp={() => {
-                setView("menu")
-              }}
-            >
-              esc
-            </text>
-          </box>
-          <box paddingBottom={1}>
-            <text fg={theme.textMuted}>
-              {view() === "status"
-                ? statusMessage()
-                : `[DEBUG] view=${view()} marketList=${(() => {
-                    const l = marketList()
-                    try {
-                      return JSON.stringify(l).slice(0, 200)
-                    } catch {
-                      return String(l)
-                    }
-                  })()}; ${listMessage()}`}
-            </text>
-          </box>
-        </box>
-      }
-    >
-      <DialogSelect
-        title={`Omni Studio [view=${view()}]`}
-        options={[
-          {
-            title: "状态",
-            value: "status",
-            description: "查看登录状态和已安装的扩展",
-            onSelect: () => {
-              setView("status")
-              void refreshStatus()
-            },
+    <DialogSelect
+      title="Omni Studio"
+      options={[
+        {
+          title: "状态",
+          value: "status",
+          description: "查看登录状态和已安装的扩展",
+          onSelect: () => {
+            debugLog("[OmniStudio] 点击状态")
+            dialog.replace(() => <OmniStudioStatusView dialog={dialog} onBack={backToMenu} />)
           },
-          {
-            title: "列表",
-            value: "list",
-            description: "列出市场中的扩展",
-            onSelect: () => {
-              setView("list")
-              void refreshMarketList()
-            },
+        },
+        {
+          title: "列表",
+          value: "list",
+          description: "列出市场中的扩展",
+          onSelect: () => {
+            debugLog("[OmniStudio] 点击列表")
+            dialog.replace(() => <OmniStudioListView dialog={dialog} onBack={backToMenu} />)
           },
-          {
-            title: "安装",
-            value: "install",
-            description: "从市场安装扩展",
-            onSelect: handleInstall,
-          },
-          {
-            title: "卸载",
-            value: "uninstall",
-            description: "卸载本地扩展",
-            onSelect: handleUninstall,
-          },
-          {
-            title: "启用",
-            value: "enable",
-            description: "启用已禁用的扩展",
-            onSelect: handleEnable,
-          },
-          {
-            title: "禁用",
-            value: "disable",
-            description: "禁用已启用的扩展",
-            onSelect: handleDisable,
-          },
-          {
-            title: "配置",
-            value: "setup",
-            description: "设置 API 地址",
-            onSelect: handleSetup,
-          },
-          {
-            title: "登录",
-            value: "login",
-            description: "登录到 Omni Studio 扩展市场",
-            onSelect: handleLogin,
-          },
-          {
-            title: "登出",
-            value: "logout",
-            description: "登出 Omni Studio 扩展市场",
-            onSelect: handleLogout,
-          },
-        ]}
-      />
-    </Show>
+        },
+        {
+          title: "安装",
+          value: "install",
+          description: "从市场安装扩展",
+          onSelect: handleInstall,
+        },
+        {
+          title: "卸载",
+          value: "uninstall",
+          description: "卸载本地扩展",
+          onSelect: handleUninstall,
+        },
+        {
+          title: "启用",
+          value: "enable",
+          description: "启用已禁用的扩展",
+          onSelect: handleEnable,
+        },
+        {
+          title: "禁用",
+          value: "disable",
+          description: "禁用已启用的扩展",
+          onSelect: handleDisable,
+        },
+        {
+          title: "配置",
+          value: "setup",
+          description: "设置 API 地址",
+          onSelect: handleSetup,
+        },
+        {
+          title: "登录",
+          value: "login",
+          description: "登录到 Omni Studio 扩展市场",
+          onSelect: handleLogin,
+        },
+        {
+          title: "登出",
+          value: "logout",
+          description: "登出 Omni Studio 扩展市场",
+          onSelect: handleLogout,
+        },
+      ]}
+    />
   )
 }

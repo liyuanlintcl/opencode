@@ -54,10 +54,15 @@ export function DialogOmniStudio() {
   const { theme } = useTheme()
   const [view, setView] = createSignal<"menu" | "status" | "list">("menu")
 
+  /** 触发 status 重新获取的 signal */
+  const [statusTrigger, setStatusTrigger] = createSignal(0)
+  /** 触发 marketList 重新获取的 signal */
+  const [listTrigger, setListTrigger] = createSignal(0)
+
   /**
    * 异步获取本地状态：登录信息和已安装扩展列表。
    */
-  const [status] = createResource(async () => {
+  const [status] = createResource(statusTrigger, async () => {
     try {
       const result = await Effect.runPromise(
         OmniStudioStore.Service.use((svc) => svc.getStatus()).pipe(
@@ -73,7 +78,7 @@ export function DialogOmniStudio() {
   /**
    * 异步获取远程市场扩展列表。
    */
-  const [marketList] = createResource(async () => {
+  const [marketList] = createResource(listTrigger, async () => {
     try {
       const result = await Effect.runPromise(
         OmniStudioMarket.Service.use((svc) => svc.list()).pipe(
@@ -87,8 +92,17 @@ export function DialogOmniStudio() {
   })
 
   /**
+   * 显示操作结果提示，确认后返回 Omni Studio 菜单。
+   * 不修改通用 DialogAlert 组件，利用 await 后 dialog 已被 clear 的特性重新打开菜单。
+   */
+  const showResult = async (title: string, message: string) => {
+    await DialogAlert.show(dialog, title, message)
+    dialog.replace(() => <DialogOmniStudio />)
+  }
+
+  /**
    * 处理登录操作。
-   * 仅输入 username / password，auth_base 从配置读取。
+   * 仅输入 username / password，api_base 从配置读取。
    */
   const handleLogin = async () => {
     const username = await DialogPrompt.show(dialog, "用户名", {
@@ -107,9 +121,11 @@ export function DialogOmniStudio() {
           svc.login({ username, password }),
         ).pipe(Effect.provide(OmniStudioAuth.defaultLayer)),
       )
-      DialogAlert.show(dialog, "登录成功", `已以 ${config.user.username} 身份登录`)
+      setStatusTrigger((t) => t + 1)
+      setListTrigger((t) => t + 1)
+      await showResult("登录成功", `已以 ${config.user.username} 身份登录`)
     } catch (e) {
-      DialogAlert.show(dialog, "登录失败", String(e))
+      await showResult("登录失败", String(e))
     }
   }
 
@@ -130,9 +146,10 @@ export function DialogOmniStudio() {
           svc.setEndpoints(apiBase),
         ).pipe(Effect.provide(OmniStudioConfig.defaultLayer)),
       )
-      DialogAlert.show(dialog, "配置成功", `API 地址: ${apiBase}`)
+      setStatusTrigger((t) => t + 1)
+      await showResult("配置成功", `API 地址: ${apiBase}`)
     } catch (e) {
-      DialogAlert.show(dialog, "配置失败", String(e))
+      await showResult("配置失败", String(e))
     }
   }
 
@@ -146,9 +163,11 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioAuth.defaultLayer),
         ),
       )
-      DialogAlert.show(dialog, "Omni Studio", "已登出")
+      setStatusTrigger((t) => t + 1)
+      setListTrigger((t) => t + 1)
+      await showResult("Omni Studio", "已登出")
     } catch (e) {
-      DialogAlert.show(dialog, "Omni Studio", `登出失败: ${e}`)
+      await showResult("Omni Studio", `登出失败: ${e}`)
     }
   }
 
@@ -188,9 +207,11 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      DialogAlert.show(dialog, "安装成功", `${ext.name} 已安装并启用`)
+      setStatusTrigger((t) => t + 1)
+      setListTrigger((t) => t + 1)
+      await showResult("安装成功", `${ext.name} 已安装并启用`)
     } catch (e) {
-      DialogAlert.show(dialog, "安装失败", String(e))
+      await showResult("安装失败", String(e))
     }
   }
 
@@ -209,7 +230,7 @@ export function DialogOmniStudio() {
       )
       const extensions = filterFn ? result.extensions.filter(filterFn) : result.extensions
       if (extensions.length === 0) {
-        DialogAlert.show(dialog, "Omni Studio", "没有符合条件的扩展")
+        await showResult("Omni Studio", "没有符合条件的扩展")
         return null
       }
       return await showSelect(dialog, "选择扩展",
@@ -220,7 +241,7 @@ export function DialogOmniStudio() {
         })),
       )
     } catch (e) {
-      DialogAlert.show(dialog, "错误", String(e))
+      await showResult("错误", String(e))
       return null
     }
   }
@@ -246,9 +267,11 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      DialogAlert.show(dialog, "卸载成功", `${selected.slug} 已卸载`)
+      setStatusTrigger((t) => t + 1)
+      setListTrigger((t) => t + 1)
+      await showResult("卸载成功", `${selected.slug} 已卸载`)
     } catch (e) {
-      DialogAlert.show(dialog, "卸载失败", String(e))
+      await showResult("卸载失败", String(e))
     }
   }
 
@@ -268,9 +291,10 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      DialogAlert.show(dialog, "启用成功", `${selected.slug} 已启用`)
+      setStatusTrigger((t) => t + 1)
+      await showResult("启用成功", `${selected.slug} 已启用`)
     } catch (e) {
-      DialogAlert.show(dialog, "启用失败", String(e))
+      await showResult("启用失败", String(e))
     }
   }
 
@@ -290,9 +314,10 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      DialogAlert.show(dialog, "禁用成功", `${selected.slug} 已禁用`)
+      setStatusTrigger((t) => t + 1)
+      await showResult("禁用成功", `${selected.slug} 已禁用`)
     } catch (e) {
-      DialogAlert.show(dialog, "禁用失败", String(e))
+      await showResult("禁用失败", String(e))
     }
   }
 
@@ -362,13 +387,19 @@ export function DialogOmniStudio() {
             title: "状态",
             value: "status",
             description: "查看登录状态和已安装的扩展",
-            onSelect: () => setView("status"),
+            onSelect: () => {
+              setView("status")
+              setStatusTrigger((t) => t + 1)
+            },
           },
           {
             title: "列表",
             value: "list",
             description: "列出市场中的扩展",
-            onSelect: () => setView("list"),
+            onSelect: () => {
+              setView("list")
+              setListTrigger((t) => t + 1)
+            },
           },
           {
             title: "安装",
@@ -397,7 +428,7 @@ export function DialogOmniStudio() {
           {
             title: "配置",
             value: "setup",
-            description: "设置认证地址和 API 地址",
+            description: "设置 API 地址",
             onSelect: handleSetup,
           },
           {

@@ -32,7 +32,6 @@ describe("OmniStudioConfig", () => {
   test("write and read roundtrip", async () => {
     const config: OmniStudioConfigType = {
       api_base: "https://api.example.com",
-      auth_base: "https://auth.example.com",
       access_token: "token-123",
       refresh_token: "refresh-456",
       user: {
@@ -49,7 +48,6 @@ describe("OmniStudioConfig", () => {
   test("remove deletes config file", async () => {
     const config: OmniStudioConfigType = {
       api_base: "https://api.example.com",
-      auth_base: "https://auth.example.com",
       access_token: "token-123",
       refresh_token: "refresh-456",
       user: {

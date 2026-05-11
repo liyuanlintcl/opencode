@@ -21,8 +21,8 @@ export interface Interface {
   readonly write: (config: OmniStudioConfig) => Effect.Effect<void>
   /** 删除登录配置；文件不存在时静默成功 */
   readonly remove: () => Effect.Effect<void>
-  /** 独立设置 auth_base 和 api_base；保留已有 token 和用户信息 */
-  readonly setEndpoints: (authBase: string, apiBase: string) => Effect.Effect<void>
+  /** 设置 api_base；保留已有 token 和用户信息 */
+  readonly setEndpoints: (apiBase: string) => Effect.Effect<void>
   /** 读取本地扩展状态；文件不存在时返回 `{ extensions: [] }` */
   readonly readState: () => Effect.Effect<OmniStudioState>
   /** 写入本地扩展状态，文件权限设置为 0o600 */
@@ -63,12 +63,11 @@ export const layer = Layer.effect(
       yield* fs.remove(configFile()).pipe(Effect.catch(() => Effect.void))
     })
 
-    /** 独立设置 auth_base 和 api_base；保留已有 token 和用户信息 */
-    const setEndpoints = Effect.fn("OmniStudioConfig.setEndpoints")(function* (authBase: string, apiBase: string) {
+    /** 设置 api_base；保留已有 token 和用户信息 */
+    const setEndpoints = Effect.fn("OmniStudioConfig.setEndpoints")(function* (apiBase: string) {
       const existing = yield* read()
       const config: OmniStudioConfig = {
-        api_base: apiBase || authBase,
-        auth_base: authBase,
+        api_base: apiBase,
         access_token: existing?.access_token ?? "",
         refresh_token: existing?.refresh_token ?? "",
         user: existing?.user ?? { id: "", username: "" },

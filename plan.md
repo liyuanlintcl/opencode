@@ -32,7 +32,7 @@ Task 1: 类型定义 & 配置模块
 |---|---|---|---|
 | T1 | 创建 `src/omni-studio/` 目录及 `types.ts`、`config.ts` | 类型定义完整，配置读写通过单测 | 2h | ✅ |
 | T2 | 实现 Auth 模块（login / logout / getAuthHeaders） | 可成功登录并持久化 token，登出后配置清空 | 3h | ✅ |
-| T3 | 实现登录交互流程（仅 username / password，地址由 setup 预先配置） | 交互体验与主 CLI 一致；auth_base / api_base 独立配置 | 2h | ✅ |
+| T3 | 实现登录交互流程（仅 username / password，地址由 setup 预先配置） | 交互体验与主 CLI 一致；api_base 由 setup 配置 | 2h | ✅ |
 | T4 | 实现 Market HTTP 客户端（list / getExtensionMeta / download） | 可正常调用 API 并处理 401/404 错误 | 3h | ✅ |
 | T5 | 实现 Store 模块（install / uninstall / enable / disable / status） | 文件正确写入 `~/.omni_studio/`，状态持久化 | 3h | ✅ |
 | T6 | 实现 Executor 模块（detectScripts / runScript / activate 处理） | 支持 .sh/.bat/.ps1，activate 先执行，超时处理 | 3h | ✅ |

@@ -115,28 +115,22 @@ export function DialogOmniStudio() {
 
   /**
    * 处理地址配置操作。
-   * 独立设置 auth_base 和 api_base。
+   * 设置 api_base，认证和 API 调用使用同一地址。
    */
   const handleSetup = async () => {
-    const authBase = await DialogPrompt.show(dialog, "Omni Studio 认证地址", {
+    const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址", {
       placeholder: "http://127.0.0.1:18000/api/",
       value: "http://127.0.0.1:18000/api/",
     })
-    if (!authBase) return
-
-    const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址（留空则与认证地址相同）", {
-      placeholder: authBase,
-      value: authBase,
-    })
-    if (apiBase === null) return
+    if (!apiBase) return
 
     try {
       await Effect.runPromise(
         OmniStudioConfig.Service.use((svc) =>
-          svc.setEndpoints(authBase, apiBase || authBase),
+          svc.setEndpoints(apiBase),
         ).pipe(Effect.provide(OmniStudioConfig.defaultLayer)),
       )
-      DialogAlert.show(dialog, "配置成功", `认证地址: ${authBase}\nAPI 地址: ${apiBase || authBase}`)
+      DialogAlert.show(dialog, "配置成功", `API 地址: ${apiBase}`)
     } catch (e) {
       DialogAlert.show(dialog, "配置失败", String(e))
     }

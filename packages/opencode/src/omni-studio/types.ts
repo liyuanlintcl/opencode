@@ -44,10 +44,8 @@ export interface ExtensionScripts {
  * 持久化到 `~/.omni_studio/omni-studio.json`，文件权限 0o600。
  */
 export interface OmniStudioConfig {
-  /** Marketplace API 基础地址 */
+  /** Marketplace API 基础地址，认证也使用同一地址 */
   api_base: string
-  /** 认证服务基础地址，通常与 api_base 相同 */
-  auth_base: string
   /** JWT 访问令牌 */
   access_token: string
   /** JWT 刷新令牌 */

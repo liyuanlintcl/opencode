@@ -61,27 +61,20 @@ export const OmniStudioSetupCommand = cmd({
       UI.empty()
       prompts.intro("Omni Studio Setup")
 
-      const authUrl = await prompts.text({
-        message: "Enter Omni Studio auth base URL",
+      const apiUrl = await prompts.text({
+        message: "Enter Omni Studio API base URL",
         placeholder: "http://127.0.0.1:18000/api/",
         initialValue: "http://127.0.0.1:18000/api/",
-      })
-      if (prompts.isCancel(authUrl)) throw new UI.CancelledError()
-
-      const apiUrl = await prompts.text({
-        message: "Enter Omni Studio API base URL (press Enter to use same as auth)",
-        placeholder: authUrl,
-        initialValue: authUrl,
       })
       if (prompts.isCancel(apiUrl)) throw new UI.CancelledError()
 
       await Effect.runPromise(
-        OmniStudioConfig.Service.use((svc) => svc.setEndpoints(authUrl, apiUrl || authUrl)).pipe(
+        OmniStudioConfig.Service.use((svc) => svc.setEndpoints(apiUrl)).pipe(
           Effect.provide(OmniStudioConfig.defaultLayer),
         ),
       )
 
-      prompts.log.success("Endpoints configured successfully")
+      prompts.log.success("API base URL configured successfully")
       prompts.outro("Done")
     } catch (error) {
       if (error instanceof UI.CancelledError) {

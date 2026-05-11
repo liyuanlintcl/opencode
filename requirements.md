@@ -17,7 +17,7 @@
 | ID | 需求 | 优先级 |
 |---|---|---|
 | F1 | 登录：`opencode omni-studio login`，仅输入用户名和密码；认证地址和 API 地址通过 `setup` 预先配置 | P0 |
-| F1a | 服务地址配置：`opencode omni-studio setup`，独立设置 auth_base 和 api_base | P0 |
+| F1a | 服务地址配置：`opencode omni-studio setup`，设置 api_base | P0 |
 | F2 | 登出：`opencode omni-studio logout` | P0 |
 | F3 | 交互式列出市场扩展：`opencode omni-studio list [type]`，显示本地安装状态并支持选中直接安装 | P0 |
 | F4 | 安装扩展：`opencode omni-studio install <type> <slug> [version]` | P0 |

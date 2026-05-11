@@ -55,9 +55,9 @@ describe("OmniStudioAuth", () => {
         console.log(`[skip] Backend ${API_BASE} not available`)
         return
       }
-      /** 预先设置 auth_base 和 api_base，供 login 读取 */
+      /** 预先设置 api_base，供 login 读取 */
       await Effect.runPromise(
-        OmniStudioConfig.Service.use((svc) => svc.setEndpoints(API_BASE, API_BASE)).pipe(
+        OmniStudioConfig.Service.use((svc) => svc.setEndpoints(API_BASE)).pipe(
           Effect.provide(OmniStudioConfig.defaultLayer),
           Effect.provide(AppFileSystem.defaultLayer),
         ),
@@ -76,7 +76,6 @@ describe("OmniStudioAuth", () => {
       expect(config.user.id).toBeTruthy()
       expect(config.user.username).toBe(TEST_USERNAME)
       expect(config.api_base).toBe(API_BASE)
-      expect(config.auth_base).toBe(API_BASE)
 
       /** 验证文件已持久化到本地 */
       const configPath = path.join(tmpHome, ".omni_studio", "omni-studio.json")

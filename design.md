@@ -40,7 +40,6 @@ omni-studio.json             {skills,tools,...}/
 ```ts
 interface OmniStudioConfig {
   api_base: string
-  auth_base: string
   access_token: string
   refresh_token: string
   user: {
@@ -98,9 +97,9 @@ interface ExtensionScripts {
 
 ```ts
 type Command =
-  | { cmd: "login" }                                 // 仅输入 username / password，auth_base/api_base 由 setup 预先配置
+  | { cmd: "login" }                                 // 仅输入 username / password，api_base 由 setup 预先配置
   | { cmd: "logout" }
-  | { cmd: "setup" }                                 // 独立设置 auth_base 和 api_base
+  | { cmd: "setup" }                                 // 设置 api_base
   | { cmd: "list"; type?: ExtensionType }          // 交互式：展示远程列表 + 本地安装状态，支持选中安装
   | { cmd: "install"; type: ExtensionType; slug: string; version?: string }
   | { cmd: "uninstall"; type: ExtensionType; slug: string }
@@ -140,10 +139,10 @@ slash 命令的数据流与 CLI 命令共享同一套 Effect Service（`OmniStud
 ### 4.2 Auth API
 
 ```ts
-async function login(credentials: { username: string; password: string }): Promise<AuthResult>  // 从配置读取 auth_base
+async function login(credentials: { username: string; password: string }): Promise<AuthResult>  // 从配置读取 api_base
 async function logout(): Promise<void>
 async function getAuthHeaders(): Promise<Record<string, string>>
-async function setupEndpoints(authBase: string, apiBase: string): Promise<void>  // 独立设置服务地址
+async function setupEndpoints(apiBase: string): Promise<void>  // 设置服务地址
 ```
 
 ### 4.3 Market API
@@ -184,11 +183,10 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 ### 5.1 地址配置流程（setup）
 
 ```
-1. 交互式输入 auth_base（认证服务基础地址）
-2. 交互式输入 api_base（API 服务基础地址，可留空则与 auth_base 相同）
-3. 校验地址格式（必须以 http:// 或 https:// 开头）
-4. 保存 auth_base 和 api_base 到 omni-studio.json（不覆盖已有 token）
-5. 输出配置成功信息
+1. 交互式输入 api_base（API 服务基础地址）
+2. 校验地址格式（必须以 http:// 或 https:// 开头）
+3. 保存 api_base 到 omni-studio.json（不覆盖已有 token）
+4. 输出配置成功信息
 ```
 
 ### 5.2 登录流程
@@ -197,10 +195,10 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 1. 检查是否已有登录配置
    - 有 → 提示已登录，询问是否重新登录
    - 无 → 继续
-2. 读取配置中的 auth_base；如未设置，提示先运行 setup
+2. 读取配置中的 api_base；如未设置，提示先运行 setup
 3. 交互式输入 username / password
-4. POST ${authBase}/auth/auth/login
-5. 保存 token 和用户信息到 omni-studio.json（保留已有 api_base / auth_base）
+4. POST ${apiBase}/auth/auth/login
+5. 保存 token 和用户信息到 omni-studio.json（保留已有 api_base）
 6. 设置文件权限 0o600
 7. 输出登录成功信息
 ```
@@ -310,9 +308,9 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
    - Uninstall→ 选择本地扩展 → 确认卸载
    - Enable   → 选择已禁用扩展 → 确认启用
    - Disable  → 选择已启用扩展 → 确认禁用
-   - Login    → 输入 username / password（从配置读取 auth_base）
+   - Login    → 输入 username / password（从配置读取 api_base）
    - Logout   → 调用 Auth.logout() → 展示登出结果
-   - Setup    → 输入 auth_base 和 api_base → 保存配置
+   - Setup    → 输入 api_base → 保存配置
 5. 按 esc 返回菜单，再次按 esc 关闭对话框
 ```
 

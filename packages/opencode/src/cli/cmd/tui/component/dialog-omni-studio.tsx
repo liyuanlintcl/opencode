@@ -10,7 +10,7 @@ import { Effect } from "effect"
 import { OmniStudioAuth } from "@/omni-studio/auth"
 import { OmniStudioStore } from "@/omni-studio/store"
 import { OmniStudioMarket } from "@/omni-studio/market"
-import { interactiveLogin } from "@/omni-studio/interactive"
+
 import type { ExtensionType, Extension } from "@/omni-studio/types"
 
 /**
@@ -87,15 +87,34 @@ export function DialogOmniStudio() {
 
   /**
    * 处理登录操作。
-   * 先关闭当前对话框释放终端控制权，再调用交互式登录流程。
+   * 使用 TUI 原生 DialogPrompt 输入信息，避免 @clack/prompts 与终端渲染器冲突。
    */
   const handleLogin = async () => {
-    dialog.clear()
+    const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址", {
+      placeholder: "http://127.0.0.1:18000/api/v1",
+      value: "http://127.0.0.1:18000/api/v1",
+    })
+    if (!apiBase) return
+
+    const username = await DialogPrompt.show(dialog, "用户名", {
+      placeholder: "admin",
+    })
+    if (!username) return
+
+    const password = await DialogPrompt.show(dialog, "密码（输入内容可见）", {
+      placeholder: "输入密码",
+    })
+    if (!password) return
+
     try {
-      await interactiveLogin()
-      DialogAlert.show(dialog, "Omni Studio", "登录成功")
+      const config = await Effect.runPromise(
+        OmniStudioAuth.Service.use((svc) =>
+          svc.login({ username, password }, apiBase),
+        ).pipe(Effect.provide(OmniStudioAuth.defaultLayer)),
+      )
+      DialogAlert.show(dialog, "登录成功", `已以 ${config.user.username} 身份登录`)
     } catch (e) {
-      DialogAlert.show(dialog, "Omni Studio 登录", `登录失败: ${e}`)
+      DialogAlert.show(dialog, "登录失败", String(e))
     }
   }
 

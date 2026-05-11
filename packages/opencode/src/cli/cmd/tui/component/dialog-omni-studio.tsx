@@ -1,3 +1,5 @@
+import path from "path"
+import fs from "fs/promises"
 import { TextAttributes } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
@@ -7,12 +9,39 @@ import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
 import { Show, createSignal, createEffect } from "solid-js"
 import { Effect } from "effect"
+import { Global } from "@opencode-ai/core/global"
 import { OmniStudioAuth } from "@/omni-studio/auth"
 import { OmniStudioConfig } from "@/omni-studio/config"
 import { OmniStudioStore } from "@/omni-studio/store"
 import { OmniStudioMarket } from "@/omni-studio/market"
 
 import type { ExtensionType, Extension } from "@/omni-studio/types"
+
+/** 调试日志文件路径 */
+const debugLogFile = path.join(Global.Path.home, ".omni_studio", "tui-debug.log")
+
+/**
+ * 写入调试日志到文件。
+ * 异步执行，失败时静默忽略。
+ */
+function debugLog(...args: unknown[]) {
+  const line =
+    `[${new Date().toISOString()}] ` +
+    args
+      .map((a) => {
+        if (typeof a === "object") {
+          try {
+            return JSON.stringify(a)
+          } catch {
+            return String(a)
+          }
+        }
+        return String(a)
+      })
+      .join(" ") +
+    "\n"
+  void fs.appendFile(debugLogFile, line).catch(() => {})
+}
 
 /**
  * 通用选择对话框辅助函数。
@@ -69,19 +98,19 @@ export function DialogOmniStudio() {
   const dialog = useDialog()
   const { theme } = useTheme()
   const [view, setView] = createSignal<"menu" | "status" | "list">("menu")
-  createEffect(() => console.log("[OmniStudio] view changed:", view()))
+  createEffect(() => debugLog("[OmniStudio] view changed:", view()))
 
   const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
   const [marketList, setMarketList] = createSignal<ListResult>({ kind: "loading" })
 
-  createEffect(() => console.log("[OmniStudio] marketList changed:", marketList()))
-  createEffect(() => console.log("[OmniStudio] status changed:", status()))
+  createEffect(() => debugLog("[OmniStudio] marketList changed:", marketList()))
+  createEffect(() => debugLog("[OmniStudio] status changed:", status()))
 
   /**
    * 重新获取本地状态（登录信息 + 已安装扩展）。
    */
   const refreshStatus = async () => {
-    console.log("[OmniStudio] refreshStatus start")
+    debugLog("[OmniStudio] refreshStatus start")
     setStatus({ kind: "loading" })
     try {
       const result = await Effect.runPromise(
@@ -89,10 +118,10 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      console.log("[OmniStudio] refreshStatus success:", result)
+      debugLog("[OmniStudio] refreshStatus success:", result)
       setStatus({ kind: "ok", config: result.config, extensions: result.extensions })
     } catch (e) {
-      console.log("[OmniStudio] refreshStatus error:", e)
+      debugLog("[OmniStudio] refreshStatus error:", e)
       setStatus({ kind: "error", message: String(e) })
     }
   }
@@ -101,7 +130,7 @@ export function DialogOmniStudio() {
    * 重新获取远程市场扩展列表。
    */
   const refreshMarketList = async () => {
-    console.log("[OmniStudio] refreshMarketList start")
+    debugLog("[OmniStudio] refreshMarketList start")
     setMarketList({ kind: "loading" })
     try {
       const result = await Effect.runPromise(
@@ -109,10 +138,10 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioMarket.defaultLayer),
         ),
       )
-      console.log("[OmniStudio] refreshMarketList success, count:", result.length)
+      debugLog("[OmniStudio] refreshMarketList success, count:", result.length)
       setMarketList({ kind: "ok", data: result })
     } catch (e) {
-      console.log("[OmniStudio] refreshMarketList error:", e)
+      debugLog("[OmniStudio] refreshMarketList error:", e)
       setMarketList({ kind: "error", message: String(e) })
     }
   }
@@ -122,9 +151,9 @@ export function DialogOmniStudio() {
    * 不修改通用 DialogAlert 组件，利用 await 后 dialog 已被 clear 的特性重新打开菜单。
    */
   const showResult = async (title: string, message: string) => {
-    console.log("[OmniStudio] showResult:", title, message)
+    debugLog("[OmniStudio] showResult:", title, message)
     await DialogAlert.show(dialog, title, message)
-    console.log("[OmniStudio] dialog.replace after alert")
+    debugLog("[OmniStudio] dialog.replace after alert")
     dialog.replace(() => <DialogOmniStudio />)
   }
 
@@ -343,7 +372,6 @@ export function DialogOmniStudio() {
    */
   const statusMessage = () => {
     const s = status()
-    console.log("[OmniStudio] statusMessage called, status:", s)
     if (s.kind === "loading") return "加载中..."
     if (s.kind === "error") return `错误: ${s.message}`
     const lines = [
@@ -356,9 +384,7 @@ export function DialogOmniStudio() {
           `  ${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`,
       ),
     ]
-    const msg = lines.filter(Boolean).join("\n")
-    console.log("[OmniStudio] statusMessage result:", msg)
-    return msg
+    return lines.filter(Boolean).join("\n")
   }
 
   /**
@@ -366,15 +392,12 @@ export function DialogOmniStudio() {
    */
   const listMessage = () => {
     const l = marketList()
-    console.log("[OmniStudio] listMessage called, marketList:", l)
     if (l.kind === "loading") return "加载中..."
     if (l.kind === "error") return `错误: ${l.message}`
     if (!Array.isArray(l.data) || l.data.length === 0) return "未找到扩展"
-    const msg = l.data
+    return l.data
       .map((ext) => `${ext.name} (${ext.type}) v${ext.version} - ${ext.author}`)
       .join("\n")
-    console.log("[OmniStudio] listMessage result:", msg)
-    return msg
   }
 
   return (
@@ -396,8 +419,17 @@ export function DialogOmniStudio() {
             </text>
           </box>
           <box paddingBottom={1}>
-            <text fg={theme.textMuted} wrapMode="word">
-              {view() === "status" ? statusMessage() : listMessage()}
+            <text fg={theme.textMuted}>
+              {view() === "status"
+                ? statusMessage()
+                : `[DEBUG] marketList=${(() => {
+                    const l = marketList()
+                    try {
+                      return JSON.stringify(l).slice(0, 300)
+                    } catch {
+                      return String(l)
+                    }
+                  })()}\n---\n${listMessage()}`}
             </text>
           </box>
         </box>

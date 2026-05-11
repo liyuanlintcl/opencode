@@ -72,13 +72,14 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
     /**
      * 统一处理 HTTP 及业务错误。
      * 401 → Unauthorized，404 → Extension not found，5xx → 后端内部错误。
+     * 业务码非 200 时返回 [HTTP状态码] 错误信息，便于区分网络错误和 token 过期。
      */
     const checkError = Effect.fn("OmniStudioMarket.checkError")(function* (response: Response, envelope: ApiResponse) {
-      if (response.status === 401) return yield* Effect.fail("Unauthorized")
-      if (response.status === 404) return yield* Effect.fail("Extension not found")
-      if (response.status >= 500) return yield* Effect.fail(envelope.message || `Server error: HTTP ${response.status}`)
-      if (!response.ok) return yield* Effect.fail(envelope.message || `HTTP ${response.status}`)
-      if (envelope.code !== 200) return yield* Effect.fail(envelope.message || `Business error: code ${envelope.code}`)
+      if (response.status === 401) return yield* Effect.fail(`[${response.status}] Unauthorized`)
+      if (response.status === 404) return yield* Effect.fail(`[${response.status}] Extension not found`)
+      if (response.status >= 500) return yield* Effect.fail(`[${response.status}] ${envelope.message || "Server error"}`)
+      if (!response.ok) return yield* Effect.fail(`[${response.status}] ${envelope.message || "HTTP error"}`)
+      if (envelope.code !== 200) return yield* Effect.fail(`[${response.status}] ${envelope.message || `Business error: code ${envelope.code}`}`)
     })
 
     /** 列出市场扩展 */

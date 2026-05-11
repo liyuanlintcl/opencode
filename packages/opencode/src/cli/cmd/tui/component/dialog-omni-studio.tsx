@@ -397,7 +397,7 @@ export function DialogOmniStudio() {
     if (!Array.isArray(l.data) || l.data.length === 0) return "未找到扩展"
     return l.data
       .map((ext) => `${ext.name} (${ext.type}) v${ext.version} - ${ext.author}`)
-      .join("\n")
+      .join("; ")
   }
 
   return (
@@ -422,21 +422,21 @@ export function DialogOmniStudio() {
             <text fg={theme.textMuted}>
               {view() === "status"
                 ? statusMessage()
-                : `[DEBUG] marketList=${(() => {
+                : `[DEBUG] view=${view()} marketList=${(() => {
                     const l = marketList()
                     try {
-                      return JSON.stringify(l).slice(0, 300)
+                      return JSON.stringify(l).slice(0, 200)
                     } catch {
                       return String(l)
                     }
-                  })()}\n---\n${listMessage()}`}
+                  })()}; ${listMessage()}`}
             </text>
           </box>
         </box>
       }
     >
       <DialogSelect
-        title="Omni Studio"
+        title={`Omni Studio [view=${view()}]`}
         options={[
           {
             title: "状态",

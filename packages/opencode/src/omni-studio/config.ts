@@ -30,6 +30,18 @@ export interface Interface {
 }
 
 /**
+ * 规范化 api_base 地址。
+ * 去除首尾空白和尾部斜杠，确保拼接路径时不会出现双斜杠。
+ */
+function normalizeApiBase(base: string): string {
+  let result = base.trim()
+  while (result.endsWith("/")) {
+    result = result.slice(0, -1)
+  }
+  return result
+}
+
+/**
  * Omni Studio 配置管理 Effect Service。
  * 通过 `Context.Service` 注册，可被其他模块依赖注入。
  */
@@ -44,10 +56,16 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const fs = yield* AppFileSystem.Service
 
-    /** 读取登录配置 */
+    /** 读取登录配置；返回前对 api_base 做规范化 */
     const read = Effect.fn("OmniStudioConfig.read")(function* () {
       return yield* fs.readJson(configFile()).pipe(
-        Effect.map((data) => data as OmniStudioConfig),
+        Effect.map((data) => {
+          const config = data as OmniStudioConfig
+          if (config.api_base) {
+            config.api_base = normalizeApiBase(config.api_base)
+          }
+          return config
+        }),
         Effect.catch(() => Effect.succeed(null)),
       )
     })
@@ -63,11 +81,11 @@ export const layer = Layer.effect(
       yield* fs.remove(configFile()).pipe(Effect.catch(() => Effect.void))
     })
 
-    /** 设置 api_base；保留已有 token 和用户信息 */
+    /** 设置 api_base；保留已有 token 和用户信息；存储前规范化 */
     const setEndpoints = Effect.fn("OmniStudioConfig.setEndpoints")(function* (apiBase: string) {
       const existing = yield* read()
       const config: OmniStudioConfig = {
-        api_base: apiBase,
+        api_base: normalizeApiBase(apiBase),
         access_token: existing?.access_token ?? "",
         refresh_token: existing?.refresh_token ?? "",
         user: existing?.user ?? { id: "", username: "" },

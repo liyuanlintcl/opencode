@@ -51,11 +51,11 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
     const authSvc = yield* OmniStudioAuth.Service
     const configSvc = yield* OmniStudioConfig.Service
 
-    /** 获取 API 基础地址并去除尾部斜杠；未登录时返回失败 */
+    /** 获取 API 基础地址；config.read() 已做规范化 */
     const getApiBase = Effect.fn("OmniStudioMarket.getApiBase")(function* () {
       const config = yield* configSvc.read()
       if (!config) return yield* Effect.fail("Not logged in")
-      return config.api_base.endsWith("/") ? config.api_base.slice(0, -1) : config.api_base
+      return config.api_base
     })
 
     /**
@@ -87,14 +87,15 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const base = yield* getApiBase()
       const headers = yield* authSvc.getAuthHeaders()
       const entityType = toEntityType(type ?? "skill")
-      const url = `${base}/api/v1/packages/${entityType}?page=0&size=20`
+      const url = `${base}/api/v1/packages/${entityType}?page=1&size=20`
       const response = yield* Effect.tryPromise({
         try: () => fetch(url, { headers }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
       const envelope = yield* parseEnvelope(response)
       yield* checkError(response, envelope)
-      return envelope.data as Extension[]
+      const pageData = envelope.data as { records?: Extension[] }
+      return pageData.records ?? []
     })
 
     /** 获取扩展元数据 */

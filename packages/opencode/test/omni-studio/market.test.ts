@@ -49,7 +49,7 @@ describe("OmniStudioMarket", () => {
     if (backendAvailable) {
       try {
         const headers = { Authorization: "Bearer test" }
-        const res = await fetch(`${API_BASE}/api/v1/packages/skills?page=0&size=1`, { headers, signal: AbortSignal.timeout(5000) })
+        const res = await fetch(`${API_BASE}/api/v1/packages/skills?page=1&size=1`, { headers, signal: AbortSignal.timeout(5000) })
         listEndpointHealthy = res.status < 500
       } catch {
         listEndpointHealthy = false

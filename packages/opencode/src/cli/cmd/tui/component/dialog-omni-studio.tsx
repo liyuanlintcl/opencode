@@ -88,16 +88,20 @@ export function DialogOmniStudio() {
   /**
    * 处理登录操作。
    * 使用 TUI 原生 DialogPrompt 输入信息，避免 @clack/prompts 与终端渲染器冲突。
-   *
-   * 输入的服务基础地址同时用于认证（{base}/auth/auth/login）
-   * 和 API 调用（{base}/v1/packages/...）。
+   * 认证地址（authBase）和 API 地址（apiBase）独立输入，默认相同。
    */
   const handleLogin = async () => {
-    const apiBase = await DialogPrompt.show(dialog, "Omni Studio 服务地址（认证 + API）", {
+    const authBase = await DialogPrompt.show(dialog, "Omni Studio 认证地址", {
       placeholder: "http://127.0.0.1:18000/api/",
       value: "http://127.0.0.1:18000/api/",
     })
-    if (!apiBase) return
+    if (!authBase) return
+
+    const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址（留空则与认证地址相同）", {
+      placeholder: authBase,
+      value: authBase,
+    })
+    if (apiBase === null) return
 
     const username = await DialogPrompt.show(dialog, "用户名", {
       placeholder: "admin",
@@ -112,7 +116,7 @@ export function DialogOmniStudio() {
     try {
       const config = await Effect.runPromise(
         OmniStudioAuth.Service.use((svc) =>
-          svc.login({ username, password }, apiBase),
+          svc.login({ username, password }, authBase, apiBase || authBase),
         ).pipe(Effect.provide(OmniStudioAuth.defaultLayer)),
       )
       DialogAlert.show(dialog, "登录成功", `已以 ${config.user.username} 身份登录`)

@@ -59,7 +59,7 @@ describe("OmniStudioAuth", () => {
       if (!backendAvailable) return
 
       const config = await run(
-        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE)),
+        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE, API_BASE)),
       )
 
       expect(config.access_token).toBeTruthy()
@@ -81,7 +81,7 @@ describe("OmniStudioAuth", () => {
       if (!backendAvailable) return
 
       await expect(
-        run(OmniStudioAuth.Service.use((svc) => svc.login({ username: "__invalid__", password: "__wrong__" }, API_BASE))),
+        run(OmniStudioAuth.Service.use((svc) => svc.login({ username: "__invalid__", password: "__wrong__" }, API_BASE, API_BASE))),
       ).rejects.toBeDefined()
     })
 
@@ -89,7 +89,7 @@ describe("OmniStudioAuth", () => {
       if (!backendAvailable) return
 
       await run(
-        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE)),
+        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE, API_BASE)),
       )
       const headers = await run(OmniStudioAuth.Service.use((svc) => svc.getAuthHeaders()))
       expect(headers.Authorization).toMatch(/^Bearer /)
@@ -99,7 +99,7 @@ describe("OmniStudioAuth", () => {
       if (!backendAvailable) return
 
       await run(
-        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE)),
+        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE, API_BASE)),
       )
       const loggedIn = await run(OmniStudioAuth.Service.use((svc) => svc.isLoggedIn()))
       expect(loggedIn).toBe(true)

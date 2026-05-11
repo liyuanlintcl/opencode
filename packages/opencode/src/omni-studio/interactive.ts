@@ -35,16 +35,25 @@ export async function interactiveLogin(apiBase?: string): Promise<void> {
     }
   }
 
-  /** 如未通过参数传入 API 地址，交互式询问 */
-  let base = apiBase
-  if (!base) {
-    const url = await prompts.text({
-      message: "Enter Omni Studio service base URL (used for both auth and API)",
+  /** 如未通过参数传入地址，交互式分别询问认证地址和 API 地址 */
+  let authBase = apiBase
+  let apiBaseUrl = apiBase
+  if (!authBase) {
+    const authUrl = await prompts.text({
+      message: "Enter Omni Studio auth base URL",
       placeholder: "http://127.0.0.1:18000/api/",
       initialValue: "http://127.0.0.1:18000/api/",
     })
-    if (prompts.isCancel(url)) throw new UI.CancelledError()
-    base = url
+    if (prompts.isCancel(authUrl)) throw new UI.CancelledError()
+    authBase = authUrl
+
+    const marketUrl = await prompts.text({
+      message: "Enter Omni Studio API base URL (press Enter to use same as auth)",
+      placeholder: authBase,
+      initialValue: authBase,
+    })
+    if (prompts.isCancel(marketUrl)) throw new UI.CancelledError()
+    apiBaseUrl = marketUrl || authBase
   }
 
   /** 交互式输入用户名 */
@@ -68,7 +77,7 @@ export async function interactiveLogin(apiBase?: string): Promise<void> {
     /** 调用认证服务完成登录 */
     const config = await Effect.runPromise(
       OmniStudioAuth.Service.use((svc) =>
-        svc.login({ username, password }, base!),
+        svc.login({ username, password }, authBase!, apiBaseUrl!),
       ).pipe(Effect.provide(OmniStudioAuth.defaultLayer)),
     )
     spinner.stop("Authentication successful!")

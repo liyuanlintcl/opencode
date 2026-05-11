@@ -1,7 +1,7 @@
 import { Effect, Layer, Context } from "effect"
 import { OmniStudioAuth } from "./auth"
 import { OmniStudioConfig } from "./config"
-import type { Extension, ExtensionType } from "./types"
+import type { Extension, ExtensionType, PagedResult } from "./types"
 
 /**
  * 后端统一响应信封结构：{ code, message, success, data }
@@ -26,8 +26,10 @@ function toEntityType(type: ExtensionType): string {
  * 提供扩展列表查询、元数据获取及扩展包下载功能。
  */
 export interface Interface {
-  /** 列出市场扩展 */
+  /** 列出市场扩展（仅返回第一页数据，兼容旧调用方） */
   readonly list: (type?: ExtensionType) => Effect.Effect<Extension[], string>
+  /** 分页列出市场扩展，返回记录和分页信息 */
+  readonly listPaged: (type?: ExtensionType, page?: number) => Effect.Effect<PagedResult<Extension>, string>
   /** 获取扩展元数据 */
   readonly getMeta: (type: ExtensionType, slug: string) => Effect.Effect<Extension, string>
   /** 下载扩展包到指定目录 */
@@ -82,20 +84,25 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       if (envelope.code !== 200) return yield* Effect.fail(`[${response.status}] ${envelope.message || `Business error: code ${envelope.code}`}`)
     })
 
-    /** 列出市场扩展 */
-    const list = Effect.fn("OmniStudioMarket.list")(function* (type?: ExtensionType) {
+    /** 分页列出市场扩展 */
+    const listPaged = Effect.fn("OmniStudioMarket.listPaged")(function* (type?: ExtensionType, page = 1) {
       const base = yield* getApiBase()
       const headers = yield* authSvc.getAuthHeaders()
       const entityType = toEntityType(type ?? "skill")
-      const url = `${base}/api/v1/packages/${entityType}?page=1&size=20`
+      const url = `${base}/api/v1/packages/${entityType}?page=${page}&size=10`
       const response = yield* Effect.tryPromise({
         try: () => fetch(url, { headers }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
       const envelope = yield* parseEnvelope(response)
       yield* checkError(response, envelope)
-      const pageData = envelope.data as { records?: Extension[] }
-      return pageData.records ?? []
+      return envelope.data as PagedResult<Extension>
+    })
+
+    /** 列出市场扩展（仅返回第一页 records，兼容旧调用方） */
+    const list = Effect.fn("OmniStudioMarket.list")(function* (type?: ExtensionType) {
+      const result = yield* listPaged(type, 1)
+      return result.records
     })
 
     /** 获取扩展元数据 */
@@ -172,6 +179,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
 
     return Service.of({
       list,
+      listPaged,
       getMeta,
       download,
     })

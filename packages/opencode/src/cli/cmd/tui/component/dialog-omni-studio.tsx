@@ -15,7 +15,7 @@ import { OmniStudioConfig } from "@/omni-studio/config"
 import { OmniStudioStore } from "@/omni-studio/store"
 import { OmniStudioMarket } from "@/omni-studio/market"
 
-import type { ExtensionType, Extension } from "@/omni-studio/types"
+import type { ExtensionType, Extension, PagedResult } from "@/omni-studio/types"
 
 /** 调试日志文件路径 */
 const debugLogFile = path.join(Global.Path.home, ".omni_studio", "tui-debug.log")
@@ -82,20 +82,22 @@ type StatusResult =
   | { kind: "error"; message: string }
 
 /**
- * 远程市场列表查询结果。
+ * 远程市场列表查询结果（含分页信息）。
  */
 type ListResult =
   | { kind: "loading" }
-  | { kind: "ok"; data: Extension[] }
+  | { kind: "ok"; data: Extension[]; pageInfo: PagedResult<Extension>["pageInfo"] }
   | { kind: "error"; message: string }
 
 /**
  * Omni Studio 状态视图。
- * 直接用 dialog.replace 渲染，不使用 Show 组件。
+ * 本地扩展列表支持前端分页，底部显示页码和翻页按钮。
  */
 function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void }) {
   const { theme } = useTheme()
   const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
+  const [currentPage, setCurrentPage] = createSignal(1)
+  const PAGE_SIZE = 10
 
   createEffect(() => {
     debugLog("[OmniStudio] StatusView 挂载，开始刷新")
@@ -108,13 +110,14 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
           ),
         )
         setStatus({ kind: "ok", config: result.config, extensions: result.extensions })
+        setCurrentPage(1)
       } catch (e) {
         setStatus({ kind: "error", message: String(e) })
       }
     })()
   })
 
-  const message = () => {
+  const headerLines = () => {
     const s = status()
     if (s.kind === "loading") return "加载中..."
     if (s.kind === "error") return `错误: ${s.message}`
@@ -123,13 +126,31 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
       s.config ? `API 地址: ${s.config.api_base}` : "",
       s.config ? `用户名: ${s.config.user.username}` : "",
       `扩展数量: ${s.extensions.length}`,
-      ...s.extensions.map(
-        (ext) =>
-          `  ${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`,
-      ),
     ]
     return lines.filter(Boolean).join("\n")
   }
+
+  const pagedExtensions = () => {
+    const s = status()
+    if (s.kind !== "ok") return []
+    const start = (currentPage() - 1) * PAGE_SIZE
+    return s.extensions.slice(start, start + PAGE_SIZE)
+  }
+
+  const totalPages = () => {
+    const s = status()
+    if (s.kind !== "ok") return 1
+    return Math.max(1, Math.ceil(s.extensions.length / PAGE_SIZE))
+  }
+
+  const pageText = () => {
+    const s = status()
+    if (s.kind !== "ok") return ""
+    return `第 ${currentPage()}/${totalPages()} 页`
+  }
+
+  const canPrev = () => currentPage() > 1
+  const canNext = () => currentPage() < totalPages()
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
@@ -145,36 +166,83 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
         </text>
       </box>
       <box paddingBottom={1}>
-        <text fg={theme.textMuted}>{message()}</text>
+        <text fg={theme.textMuted}>{headerLines()}</text>
       </box>
+      <Show when={status().kind === "ok" && (status() as Extract<StatusResult, { kind: "ok" }>).extensions.length > 0}>
+        <box paddingBottom={1}>
+          <text fg={theme.textMuted}>
+            {pagedExtensions()
+              .map((ext) => `  ${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`)
+              .join("\n")}
+          </text>
+        </box>
+        <Show when={totalPages() > 1}>
+          <box flexDirection="row" justifyContent="space-between" paddingTop={1}>
+            <text
+              fg={canPrev() ? theme.primary : theme.textMuted}
+              attributes={canPrev() ? TextAttributes.BOLD : undefined}
+              onMouseUp={() => canPrev() && setCurrentPage((p) => p - 1)}
+            >
+              ◀ 上一页
+            </text>
+            <text fg={theme.textMuted}>{pageText()}</text>
+            <text
+              fg={canNext() ? theme.primary : theme.textMuted}
+              attributes={canNext() ? TextAttributes.BOLD : undefined}
+              onMouseUp={() => canNext() && setCurrentPage((p) => p + 1)}
+            >
+              下一页 ▶
+            </text>
+          </box>
+        </Show>
+      </Show>
     </box>
   )
 }
 
 /**
  * Omni Studio 列表视图。
- * 直接用 dialog.replace 渲染，不使用 Show 组件。
+ * 支持 type 切换和分页浏览，底部显示页码和翻页按钮。
  */
 function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }) {
   const { theme } = useTheme()
   const [marketList, setMarketList] = createSignal<ListResult>({ kind: "loading" })
+  const [currentPage, setCurrentPage] = createSignal(1)
+  const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
 
+  const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
+
+  /**
+   * 加载指定 type 和页码的数据。
+   * currentPage 或 selectedType 变化时自动触发。
+   */
   createEffect(() => {
-    debugLog("[OmniStudio] ListView 挂载，开始刷新")
+    const page = currentPage()
+    const type = selectedType()
+    debugLog("[OmniStudio] ListView 加载", type, "第", page, "页")
     void (async () => {
       setMarketList({ kind: "loading" })
       try {
         const result = await Effect.runPromise(
-          OmniStudioMarket.Service.use((svc) => svc.list()).pipe(
+          OmniStudioMarket.Service.use((svc) => svc.listPaged(type, page)).pipe(
             Effect.provide(OmniStudioMarket.defaultLayer),
           ),
         )
-        setMarketList({ kind: "ok", data: result })
+        setMarketList({ kind: "ok", data: result.records, pageInfo: result.pageInfo })
       } catch (e) {
         setMarketList({ kind: "error", message: String(e) })
       }
     })()
   })
+
+  /**
+   * 切换扩展类型，重置到第 1 页。
+   */
+  const switchType = (type: ExtensionType) => {
+    if (type === selectedType()) return
+    setSelectedType(type)
+    setCurrentPage(1)
+  }
 
   const message = () => {
     const l = marketList()
@@ -184,6 +252,22 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     return l.data
       .map((ext) => `${ext.name} (${ext.type}) v${ext.version} - ${ext.author}`)
       .join("\n")
+  }
+
+  const pageText = () => {
+    const l = marketList()
+    if (l.kind !== "ok") return ""
+    return `第 ${l.pageInfo.currentPage}/${l.pageInfo.totalPages} 页 (共 ${l.pageInfo.totalElements} 条)`
+  }
+
+  const canPrev = () => {
+    const l = marketList()
+    return l.kind === "ok" && l.pageInfo.hasPrevious
+  }
+
+  const canNext = () => {
+    const l = marketList()
+    return l.kind === "ok" && l.pageInfo.hasNext
   }
 
   return (
@@ -199,9 +283,42 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           esc
         </text>
       </box>
+      <box flexDirection="row" gap={2} paddingTop={1} paddingBottom={1}>
+        {typeOptions.map((type) => {
+          const active = selectedType() === type
+          return (
+            <text
+              fg={active ? theme.primary : theme.textMuted}
+              attributes={active ? TextAttributes.BOLD : undefined}
+              onMouseUp={() => switchType(type)}
+            >
+              {active ? `[${type}]` : ` ${type} `}
+            </text>
+          )
+        })}
+      </box>
       <box paddingBottom={1}>
         <text fg={theme.textMuted}>{message()}</text>
       </box>
+      <Show when={marketList().kind === "ok"}>
+        <box flexDirection="row" justifyContent="space-between" paddingTop={1}>
+          <text
+            fg={canPrev() ? theme.primary : theme.textMuted}
+            attributes={canPrev() ? TextAttributes.BOLD : undefined}
+            onMouseUp={() => canPrev() && setCurrentPage((p) => p - 1)}
+          >
+            ◀ 上一页
+          </text>
+          <text fg={theme.textMuted}>{pageText()}</text>
+          <text
+            fg={canNext() ? theme.primary : theme.textMuted}
+            attributes={canNext() ? TextAttributes.BOLD : undefined}
+            onMouseUp={() => canNext() && setCurrentPage((p) => p + 1)}
+          >
+            下一页 ▶
+          </text>
+        </box>
+      </Show>
     </box>
   )
 }

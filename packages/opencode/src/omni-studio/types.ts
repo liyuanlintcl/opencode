@@ -2,6 +2,34 @@
 export type ExtensionType = "skill" | "tool" | "plugin" | "agent"
 
 /**
+ * 后端分页信息。
+ */
+export interface PageInfo {
+  /** 当前页码（从 1 开始） */
+  currentPage: number
+  /** 每页条数 */
+  size: number
+  /** 总页数 */
+  totalPages: number
+  /** 总记录数 */
+  totalElements: number
+  /** 是否有下一页 */
+  hasNext: boolean
+  /** 是否有上一页 */
+  hasPrevious: boolean
+}
+
+/**
+ * 分页结果包装。
+ */
+export interface PagedResult<T> {
+  /** 当前页记录列表 */
+  records: T[]
+  /** 分页信息 */
+  pageInfo: PageInfo
+}
+
+/**
  * 远程 Marketplace 返回的扩展元数据。
  * 包含扩展的完整展示信息和下载地址，用于市场列表浏览和安装。
  */

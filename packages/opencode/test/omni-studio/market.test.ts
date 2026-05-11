@@ -68,6 +68,7 @@ describe("OmniStudioMarket", () => {
 
       const extensions = await run(OmniStudioMarket.Service.use((svc) => svc.list("skill")))
       expect(Array.isArray(extensions)).toBe(true)
+      expect(extensions.length).toBeGreaterThan(0)
     })
 
     test("list fails gracefully when backend errors", async () => {
@@ -82,7 +83,7 @@ describe("OmniStudioMarket", () => {
 
       /** 先获取列表，再查询第一个扩展的详情 */
       const extensions = await run(OmniStudioMarket.Service.use((svc) => svc.list("skill")))
-      if (extensions.length === 0) return
+      expect(extensions.length).toBeGreaterThan(0)
 
       const meta = await run(
         OmniStudioMarket.Service.use((svc) => svc.getMeta(extensions[0].type, extensions[0].slug)),
@@ -102,7 +103,7 @@ describe("OmniStudioMarket", () => {
       if (!backendAvailable || !listEndpointHealthy) return
 
       const extensions = await run(OmniStudioMarket.Service.use((svc) => svc.list("skill")))
-      if (extensions.length === 0) return
+      expect(extensions.length).toBeGreaterThan(0)
 
       const targetDir = path.join(tmpHome, "downloads")
       await fs.mkdir(targetDir, { recursive: true })

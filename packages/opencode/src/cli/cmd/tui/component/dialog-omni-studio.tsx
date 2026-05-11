@@ -88,11 +88,14 @@ export function DialogOmniStudio() {
   /**
    * 处理登录操作。
    * 使用 TUI 原生 DialogPrompt 输入信息，避免 @clack/prompts 与终端渲染器冲突。
+   *
+   * 输入的服务基础地址同时用于认证（{base}/auth/auth/login）
+   * 和 API 调用（{base}/v1/packages/...）。
    */
   const handleLogin = async () => {
-    const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址", {
-      placeholder: "http://127.0.0.1:18000/api/v1",
-      value: "http://127.0.0.1:18000/api/v1",
+    const apiBase = await DialogPrompt.show(dialog, "Omni Studio 服务地址（认证 + API）", {
+      placeholder: "http://127.0.0.1:18000/api/",
+      value: "http://127.0.0.1:18000/api/",
     })
     if (!apiBase) return
 

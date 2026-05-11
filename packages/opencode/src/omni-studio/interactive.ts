@@ -39,9 +39,9 @@ export async function interactiveLogin(apiBase?: string): Promise<void> {
   let base = apiBase
   if (!base) {
     const url = await prompts.text({
-      message: "Enter Omni Studio API base URL",
-      placeholder: "http://127.0.0.1:18000/api/v1",
-      initialValue: "http://127.0.0.1:18000/api/v1",
+      message: "Enter Omni Studio service base URL (used for both auth and API)",
+      placeholder: "http://127.0.0.1:18000/api/",
+      initialValue: "http://127.0.0.1:18000/api/",
     })
     if (prompts.isCancel(url)) throw new UI.CancelledError()
     base = url

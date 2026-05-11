@@ -7,7 +7,7 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
-import { Show, createSignal, createEffect } from "solid-js"
+import { Show, createSignal, createEffect, For } from "solid-js"
 import { Effect } from "effect"
 import { Global } from "@opencode-ai/core/global"
 import { OmniStudioAuth } from "@/omni-studio/auth"
@@ -244,18 +244,33 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     setCurrentPage(1)
   }
 
-  const message = () => {
-    const l = marketList()
-    if (l.kind === "loading") return "加载中..."
-    if (l.kind === "error") return `错误: ${l.message}`
-    if (!Array.isArray(l.data) || l.data.length === 0) return "未找到扩展"
-    return l.data
-      .map((ext) => {
-        const versionPart = ext.version ? ` v${ext.version}` : ""
-        const authorPart = ext.author ? ` - ${ext.author}` : ""
-        return `${ext.name} (${ext.type})${versionPart}${authorPart}`
-      })
-      .join("\n")
+  /**
+   * 点击安装扩展。
+   * 先调用 getMeta 获取完整信息（含 version 和 download_url），再确认安装。
+   */
+  const handleInstallExt = async (ext: Extension) => {
+    try {
+      const meta = await Effect.runPromise(
+        OmniStudioMarket.Service.use((svc) => svc.getMeta(selectedType(), ext.slug)).pipe(
+          Effect.provide(OmniStudioMarket.defaultLayer),
+        ),
+      )
+      const confirmed = await DialogConfirm.show(
+        props.dialog,
+        "确认安装",
+        `安装 ${meta.name} (${meta.type})${meta.version ? ` v${meta.version}` : ""}?`,
+      )
+      if (!confirmed) return
+
+      await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.install(meta)).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      await DialogAlert.show(props.dialog, "安装成功", `${meta.name} 已安装并启用`)
+    } catch (e) {
+      await DialogAlert.show(props.dialog, "安装失败", String(e))
+    }
   }
 
   const pageText = () => {
@@ -301,10 +316,38 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           )
         })}
       </box>
-      <box paddingBottom={1}>
-        <text fg={theme.textMuted}>{message()}</text>
-      </box>
-      <Show when={marketList().kind === "ok"}>
+      <Show
+        when={marketList().kind === "ok" && (marketList() as Extract<ListResult, { kind: "ok" }>).data.length > 0}
+        fallback={
+          <box paddingBottom={1}>
+            <text fg={theme.textMuted}>
+              {marketList().kind === "loading"
+                ? "加载中..."
+                : marketList().kind === "error"
+                  ? `错误: ${(marketList() as Extract<ListResult, { kind: "error" }>).message}`
+                  : "未找到扩展"}
+            </text>
+          </box>
+        }
+      >
+        <box paddingBottom={1} gap={1}>
+          <For each={(marketList() as Extract<ListResult, { kind: "ok" }>).data}>
+            {(ext) => (
+              <box flexDirection="row" gap={2}>
+                <text fg={theme.textMuted}>
+                  {`${ext.name} (${ext.type})${ext.version ? ` v${ext.version}` : ""}${ext.author ? ` - ${ext.author}` : ""}`}
+                </text>
+                <text
+                  fg={theme.primary}
+                  attributes={TextAttributes.BOLD}
+                  onMouseUp={() => handleInstallExt(ext)}
+                >
+                  [安装]
+                </text>
+              </box>
+            )}
+          </For>
+        </box>
         <box flexDirection="row" justifyContent="space-between" paddingTop={1}>
           <text
             fg={canPrev() ? theme.primary : theme.textMuted}

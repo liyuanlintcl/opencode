@@ -8,6 +8,7 @@ import { DialogPrompt } from "../ui/dialog-prompt"
 import { createResource, Show, createSignal } from "solid-js"
 import { Effect } from "effect"
 import { OmniStudioAuth } from "@/omni-studio/auth"
+import { OmniStudioConfig } from "@/omni-studio/config"
 import { OmniStudioStore } from "@/omni-studio/store"
 import { OmniStudioMarket } from "@/omni-studio/market"
 
@@ -87,22 +88,9 @@ export function DialogOmniStudio() {
 
   /**
    * 处理登录操作。
-   * 使用 TUI 原生 DialogPrompt 输入信息，避免 @clack/prompts 与终端渲染器冲突。
-   * 认证地址（authBase）和 API 地址（apiBase）独立输入，默认相同。
+   * 仅输入 username / password，auth_base 从配置读取。
    */
   const handleLogin = async () => {
-    const authBase = await DialogPrompt.show(dialog, "Omni Studio 认证地址", {
-      placeholder: "http://127.0.0.1:18000/api/",
-      value: "http://127.0.0.1:18000/api/",
-    })
-    if (!authBase) return
-
-    const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址（留空则与认证地址相同）", {
-      placeholder: authBase,
-      value: authBase,
-    })
-    if (apiBase === null) return
-
     const username = await DialogPrompt.show(dialog, "用户名", {
       placeholder: "admin",
     })
@@ -116,12 +104,41 @@ export function DialogOmniStudio() {
     try {
       const config = await Effect.runPromise(
         OmniStudioAuth.Service.use((svc) =>
-          svc.login({ username, password }, authBase, apiBase || authBase),
+          svc.login({ username, password }),
         ).pipe(Effect.provide(OmniStudioAuth.defaultLayer)),
       )
       DialogAlert.show(dialog, "登录成功", `已以 ${config.user.username} 身份登录`)
     } catch (e) {
       DialogAlert.show(dialog, "登录失败", String(e))
+    }
+  }
+
+  /**
+   * 处理地址配置操作。
+   * 独立设置 auth_base 和 api_base。
+   */
+  const handleSetup = async () => {
+    const authBase = await DialogPrompt.show(dialog, "Omni Studio 认证地址", {
+      placeholder: "http://127.0.0.1:18000/api/",
+      value: "http://127.0.0.1:18000/api/",
+    })
+    if (!authBase) return
+
+    const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址（留空则与认证地址相同）", {
+      placeholder: authBase,
+      value: authBase,
+    })
+    if (apiBase === null) return
+
+    try {
+      await Effect.runPromise(
+        OmniStudioConfig.Service.use((svc) =>
+          svc.setEndpoints(authBase, apiBase || authBase),
+        ).pipe(Effect.provide(OmniStudioConfig.defaultLayer)),
+      )
+      DialogAlert.show(dialog, "配置成功", `认证地址: ${authBase}\nAPI 地址: ${apiBase || authBase}`)
+    } catch (e) {
+      DialogAlert.show(dialog, "配置失败", String(e))
     }
   }
 
@@ -382,6 +399,12 @@ export function DialogOmniStudio() {
             value: "disable",
             description: "禁用已启用的扩展",
             onSelect: handleDisable,
+          },
+          {
+            title: "配置",
+            value: "setup",
+            description: "设置认证地址和 API 地址",
+            onSelect: handleSetup,
           },
           {
             title: "登录",

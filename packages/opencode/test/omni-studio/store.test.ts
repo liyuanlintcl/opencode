@@ -28,7 +28,7 @@ describe("OmniStudioStore", () => {
 
     try {
       await Effect.runPromise(
-        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE, API_BASE))
+        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }))
           .pipe(Effect.provide(OmniStudioAuth.defaultLayer), Effect.provide(AppFileSystem.defaultLayer)),
       )
       backendAvailable = true

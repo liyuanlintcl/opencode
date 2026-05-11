@@ -5,10 +5,11 @@ import type { OmniStudioConfig as OmniStudioConfigType } from "./types"
 /**
  * Omni Studio 认证服务接口。
  * 提供登录、登出、获取认证请求头及登录状态检查功能。
+ * login 不再接收地址参数，从配置中读取预先设置的 auth_base。
  */
 export interface Interface {
-  /** 登录：调用认证 API 并持久化 token；authBase 与 apiBase 可独立指定 */
-  readonly login: (credentials: { username: string; password: string }, authBase: string, apiBase: string) => Effect.Effect<OmniStudioConfigType, string>
+  /** 登录：调用认证 API 并持久化 token；auth_base 从配置读取 */
+  readonly login: (credentials: { username: string; password: string }) => Effect.Effect<OmniStudioConfigType, string>
   /** 登出：清除本地登录配置 */
   readonly logout: () => Effect.Effect<void>
   /** 获取认证请求头；未登录时返回失败 */
@@ -32,8 +33,14 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const configSvc = yield* OmniStudioConfig.Service
 
-    /** 登录：调用认证 API 并持久化 token；authBase 与 apiBase 独立 */
-    const login = Effect.fn("OmniStudioAuth.login")(function* (credentials: { username: string; password: string }, authBase: string, apiBase: string) {
+    /** 登录：从配置读取 auth_base，仅更新 token 和用户信息 */
+    const login = Effect.fn("OmniStudioAuth.login")(function* (credentials: { username: string; password: string }) {
+      const existing = yield* configSvc.read()
+      const authBase = existing?.auth_base
+      if (!authBase) {
+        return yield* Effect.fail("auth_base not configured, run `opencode omni-studio setup` first")
+      }
+
       const base = authBase.endsWith("/") ? authBase.slice(0, -1) : authBase
       const response = yield* Effect.tryPromise({
         try: () =>
@@ -73,8 +80,9 @@ export const layer = Layer.effect(
 
       const data = result.data
 
+      /** 保留已有的 api_base 和 auth_base，仅更新 token 和用户信息 */
       const config: OmniStudioConfigType = {
-        api_base: apiBase,
+        api_base: existing?.api_base ?? authBase,
         auth_base: authBase,
         access_token: data.accessToken,
         refresh_token: data.refreshToken,

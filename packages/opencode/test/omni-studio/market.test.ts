@@ -37,7 +37,7 @@ describe("OmniStudioMarket", () => {
     /** 先执行登录，确保认证配置存在 */
     try {
       await Effect.runPromise(
-        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE, API_BASE))
+        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }))
           .pipe(Effect.provide(OmniStudioAuth.defaultLayer), Effect.provide(AppFileSystem.defaultLayer)),
       )
       backendAvailable = true

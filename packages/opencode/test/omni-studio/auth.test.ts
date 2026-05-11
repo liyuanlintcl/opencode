@@ -5,6 +5,7 @@ import fs from "fs/promises"
 import os from "os"
 import { AppFileSystem } from "@opencode-ai/core/filesystem"
 import { OmniStudioAuth } from "../../src/omni-studio/auth"
+import { OmniStudioConfig } from "../../src/omni-studio/config"
 
 /** 真实后端 API 基础地址 */
 const API_BASE = process.env.OMNI_STUDIO_API_BASE ?? "http://192.88.1.63:3008/api/"
@@ -49,17 +50,25 @@ describe("OmniStudioAuth", () => {
    * 如果后端不可用或未配置测试账号，则跳过。
    */
   describe("with real backend", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       if (!backendAvailable) {
         console.log(`[skip] Backend ${API_BASE} not available`)
+        return
       }
+      /** 预先设置 auth_base 和 api_base，供 login 读取 */
+      await Effect.runPromise(
+        OmniStudioConfig.Service.use((svc) => svc.setEndpoints(API_BASE, API_BASE)).pipe(
+          Effect.provide(OmniStudioConfig.defaultLayer),
+          Effect.provide(AppFileSystem.defaultLayer),
+        ),
+      )
     })
 
     test("login succeeds and persists config", async () => {
       if (!backendAvailable) return
 
       const config = await run(
-        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE, API_BASE)),
+        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD })),
       )
 
       expect(config.access_token).toBeTruthy()
@@ -81,7 +90,7 @@ describe("OmniStudioAuth", () => {
       if (!backendAvailable) return
 
       await expect(
-        run(OmniStudioAuth.Service.use((svc) => svc.login({ username: "__invalid__", password: "__wrong__" }, API_BASE, API_BASE))),
+        run(OmniStudioAuth.Service.use((svc) => svc.login({ username: "__invalid__", password: "__wrong__" }))),
       ).rejects.toBeDefined()
     })
 
@@ -89,7 +98,7 @@ describe("OmniStudioAuth", () => {
       if (!backendAvailable) return
 
       await run(
-        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE, API_BASE)),
+        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD })),
       )
       const headers = await run(OmniStudioAuth.Service.use((svc) => svc.getAuthHeaders()))
       expect(headers.Authorization).toMatch(/^Bearer /)
@@ -99,7 +108,7 @@ describe("OmniStudioAuth", () => {
       if (!backendAvailable) return
 
       await run(
-        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE, API_BASE)),
+        OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD })),
       )
       const loggedIn = await run(OmniStudioAuth.Service.use((svc) => svc.isLoggedIn()))
       expect(loggedIn).toBe(true)

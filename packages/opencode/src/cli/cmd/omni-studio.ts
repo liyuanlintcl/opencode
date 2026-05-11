@@ -2,8 +2,8 @@ import { cmd } from "./cmd"
 import * as prompts from "@clack/prompts"
 import { UI } from "../ui"
 import { Effect } from "effect"
-import { interactiveLogin } from "../../omni-studio/interactive"
 import { OmniStudioAuth } from "../../omni-studio/auth"
+import { OmniStudioConfig } from "../../omni-studio/config"
 import { OmniStudioMarket } from "../../omni-studio/market"
 import { OmniStudioStore } from "../../omni-studio/store"
 import type { ExtensionType, Extension } from "../../omni-studio/types"
@@ -39,6 +39,7 @@ export const OmniStudioCommand = cmd({
   describe: "manage Omni Studio marketplace extensions",
   builder: (yargs) =>
     yargs
+      .command(OmniStudioSetupCommand)
       .command(OmniStudioLoginCommand)
       .command(OmniStudioLogoutCommand)
       .command(OmniStudioListCommand)
@@ -51,21 +52,87 @@ export const OmniStudioCommand = cmd({
   async handler() {},
 })
 
+/** 设置命令：配置 Omni Studio 认证地址和 API 地址 */
+export const OmniStudioSetupCommand = cmd({
+  command: "setup",
+  describe: "configure Omni Studio auth and API base URLs",
+  async handler() {
+    try {
+      UI.empty()
+      prompts.intro("Omni Studio Setup")
+
+      const authUrl = await prompts.text({
+        message: "Enter Omni Studio auth base URL",
+        placeholder: "http://127.0.0.1:18000/api/",
+        initialValue: "http://127.0.0.1:18000/api/",
+      })
+      if (prompts.isCancel(authUrl)) throw new UI.CancelledError()
+
+      const apiUrl = await prompts.text({
+        message: "Enter Omni Studio API base URL (press Enter to use same as auth)",
+        placeholder: authUrl,
+        initialValue: authUrl,
+      })
+      if (prompts.isCancel(apiUrl)) throw new UI.CancelledError()
+
+      await Effect.runPromise(
+        OmniStudioConfig.Service.use((svc) => svc.setEndpoints(authUrl, apiUrl || authUrl)).pipe(
+          Effect.provide(OmniStudioConfig.defaultLayer),
+        ),
+      )
+
+      prompts.log.success("Endpoints configured successfully")
+      prompts.outro("Done")
+    } catch (error) {
+      if (error instanceof UI.CancelledError) {
+        prompts.outro("Cancelled")
+        return
+      }
+      prompts.log.error(error instanceof Error ? error.message : String(error))
+      prompts.outro("Failed")
+    }
+  },
+})
+
 /** 登录命令：交互式登录到 Omni Studio Marketplace */
 export const OmniStudioLoginCommand = cmd({
-  command: "login [apiBase]",
+  command: "login",
   describe: "log in to Omni Studio Marketplace",
-  builder: (yargs) =>
-    yargs.positional("apiBase", {
-      describe: "Omni Studio API base URL",
-      type: "string",
-    }),
-  async handler(args) {
+  async handler() {
     try {
-      await interactiveLogin(args.apiBase)
+      UI.empty()
+      prompts.intro("Omni Studio Login")
+
+      const username = await prompts.text({
+        message: "Enter username",
+        validate: (x) => (x && x.length > 0 ? undefined : "Required"),
+      })
+      if (prompts.isCancel(username)) throw new UI.CancelledError()
+
+      const password = await prompts.password({
+        message: "Enter password",
+      })
+      if (prompts.isCancel(password)) throw new UI.CancelledError()
+
+      const spinner = prompts.spinner()
+      spinner.start("Authenticating...")
+
+      const config = await Effect.runPromise(
+        OmniStudioAuth.Service.use((svc) => svc.login({ username, password })).pipe(
+          Effect.provide(OmniStudioAuth.defaultLayer),
+        ),
+      )
+
+      spinner.stop("Authentication successful!")
+      prompts.log.success(`Logged in as ${config.user.username}`)
+      prompts.outro("Done")
     } catch (error) {
-      if (error instanceof UI.CancelledError) return
+      if (error instanceof UI.CancelledError) {
+        prompts.outro("Cancelled")
+        return
+      }
       prompts.log.error(error instanceof Error ? error.message : String(error))
+      prompts.outro("Failed")
     }
   },
 })

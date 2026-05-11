@@ -33,7 +33,7 @@ describe("OmniStudio Integration", () => {
     process.env.OPENCODE_TEST_HOME = tmpHome
 
     try {
-      await runAuth(OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD }, API_BASE, API_BASE)))
+      await runAuth(OmniStudioAuth.Service.use((svc) => svc.login({ username: TEST_USERNAME, password: TEST_PASSWORD })))
       backendAvailable = true
       const res = await fetch(`${API_BASE}v1/packages/skills?page=0&size=1`, { headers: { Authorization: "Bearer test" }, signal: AbortSignal.timeout(5000) })
       listEndpointHealthy = res.status < 500

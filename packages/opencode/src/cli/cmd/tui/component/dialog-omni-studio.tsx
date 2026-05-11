@@ -250,7 +250,11 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     if (l.kind === "error") return `错误: ${l.message}`
     if (!Array.isArray(l.data) || l.data.length === 0) return "未找到扩展"
     return l.data
-      .map((ext) => `${ext.name} (${ext.type}) v${ext.version} - ${ext.author}`)
+      .map((ext) => {
+        const versionPart = ext.version ? ` v${ext.version}` : ""
+        const authorPart = ext.author ? ` - ${ext.author}` : ""
+        return `${ext.name} (${ext.type})${versionPart}${authorPart}`
+      })
       .join("\n")
   }
 

@@ -96,7 +96,33 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       })
       const envelope = yield* parseEnvelope(response)
       yield* checkError(response, envelope)
-      return envelope.data as PagedResult<Extension>
+
+      /** 后端列表返回字段名与 Extension 类型不完全一致，需要做映射 */
+      const raw = envelope.data as {
+        records?: Array<Record<string, unknown>>
+        pageInfo?: PagedResult<Extension>["pageInfo"]
+      }
+      const records: Extension[] = (raw.records ?? []).map((r) => ({
+        slug: String(r.slug ?? ""),
+        name: String(r.displayName ?? r.name ?? r.slug ?? ""),
+        description: String(r.description ?? ""),
+        version: String(r.version ?? ""),
+        type: (r.type as ExtensionType) ?? type ?? "skill",
+        author: String(r.author ?? r.ownerId ?? ""),
+        download_url: String(r.download_url ?? ""),
+      }))
+
+      return {
+        records,
+        pageInfo: raw.pageInfo ?? {
+          currentPage: page,
+          size: 10,
+          totalPages: 1,
+          totalElements: records.length,
+          hasNext: false,
+          hasPrevious: page > 1,
+        },
+      } as PagedResult<Extension>
     })
 
     /** 列出市场扩展（仅返回第一页 records，兼容旧调用方） */
@@ -116,52 +142,56 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       })
       const envelope = yield* parseEnvelope(response)
       yield* checkError(response, envelope)
-      return envelope.data as Extension
+
+      /** 后端详情返回 { registry, revisions } 嵌套结构，需要映射 */
+      const data = envelope.data as {
+        registry?: Record<string, unknown>
+        revisions?: Array<Record<string, unknown>>
+      }
+      const registry = data.registry ?? {}
+      const revision = data.revisions?.[0] ?? {}
+      const manifest = (revision.manifest as Record<string, unknown>) ?? {}
+
+      return {
+        slug: String(registry.slug ?? ""),
+        name: String(registry.displayName ?? registry.name ?? registry.slug ?? ""),
+        description: String(registry.description ?? ""),
+        version: String(revision.version ?? ""),
+        type,
+        author: String(registry.ownerId ?? ""),
+        download_url: String(
+          revision.objectUrl ?? manifest.objectUrl ?? "",
+        ),
+      } as Extension
     })
 
     /** 下载扩展包到指定目录 */
     const download = Effect.fn("OmniStudioMarket.download")(function* (ext: Extension, targetDir: string) {
-      const base = yield* getApiBase()
       const headers = yield* authSvc.getAuthHeaders()
+      const base = yield* getApiBase()
       const entityType = toEntityType(ext.type)
 
       /**
-       * 先调用下载端点获取下载地址。
+       * 调用下载端点获取带预签名的 downloadUrl。
        * 后端端点：GET /v1/packages/{type}/{slug}/revisions/{version}/download
        */
-      const downloadUrl = `${base}/api/v1/packages/${entityType}/${ext.slug}/revisions/${ext.version}/download`
+      const downloadEndpoint = `${base}/api/v1/packages/${entityType}/${ext.slug}/revisions/${ext.version}/download`
       const urlResponse = yield* Effect.tryPromise({
-        try: () => fetch(downloadUrl, { headers }),
+        try: () => fetch(downloadEndpoint, { headers }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
-
-      /** 若端点直接返回文件流，则直接写入 */
-      if (urlResponse.ok && urlResponse.headers.get("content-type")?.includes("application/octet-stream")) {
-        const buffer = yield* Effect.tryPromise({
-          try: () => urlResponse.arrayBuffer(),
-          catch: (error) => (error instanceof Error ? error.message : String(error)),
-        })
-        const filePath = `${targetDir}/${ext.slug}.zip`
-        yield* Effect.tryPromise({
-          try: () => Bun.write(filePath, buffer),
-          catch: (error) => (error instanceof Error ? error.message : String(error)),
-        })
-        return
-      }
-
-      /** 否则解析响应获取实际下载地址 */
       const envelope = yield* parseEnvelope(urlResponse)
       if (urlResponse.status === 401) return yield* Effect.fail("Unauthorized")
       if (urlResponse.status === 404) return yield* Effect.fail("Extension not found")
       if (!urlResponse.ok) return yield* Effect.fail(envelope.message || `HTTP ${urlResponse.status}`)
       if (envelope.code !== 200) return yield* Effect.fail(envelope.message || `Business error: code ${envelope.code}`)
 
-      const actualUrl = (envelope.data as { url?: string })?.url
+      const actualUrl = String((envelope.data as { downloadUrl?: string })?.downloadUrl ?? "")
       if (!actualUrl) return yield* Effect.fail("No download URL returned")
 
-      /** 请求实际下载地址并保存文件 */
+      /** 请求预签名下载地址并保存文件 */
       const fileResponse = yield* Effect.tryPromise({
-        try: () => fetch(actualUrl, { headers }),
+        try: () => fetch(actualUrl),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
       if (!fileResponse.ok) return yield* Effect.fail(`Download failed: HTTP ${fileResponse.status}`)

@@ -5,7 +5,7 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
-import { createResource, Show, createSignal } from "solid-js"
+import { Show, createSignal } from "solid-js"
 import { Effect } from "effect"
 import { OmniStudioAuth } from "@/omni-studio/auth"
 import { OmniStudioConfig } from "@/omni-studio/config"
@@ -45,6 +45,22 @@ function showSelect<T>(
 }
 
 /**
+ * 本地扩展状态查询结果。
+ */
+type StatusResult =
+  | { kind: "loading" }
+  | { kind: "ok"; config: { api_base: string; user: { username: string } } | null; extensions: Array<{ type: ExtensionType; slug: string; version: string; enabled: boolean }> }
+  | { kind: "error"; message: string }
+
+/**
+ * 远程市场列表查询结果。
+ */
+type ListResult =
+  | { kind: "loading" }
+  | { kind: "ok"; data: Extension[] }
+  | { kind: "error"; message: string }
+
+/**
  * Omni Studio TUI 对话框。
  * 在终端界面中提供扩展市场管理功能，
  * 支持查看状态、列出扩展、安装、卸载、启用、禁用、登录和登出。
@@ -54,42 +70,42 @@ export function DialogOmniStudio() {
   const { theme } = useTheme()
   const [view, setView] = createSignal<"menu" | "status" | "list">("menu")
 
-  /** 触发 status 重新获取的 signal */
-  const [statusTrigger, setStatusTrigger] = createSignal(0)
-  /** 触发 marketList 重新获取的 signal */
-  const [listTrigger, setListTrigger] = createSignal(0)
+  const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
+  const [marketList, setMarketList] = createSignal<ListResult>({ kind: "loading" })
 
   /**
-   * 异步获取本地状态：登录信息和已安装扩展列表。
+   * 重新获取本地状态（登录信息 + 已安装扩展）。
    */
-  const [status] = createResource(statusTrigger, async () => {
+  const refreshStatus = async () => {
+    setStatus({ kind: "loading" })
     try {
       const result = await Effect.runPromise(
         OmniStudioStore.Service.use((svc) => svc.getStatus()).pipe(
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      return { success: true as const, data: result }
+      setStatus({ kind: "ok", config: result.config, extensions: result.extensions })
     } catch (e) {
-      return { success: false as const, error: String(e) }
+      setStatus({ kind: "error", message: String(e) })
     }
-  })
+  }
 
   /**
-   * 异步获取远程市场扩展列表。
+   * 重新获取远程市场扩展列表。
    */
-  const [marketList] = createResource(listTrigger, async () => {
+  const refreshMarketList = async () => {
+    setMarketList({ kind: "loading" })
     try {
       const result = await Effect.runPromise(
         OmniStudioMarket.Service.use((svc) => svc.list()).pipe(
           Effect.provide(OmniStudioMarket.defaultLayer),
         ),
       )
-      return { success: true as const, data: result }
+      setMarketList({ kind: "ok", data: result })
     } catch (e) {
-      return { success: false as const, error: String(e) }
+      setMarketList({ kind: "error", message: String(e) })
     }
-  })
+  }
 
   /**
    * 显示操作结果提示，确认后返回 Omni Studio 菜单。
@@ -121,8 +137,6 @@ export function DialogOmniStudio() {
           svc.login({ username, password }),
         ).pipe(Effect.provide(OmniStudioAuth.defaultLayer)),
       )
-      setStatusTrigger((t) => t + 1)
-      setListTrigger((t) => t + 1)
       await showResult("登录成功", `已以 ${config.user.username} 身份登录`)
     } catch (e) {
       await showResult("登录失败", String(e))
@@ -146,7 +160,6 @@ export function DialogOmniStudio() {
           svc.setEndpoints(apiBase),
         ).pipe(Effect.provide(OmniStudioConfig.defaultLayer)),
       )
-      setStatusTrigger((t) => t + 1)
       await showResult("配置成功", `API 地址: ${apiBase}`)
     } catch (e) {
       await showResult("配置失败", String(e))
@@ -163,8 +176,6 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioAuth.defaultLayer),
         ),
       )
-      setStatusTrigger((t) => t + 1)
-      setListTrigger((t) => t + 1)
       await showResult("Omni Studio", "已登出")
     } catch (e) {
       await showResult("Omni Studio", `登出失败: ${e}`)
@@ -207,8 +218,6 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      setStatusTrigger((t) => t + 1)
-      setListTrigger((t) => t + 1)
       await showResult("安装成功", `${ext.name} 已安装并启用`)
     } catch (e) {
       await showResult("安装失败", String(e))
@@ -267,8 +276,6 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      setStatusTrigger((t) => t + 1)
-      setListTrigger((t) => t + 1)
       await showResult("卸载成功", `${selected.slug} 已卸载`)
     } catch (e) {
       await showResult("卸载失败", String(e))
@@ -291,7 +298,6 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      setStatusTrigger((t) => t + 1)
       await showResult("启用成功", `${selected.slug} 已启用`)
     } catch (e) {
       await showResult("启用失败", String(e))
@@ -314,7 +320,6 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
-      setStatusTrigger((t) => t + 1)
       await showResult("禁用成功", `${selected.slug} 已禁用`)
     } catch (e) {
       await showResult("禁用失败", String(e))
@@ -326,14 +331,14 @@ export function DialogOmniStudio() {
    */
   const statusMessage = () => {
     const s = status()
-    if (!s) return "加载中..."
-    if (!s.success) return `错误: ${s.error}`
+    if (s.kind === "loading") return "加载中..."
+    if (s.kind === "error") return `错误: ${s.message}`
     const lines = [
-      `登录状态: ${s.data.config ? "已登录" : "未登录"}`,
-      s.data.config ? `API 地址: ${s.data.config.api_base}` : "",
-      s.data.config ? `用户名: ${s.data.config.user.username}` : "",
-      `扩展数量: ${s.data.extensions.length}`,
-      ...s.data.extensions.map(
+      `登录状态: ${s.config ? "已登录" : "未登录"}`,
+      s.config ? `API 地址: ${s.config.api_base}` : "",
+      s.config ? `用户名: ${s.config.user.username}` : "",
+      `扩展数量: ${s.extensions.length}`,
+      ...s.extensions.map(
         (ext) =>
           `  ${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`,
       ),
@@ -346,8 +351,8 @@ export function DialogOmniStudio() {
    */
   const listMessage = () => {
     const l = marketList()
-    if (!l) return "加载中..."
-    if (!l.success) return `错误: ${l.error}`
+    if (l.kind === "loading") return "加载中..."
+    if (l.kind === "error") return `错误: ${l.message}`
     if (l.data.length === 0) return "未找到扩展"
     return l.data
       .map((ext) => `${ext.name} (${ext.type}) v${ext.version} - ${ext.author}`)
@@ -389,7 +394,7 @@ export function DialogOmniStudio() {
             description: "查看登录状态和已安装的扩展",
             onSelect: () => {
               setView("status")
-              setStatusTrigger((t) => t + 1)
+              void refreshStatus()
             },
           },
           {
@@ -398,7 +403,7 @@ export function DialogOmniStudio() {
             description: "列出市场中的扩展",
             onSelect: () => {
               setView("list")
-              setListTrigger((t) => t + 1)
+              void refreshMarketList()
             },
           },
           {

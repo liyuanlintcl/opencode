@@ -5,7 +5,7 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
-import { Show, createSignal } from "solid-js"
+import { Show, createSignal, createEffect } from "solid-js"
 import { Effect } from "effect"
 import { OmniStudioAuth } from "@/omni-studio/auth"
 import { OmniStudioConfig } from "@/omni-studio/config"
@@ -69,14 +69,19 @@ export function DialogOmniStudio() {
   const dialog = useDialog()
   const { theme } = useTheme()
   const [view, setView] = createSignal<"menu" | "status" | "list">("menu")
+  createEffect(() => console.log("[OmniStudio] view changed:", view()))
 
   const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
   const [marketList, setMarketList] = createSignal<ListResult>({ kind: "loading" })
+
+  createEffect(() => console.log("[OmniStudio] marketList changed:", marketList()))
+  createEffect(() => console.log("[OmniStudio] status changed:", status()))
 
   /**
    * 重新获取本地状态（登录信息 + 已安装扩展）。
    */
   const refreshStatus = async () => {
+    console.log("[OmniStudio] refreshStatus start")
     setStatus({ kind: "loading" })
     try {
       const result = await Effect.runPromise(
@@ -84,8 +89,10 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
+      console.log("[OmniStudio] refreshStatus success:", result)
       setStatus({ kind: "ok", config: result.config, extensions: result.extensions })
     } catch (e) {
+      console.log("[OmniStudio] refreshStatus error:", e)
       setStatus({ kind: "error", message: String(e) })
     }
   }
@@ -94,6 +101,7 @@ export function DialogOmniStudio() {
    * 重新获取远程市场扩展列表。
    */
   const refreshMarketList = async () => {
+    console.log("[OmniStudio] refreshMarketList start")
     setMarketList({ kind: "loading" })
     try {
       const result = await Effect.runPromise(
@@ -101,8 +109,10 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioMarket.defaultLayer),
         ),
       )
+      console.log("[OmniStudio] refreshMarketList success, count:", result.length)
       setMarketList({ kind: "ok", data: result })
     } catch (e) {
+      console.log("[OmniStudio] refreshMarketList error:", e)
       setMarketList({ kind: "error", message: String(e) })
     }
   }
@@ -112,7 +122,9 @@ export function DialogOmniStudio() {
    * 不修改通用 DialogAlert 组件，利用 await 后 dialog 已被 clear 的特性重新打开菜单。
    */
   const showResult = async (title: string, message: string) => {
+    console.log("[OmniStudio] showResult:", title, message)
     await DialogAlert.show(dialog, title, message)
+    console.log("[OmniStudio] dialog.replace after alert")
     dialog.replace(() => <DialogOmniStudio />)
   }
 
@@ -331,6 +343,7 @@ export function DialogOmniStudio() {
    */
   const statusMessage = () => {
     const s = status()
+    console.log("[OmniStudio] statusMessage called, status:", s)
     if (s.kind === "loading") return "加载中..."
     if (s.kind === "error") return `错误: ${s.message}`
     const lines = [
@@ -343,7 +356,9 @@ export function DialogOmniStudio() {
           `  ${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`,
       ),
     ]
-    return lines.filter(Boolean).join("\n")
+    const msg = lines.filter(Boolean).join("\n")
+    console.log("[OmniStudio] statusMessage result:", msg)
+    return msg
   }
 
   /**
@@ -351,12 +366,15 @@ export function DialogOmniStudio() {
    */
   const listMessage = () => {
     const l = marketList()
+    console.log("[OmniStudio] listMessage called, marketList:", l)
     if (l.kind === "loading") return "加载中..."
     if (l.kind === "error") return `错误: ${l.message}`
-    if (l.data.length === 0) return "未找到扩展"
-    return l.data
+    if (!Array.isArray(l.data) || l.data.length === 0) return "未找到扩展"
+    const msg = l.data
       .map((ext) => `${ext.name} (${ext.type}) v${ext.version} - ${ext.author}`)
       .join("\n")
+    console.log("[OmniStudio] listMessage result:", msg)
+    return msg
   }
 
   return (

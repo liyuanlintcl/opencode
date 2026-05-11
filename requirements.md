@@ -16,7 +16,8 @@
 
 | ID | 需求 | 优先级 |
 |---|---|---|
-| F1 | 交互式登录：`opencode omni-studio login` | P0 |
+| F1 | 登录：`opencode omni-studio login`，仅输入用户名和密码；认证地址和 API 地址通过 `setup` 预先配置 | P0 |
+| F1a | 服务地址配置：`opencode omni-studio setup`，独立设置 auth_base 和 api_base | P0 |
 | F2 | 登出：`opencode omni-studio logout` | P0 |
 | F3 | 交互式列出市场扩展：`opencode omni-studio list [type]`，显示本地安装状态并支持选中直接安装 | P0 |
 | F4 | 安装扩展：`opencode omni-studio install <type> <slug> [version]` | P0 |
@@ -48,7 +49,7 @@
 
 ## 6. 验收标准
 
-- [ ] 所有 8 个 CLI 命令可正常执行并返回预期结果
+- [ ] 所有 9 个 CLI 命令可正常执行并返回预期结果（含 setup）
 - [ ] 登录成功后 `~/.omni_studio/omni-studio.json` 包含有效 token
 - [ ] 安装扩展后文件存在于 `~/.omni_studio/{type}/{slug}/`
 - [ ] 启用/禁用状态持久化到 `~/.omni_studio/state.json`
@@ -58,4 +59,4 @@
 - [ ] 启用/禁用时如扩展包含 `start`/`stop` 脚本，脚本被正确执行
 - [ ] 执行任何生命周期脚本前，如存在 `activate` 脚本，先 source/调用 activate
 - [ ] 脚本执行失败时给出清晰错误信息，install/start 失败回滚状态
-- [ ] TUI 模式下输入 `/omni-studio` 显示 Omni Studio 管理菜单（status / list / login / logout）
+- [ ] TUI 模式下输入 `/omni-studio` 显示 Omni Studio 管理菜单（status / list / install / uninstall / enable / disable / login / logout / setup）

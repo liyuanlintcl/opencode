@@ -31,7 +31,7 @@ omni-studio.json             {skills,tools,...}/
 | `executor.ts` | 扩展生命周期脚本执行（install/start/stop/uninstall/activate） | `src/omni-studio/executor.ts` |
 | `config.ts` | 配置文件读写 | `src/omni-studio/config.ts` |
 | `types.ts` | 共享类型定义 | `src/omni-studio/types.ts` |
-| `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio 菜单（status/list/login/logout） | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
+| `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio 菜单（status/list/install/uninstall/enable/disable/login/logout/setup） | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
 
 ## 3. 数据模型
 
@@ -98,8 +98,9 @@ interface ExtensionScripts {
 
 ```ts
 type Command =
-  | { cmd: "login" }
+  | { cmd: "login" }                                 // 仅输入 username / password，auth_base/api_base 由 setup 预先配置
   | { cmd: "logout" }
+  | { cmd: "setup" }                                 // 独立设置 auth_base 和 api_base
   | { cmd: "list"; type?: ExtensionType }          // 交互式：展示远程列表 + 本地安装状态，支持选中安装
   | { cmd: "install"; type: ExtensionType; slug: string; version?: string }
   | { cmd: "uninstall"; type: ExtensionType; slug: string }
@@ -126,17 +127,23 @@ TUI 中的 slash 命令（`/` 触发）与 CLI 子命令独立注册，通过 `a
 `DialogOmniStudio` 组件内部使用 `DialogSelect` 展示子菜单：
 - **Status**：调用 `Store.getStatus()`，展示登录状态和本地扩展列表
 - **List**：调用 `Market.list()`，展示远程扩展列表
-- **Login**：调用 `interactiveLogin()`，在 TUI 中保持终端控制权的交互式登录
+- **Install**：选择类型 → 输入 slug → 获取元数据 → 确认安装
+- **Uninstall**：选择本地扩展 → 确认卸载
+- **Enable**：选择已禁用扩展 → 确认启用
+- **Disable**：选择已启用扩展 → 确认禁用
+- **Login**：输入 username / password，从配置读取 auth_base 完成认证
 - **Logout**：调用 `Auth.logout()`，清除本地 token
+- **Setup**：输入 auth_base 和 api_base，持久化到配置文件中
 
 slash 命令的数据流与 CLI 命令共享同一套 Effect Service（`OmniStudioAuth`、`OmniStudioMarket`、`OmniStudioStore`），通过 `Effect.provide(defaultLayer)` 注入依赖。
 
 ### 4.2 Auth API
 
 ```ts
-async function login(credentials: { username: string; password: string }): Promise<AuthResult>
+async function login(credentials: { username: string; password: string }): Promise<AuthResult>  // 从配置读取 auth_base
 async function logout(): Promise<void>
 async function getAuthHeaders(): Promise<Record<string, string>>
+async function setupEndpoints(authBase: string, apiBase: string): Promise<void>  // 独立设置服务地址
 ```
 
 ### 4.3 Market API
@@ -174,20 +181,31 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 
 ## 5. 关键流程
 
-### 5.1 登录流程
+### 5.1 地址配置流程（setup）
+
+```
+1. 交互式输入 auth_base（认证服务基础地址）
+2. 交互式输入 api_base（API 服务基础地址，可留空则与 auth_base 相同）
+3. 校验地址格式（必须以 http:// 或 https:// 开头）
+4. 保存 auth_base 和 api_base 到 omni-studio.json（不覆盖已有 token）
+5. 输出配置成功信息
+```
+
+### 5.2 登录流程
 
 ```
 1. 检查是否已有登录配置
    - 有 → 提示已登录，询问是否重新登录
    - 无 → 继续
-2. 交互式输入 username / password
-3. POST ${authBase}/auth/auth/login
-4. 保存 token 和用户信息到 omni-studio.json
-5. 设置文件权限 0o600
-6. 输出登录成功信息
+2. 读取配置中的 auth_base；如未设置，提示先运行 setup
+3. 交互式输入 username / password
+4. POST ${authBase}/auth/auth/login
+5. 保存 token 和用户信息到 omni-studio.json（保留已有 api_base / auth_base）
+6. 设置文件权限 0o600
+7. 输出登录成功信息
 ```
 
-### 5.2 安装流程
+### 5.3 安装流程
 
 ```
 1. 检查是否已登录（读取 omni-studio.json）
@@ -206,7 +224,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 10. 输出安装成功信息
 ```
 
-### 5.3 列表交互流程（list）
+### 5.4 列表交互流程（list）
 
 ```
 1. 调用 Market API 获取远程扩展列表
@@ -221,7 +239,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 5. 使用 while 循环支持连续操作
 ```
 
-### 5.4 状态交互流程（status）
+### 5.5 状态交互流程（status）
 
 ```
 1. 调用 Store.getStatus() 获取本地扩展列表
@@ -239,7 +257,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 6. 使用 while 循环支持连续操作
 ```
 
-### 5.5 卸载流程
+### 5.6 卸载流程
 
 ```
 1. 读取 state.json 确认扩展已安装
@@ -253,7 +271,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 6. 输出卸载成功信息
 ```
 
-### 5.6 启用流程（enable）
+### 5.7 启用流程（enable）
 
 ```
 1. 读取 state.json 确认扩展存在且当前为 disabled
@@ -266,7 +284,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 5. 输出启用成功信息
 ```
 
-### 5.7 禁用流程（disable）
+### 5.8 禁用流程（disable）
 
 ```
 1. 读取 state.json 确认扩展存在且当前为 enabled
@@ -279,26 +297,31 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 5. 输出禁用成功信息
 ```
 
-### 5.8 TUI Slash 命令流程
+### 5.9 TUI Slash 命令流程
 
 ```
 1. 用户在 TUI 输入框中输入 "/" 触发 slash 命令补全
 2. 输入 "omni-studio" 或 "omni" 后回车
 3. TUI 打开 DialogOmniStudio 组件（DialogSelect 菜单）
 4. 用户选择子操作：
-   - Status → 调用 Store.getStatus() → 在文本框中展示登录状态和扩展列表
-   - List   → 调用 Market.list() → 在文本框中展示远程扩展列表
-   - Login  → 调用 interactiveLogin() → 展示登录结果（成功/失败）
-   - Logout → 调用 Auth.logout() → 展示登出结果
+   - Status   → 调用 Store.getStatus() → 在文本框中展示登录状态和扩展列表
+   - List     → 调用 Market.list() → 在文本框中展示远程扩展列表
+   - Install  → 选择类型 → 输入 slug → 确认安装
+   - Uninstall→ 选择本地扩展 → 确认卸载
+   - Enable   → 选择已禁用扩展 → 确认启用
+   - Disable  → 选择已启用扩展 → 确认禁用
+   - Login    → 输入 username / password（从配置读取 auth_base）
+   - Logout   → 调用 Auth.logout() → 展示登出结果
+   - Setup    → 输入 auth_base 和 api_base → 保存配置
 5. 按 esc 返回菜单，再次按 esc 关闭对话框
 ```
 
 **设计约束**：
-- TUI 中不直接复用 `@clack/prompts` 的交互（会与 TUI 终端控制冲突）
-- `interactiveLogin` 内部已处理终端控制，在 TUI 中通过 `dialog.clear()` 释放终端后调用
+- TUI 中不使用 `@clack/prompts`（会与 TUI 终端渲染器冲突）
+- Login / Setup 使用 TUI 原生 DialogPrompt / DialogSelect 完成交互
 - 信息展示使用纯文本框（`<text>` 组件），不引入复杂交互
 
-### 5.9 脚本执行规则
+### 5.10 脚本执行规则
 
 ```
 - Shell 脚本（.sh）：在 Unix 系统通过 /bin/bash 或 /bin/sh 执行

@@ -32,7 +32,7 @@ Task 1: 类型定义 & 配置模块
 |---|---|---|---|
 | T1 | 创建 `src/omni-studio/` 目录及 `types.ts`、`config.ts` | 类型定义完整，配置读写通过单测 | 2h | ✅ |
 | T2 | 实现 Auth 模块（login / logout / getAuthHeaders） | 可成功登录并持久化 token，登出后配置清空 | 3h | ✅ |
-| T3 | 实现登录交互流程（密码输入隐藏、已登录提示） | 交互体验与主 CLI 一致 | 2h | ✅ |
+| T3 | 实现登录交互流程（仅 username / password，地址由 setup 预先配置） | 交互体验与主 CLI 一致；auth_base / api_base 独立配置 | 2h | ✅ |
 | T4 | 实现 Market HTTP 客户端（list / getExtensionMeta / download） | 可正常调用 API 并处理 401/404 错误 | 3h | ✅ |
 | T5 | 实现 Store 模块（install / uninstall / enable / disable / status） | 文件正确写入 `~/.omni_studio/`，状态持久化 | 3h | ✅ |
 | T6 | 实现 Executor 模块（detectScripts / runScript / activate 处理） | 支持 .sh/.bat/.ps1，activate 先执行，超时处理 | 3h | ✅ |
@@ -40,7 +40,7 @@ Task 1: 类型定义 & 配置模块
 | T8 | 集成测试：端到端验证各命令组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ✅ |
 | T9 | 交互式 list 命令：远程列表混合本地安装状态并支持一键安装 | 选中未安装扩展后 confirm 并调用 install，操作后循环返回列表 | 2h | ✅ |
 | T10 | 交互式 status 命令：本地扩展列表支持 enable/disable/uninstall | 选中扩展后二次选择动作，执行后循环返回列表 | 2h | ✅ |
-| T11 | TUI slash 命令集成：`/omni-studio` 在终端界面中显示管理菜单 | DialogOmniStudio 组件实现，在 app.tsx 中注册 slash 命令，支持 status/list/login/logout | 3h | ✅ |
+| T11 | TUI slash 命令集成：`/omni-studio` 在终端界面中显示管理菜单 | DialogOmniStudio 组件实现，在 app.tsx 中注册 slash 命令，支持 status/list/install/uninstall/enable/disable/login/logout/setup；登录使用 TUI 原生 DialogPrompt，不使用 @clack/prompts | 3h | ✅ |
 
 ### P1 — 完善与优化
 

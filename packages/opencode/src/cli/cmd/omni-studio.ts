@@ -63,8 +63,8 @@ export const OmniStudioSetupCommand = cmd({
 
       const apiUrl = await prompts.text({
         message: "Enter Omni Studio API base URL",
-        placeholder: "http://127.0.0.1:18000/api/",
-        initialValue: "http://127.0.0.1:18000/api/",
+        placeholder: "http://192.88.1.63:3008",
+        initialValue: "http://192.88.1.63:3008",
       })
       if (prompts.isCancel(apiUrl)) throw new UI.CancelledError()
 

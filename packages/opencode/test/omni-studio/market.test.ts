@@ -8,7 +8,7 @@ import { OmniStudioMarket } from "../../src/omni-studio/market"
 import { OmniStudioAuth } from "../../src/omni-studio/auth"
 
 /** 真实后端 API 基础地址 */
-const API_BASE = process.env.OMNI_STUDIO_API_BASE ?? "http://192.88.1.63:3008/api/"
+const API_BASE = process.env.OMNI_STUDIO_API_BASE ?? "http://192.88.1.63:3008"
 
 /** 测试账号（优先从环境变量读取，回退到默认测试账号） */
 const TEST_USERNAME = process.env.OMNI_STUDIO_TEST_USERNAME ?? "admin"

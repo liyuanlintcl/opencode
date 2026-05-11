@@ -119,8 +119,8 @@ export function DialogOmniStudio() {
    */
   const handleSetup = async () => {
     const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址", {
-      placeholder: "http://127.0.0.1:18000/api/",
-      value: "http://127.0.0.1:18000/api/",
+      placeholder: "http://192.88.1.63:3008",
+      value: "http://192.88.1.63:3008",
     })
     if (!apiBase) return
 

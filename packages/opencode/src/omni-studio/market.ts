@@ -86,7 +86,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const base = yield* getApiBase()
       const headers = yield* authSvc.getAuthHeaders()
       const entityType = toEntityType(type ?? "skill")
-      const url = `${base}/v1/packages/${entityType}?page=0&size=100`
+      const url = `${base}/api/v1/packages/${entityType}?page=0&size=100`
       const response = yield* Effect.tryPromise({
         try: () => fetch(url, { headers }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
@@ -102,7 +102,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const headers = yield* authSvc.getAuthHeaders()
       const entityType = toEntityType(type)
       const response = yield* Effect.tryPromise({
-        try: () => fetch(`${base}/v1/packages/${entityType}/${slug}`, { headers }),
+        try: () => fetch(`${base}/api/v1/packages/${entityType}/${slug}`, { headers }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
       const envelope = yield* parseEnvelope(response)
@@ -120,7 +120,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
        * 先调用下载端点获取下载地址。
        * 后端端点：GET /v1/packages/{type}/{slug}/revisions/{version}/download
        */
-      const downloadUrl = `${base}/v1/packages/${entityType}/${ext.slug}/revisions/${ext.version}/download`
+      const downloadUrl = `${base}/api/v1/packages/${entityType}/${ext.slug}/revisions/${ext.version}/download`
       const urlResponse = yield* Effect.tryPromise({
         try: () => fetch(downloadUrl, { headers }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),

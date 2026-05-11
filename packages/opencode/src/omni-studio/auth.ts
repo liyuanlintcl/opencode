@@ -44,7 +44,7 @@ export const layer = Layer.effect(
       const base = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase
       const response = yield* Effect.tryPromise({
         try: () =>
-          fetch(`${base}/auth/auth/login`, {
+          fetch(`${base}/api/auth/auth/login`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(credentials),

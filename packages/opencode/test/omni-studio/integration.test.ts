@@ -9,7 +9,7 @@ import { OmniStudioMarket } from "../../src/omni-studio/market"
 import { OmniStudioStore } from "../../src/omni-studio/store"
 import { OmniStudioConfig } from "../../src/omni-studio/config"
 
-const API_BASE = process.env.OMNI_STUDIO_API_BASE ?? "http://192.88.1.63:3008/api/"
+const API_BASE = process.env.OMNI_STUDIO_API_BASE ?? "http://192.88.1.63:3008"
 const TEST_USERNAME = process.env.OMNI_STUDIO_TEST_USERNAME ?? "admin"
 const TEST_PASSWORD = process.env.OMNI_STUDIO_TEST_PASSWORD ?? ".2admin"
 

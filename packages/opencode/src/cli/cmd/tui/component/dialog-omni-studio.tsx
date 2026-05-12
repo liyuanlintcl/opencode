@@ -17,7 +17,7 @@ import { OmniStudioConfig } from "@/omni-studio/config"
 import { OmniStudioStore } from "@/omni-studio/store"
 import { OmniStudioMarket } from "@/omni-studio/market"
 
-import type { ExtensionType, Extension, PagedResult } from "@/omni-studio/types"
+import type { ExtensionType, Extension, ExtensionEntry, PagedResult } from "@/omni-studio/types"
 
 /** 调试日志文件路径 */
 const debugLogFile = path.join(Global.Path.home, ".omni_studio", "tui-debug.log")
@@ -60,6 +60,82 @@ type ListResult =
   | { kind: "loading" }
   | { kind: "ok"; data: Extension[]; pageInfo: PagedResult<Extension>["pageInfo"] }
   | { kind: "error"; message: string }
+
+/**
+ * 类型切换条组件。
+ * 在列表和本地扩展视图顶部共享，支持 skill / tool / plugin / agent 切换。
+ */
+function TypeSwitchBar(props: {
+  selectedType: () => ExtensionType
+  onSwitch: (type: ExtensionType) => void
+}) {
+  const { theme } = useTheme()
+  const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
+  return (
+    <box flexDirection="row" gap={2} paddingTop={1} paddingBottom={1}>
+      {typeOptions.map((type) => {
+        const active = props.selectedType() === type
+        return (
+          <text
+            fg={active ? theme.primary : theme.textMuted}
+            attributes={active ? TextAttributes.BOLD : undefined}
+            onMouseUp={() => props.onSwitch(type)}
+          >
+            {active ? `[${type}]` : ` ${type} `}
+          </text>
+        )
+      })}
+    </box>
+  )
+}
+
+/**
+ * 带条件 scrollbox 的列表容器。
+ * 当内容高度超过 maxHeight 时启用 scrollbox 并显示滚动条；否则直接渲染内容。
+ */
+function ScrollableList(props: { maxHeight: number; itemCount: number; children: any }) {
+  const needsScroll = () => Math.max(props.itemCount * 2 + 1, 3) > props.maxHeight
+  return (
+    <Show when={needsScroll()} fallback={<box gap={1}>{props.children}</box>}>
+      <scrollbox maxHeight={props.maxHeight} scrollbarOptions={{ visible: true }}>
+        <box gap={1}>{props.children}</box>
+      </scrollbox>
+    </Show>
+  )
+}
+
+/**
+ * 分页控件组件。
+ * 在列表和本地扩展视图底部分享，支持上一页/下一页和页码显示。
+ */
+function PaginationBar(props: {
+  canPrev: () => boolean
+  canNext: () => boolean
+  pageText: () => string
+  onPrev: () => void
+  onNext: () => void
+}) {
+  const { theme } = useTheme()
+  return (
+    <box flexDirection="row" justifyContent="space-between" paddingTop={1}>
+      <text
+        fg={props.canPrev() ? theme.primary : theme.textMuted}
+        attributes={props.canPrev() ? TextAttributes.BOLD : undefined}
+        onMouseUp={() => props.canPrev() && props.onPrev()}
+      >
+        ◀ 上一页
+      </text>
+      <text fg={theme.textMuted}>{props.pageText()}</text>
+      <text
+        fg={props.canNext() ? theme.primary : theme.textMuted}
+        attributes={props.canNext() ? TextAttributes.BOLD : undefined}
+        onMouseUp={() => props.canNext() && props.onNext()}
+      >
+        下一页 ▶
+      </text>
+    </box>
+  )
+}
 
 /**
  * Omni Studio 状态视图。
@@ -125,6 +201,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const { theme } = useTheme()
   const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
   const [currentPage, setCurrentPage] = createSignal(1)
+  const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
   const [pendingAction, setPendingAction] = createSignal<{ type: "enable" | "disable" | "uninstall"; slug: string } | null>(null)
   const PAGE_SIZE = 10
 
@@ -208,24 +285,33 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     }
   }
 
-  const pagedExtensions = () => {
+  /** 切换类型时重置到第 1 页。 */
+  const switchType = (type: ExtensionType) => {
+    if (type === selectedType()) return
+    setSelectedType(type)
+    setCurrentPage(1)
+  }
+
+  /** 按当前选中类型过滤的本地扩展列表。 */
+  const filteredExtensions = () => {
     const s = status()
     if (s.kind !== "ok") return []
+    return s.extensions.filter((e) => e.type === selectedType())
+  }
+
+  /** 过滤后分页的本地扩展列表。 */
+  const pagedExtensions = () => {
+    const list = filteredExtensions()
     const start = (currentPage() - 1) * PAGE_SIZE
-    return s.extensions.slice(start, start + PAGE_SIZE)
+    return list.slice(start, start + PAGE_SIZE)
   }
 
   const totalPages = () => {
-    const s = status()
-    if (s.kind !== "ok") return 1
-    return Math.max(1, Math.ceil(s.extensions.length / PAGE_SIZE))
+    const count = filteredExtensions().length
+    return Math.max(1, Math.ceil(count / PAGE_SIZE))
   }
 
-  const pageText = () => {
-    const s = status()
-    if (s.kind !== "ok") return ""
-    return `第 ${currentPage()}/${totalPages()} 页`
-  }
+  const pageText = () => `第 ${currentPage()}/${totalPages()} 页`
 
   const canPrev = () => currentPage() > 1
   const canNext = () => currentPage() < totalPages()
@@ -242,7 +328,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const LocalExtensionRow = (ext: { type: ExtensionType; slug: string; name?: string; version: string; enabled: boolean }) => (
     <box flexDirection="row" justifyContent="space-between">
       <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
-        {`${ext.name || ext.slug} (${ext.type}) v${ext.version}`}
+        {ext.name || ext.slug}
       </text>
       <box flexDirection="row" gap={2}>
         <text fg={theme.textMuted}>|</text>
@@ -299,37 +385,25 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
           esc
         </text>
       </box>
-      <Show when={status().kind === "ok" && (status() as Extract<StatusResult, { kind: "ok" }>).extensions.length > 0}>
-        <Show when={Math.max(pagedExtensions().length * 2 + 1, 3) > scrollHeight()} fallback={
-          <box gap={1}>
-            <For each={pagedExtensions()}>{LocalExtensionRow}</For>
-          </box>
-        }>
-          <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: true }}>
-            <box gap={1}>
-              <For each={pagedExtensions()}>{LocalExtensionRow}</For>
-            </box>
-          </scrollbox>
-        </Show>
+      <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
+      <Show when={status().kind === "ok" && filteredExtensions().length > 0}>
+        <ScrollableList maxHeight={scrollHeight()} itemCount={pagedExtensions().length}>
+          <For each={pagedExtensions()}>{LocalExtensionRow}</For>
+        </ScrollableList>
         <Show when={totalPages() > 1}>
-          <box flexDirection="row" justifyContent="space-between" paddingTop={1}>
-            <text
-              fg={canPrev() ? theme.primary : theme.textMuted}
-              attributes={canPrev() ? TextAttributes.BOLD : undefined}
-              onMouseUp={() => canPrev() && setCurrentPage((p) => p - 1)}
-            >
-              ◀ 上一页
-            </text>
-            <text fg={theme.textMuted}>{pageText()}</text>
-            <text
-              fg={canNext() ? theme.primary : theme.textMuted}
-              attributes={canNext() ? TextAttributes.BOLD : undefined}
-              onMouseUp={() => canNext() && setCurrentPage((p) => p + 1)}
-            >
-              下一页 ▶
-            </text>
-          </box>
+          <PaginationBar
+            canPrev={canPrev}
+            canNext={canNext}
+            pageText={pageText}
+            onPrev={() => setCurrentPage((p) => p - 1)}
+            onNext={() => setCurrentPage((p) => p + 1)}
+          />
         </Show>
+      </Show>
+      <Show when={status().kind === "ok" && filteredExtensions().length === 0}>
+        <box paddingBottom={1}>
+          <text fg={theme.textMuted}>该类型下没有已安装的扩展</text>
+        </box>
       </Show>
     </box>
   )
@@ -348,11 +422,12 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [pendingSlug, setPendingSlug] = createSignal<string | null>(null)
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
+  const [localSlugs, setLocalSlugs] = createSignal<Set<string>>(new Set())
 
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
 
   /**
-   * 加载指定 type 和页码的数据。
+   * 加载指定 type 和页码的远程数据，同时刷新本地已安装扩展列表。
    * currentPage 或 selectedType 变化时自动触发。
    */
   createEffect(() => {
@@ -362,12 +437,20 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     void (async () => {
       setMarketList({ kind: "loading" })
       try {
-        const result = await Effect.runPromise(
-          OmniStudioMarket.Service.use((svc) => svc.listPaged(type, page)).pipe(
-            Effect.provide(OmniStudioMarket.defaultLayer),
+        const [result, status] = await Promise.all([
+          Effect.runPromise(
+            OmniStudioMarket.Service.use((svc) => svc.listPaged(type, page)).pipe(
+              Effect.provide(OmniStudioMarket.defaultLayer),
+            ),
           ),
-        )
+          Effect.runPromise(
+            OmniStudioStore.Service.use((svc) => svc.getStatus()).pipe(
+              Effect.provide(OmniStudioStore.defaultLayer),
+            ),
+          ).catch(() => ({ extensions: [] as ExtensionEntry[] })),
+        ])
         setMarketList({ kind: "ok", data: result.records, pageInfo: result.pageInfo })
+        setLocalSlugs(new Set(status.extensions.map((e) => `${e.type}:${e.slug}`)))
       } catch (e) {
         setMarketList({ kind: "error", message: String(e) })
       }
@@ -436,11 +519,14 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     return Math.min(contentHeight, maxH)
   })
 
+  /** 判断远程扩展是否已在本地安装。 */
+  const isInstalled = (ext: Extension) => localSlugs().has(`${ext.type}:${ext.slug}`)
+
   /** 渲染单行市场扩展条目，包含名称和行内安装按钮。 */
   const MarketExtensionRow = (ext: Extension) => (
     <box flexDirection="row" justifyContent="space-between">
       <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
-        {`${ext.name} (${ext.type})${ext.version ? ` v${ext.version}` : ""}${ext.author ? ` - ${ext.author}` : ""}`}
+        {`${ext.name}${ext.author ? ` - ${ext.author}` : ""}`}
       </text>
       <box flexDirection="row" gap={2}>
         <text fg={theme.textMuted}>|</text>
@@ -461,9 +547,14 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           </text>
         </Show>
         <Show when={pendingSlug() !== ext.slug && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug}>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD} onMouseUp={() => setPendingSlug(ext.slug)}>
-            [安装]
-          </text>
+          <Show when={isInstalled(ext)}>
+            <text fg={theme.textMuted}>[已安装]</text>
+          </Show>
+          <Show when={!isInstalled(ext)}>
+            <text fg={theme.primary} attributes={TextAttributes.BOLD} onMouseUp={() => setPendingSlug(ext.slug)}>
+              [安装]
+            </text>
+          </Show>
         </Show>
       </box>
     </box>
@@ -479,20 +570,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           esc
         </text>
       </box>
-      <box flexDirection="row" gap={2} paddingTop={1} paddingBottom={1}>
-        {typeOptions.map((type) => {
-          const active = selectedType() === type
-          return (
-            <text
-              fg={active ? theme.primary : theme.textMuted}
-              attributes={active ? TextAttributes.BOLD : undefined}
-              onMouseUp={() => switchType(type)}
-            >
-              {active ? `[${type}]` : ` ${type} `}
-            </text>
-          )
-        })}
-      </box>
+      <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
       <Show
         when={marketList().kind === "ok" && (marketList() as Extract<ListResult, { kind: "ok" }>).data.length > 0}
         fallback={
@@ -507,34 +585,16 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           </box>
         }
       >
-        <Show when={Math.max((marketList() as Extract<ListResult, { kind: "ok" }>).data.length * 2 + 1, 3) > scrollHeight()} fallback={
-          <box gap={1}>
-            <For each={(marketList() as Extract<ListResult, { kind: "ok" }>).data}>{MarketExtensionRow}</For>
-          </box>
-        }>
-          <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: true }}>
-            <box gap={1}>
-              <For each={(marketList() as Extract<ListResult, { kind: "ok" }>).data}>{MarketExtensionRow}</For>
-            </box>
-          </scrollbox>
-        </Show>
-        <box flexDirection="row" justifyContent="space-between" paddingTop={1}>
-          <text
-            fg={canPrev() ? theme.primary : theme.textMuted}
-            attributes={canPrev() ? TextAttributes.BOLD : undefined}
-            onMouseUp={() => canPrev() && setCurrentPage((p) => p - 1)}
-          >
-            ◀ 上一页
-          </text>
-          <text fg={theme.textMuted}>{pageText()}</text>
-          <text
-            fg={canNext() ? theme.primary : theme.textMuted}
-            attributes={canNext() ? TextAttributes.BOLD : undefined}
-            onMouseUp={() => canNext() && setCurrentPage((p) => p + 1)}
-          >
-            下一页 ▶
-          </text>
-        </box>
+        <ScrollableList maxHeight={scrollHeight()} itemCount={(marketList() as Extract<ListResult, { kind: "ok" }>).data.length}>
+          <For each={(marketList() as Extract<ListResult, { kind: "ok" }>).data}>{MarketExtensionRow}</For>
+        </ScrollableList>
+        <PaginationBar
+          canPrev={canPrev}
+          canNext={canNext}
+          pageText={pageText}
+          onPrev={() => setCurrentPage((p) => p - 1)}
+          onNext={() => setCurrentPage((p) => p + 1)}
+        />
       </Show>
     </box>
   )

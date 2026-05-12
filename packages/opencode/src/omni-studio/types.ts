@@ -89,13 +89,15 @@ export interface OmniStudioConfig {
 
 /**
  * 本地已安装扩展的精简状态记录。
- * 持久化到 `~/.omni_studio/state.json`，不包含展示信息（展示信息以本地扩展目录中的文件为准）。
+ * 持久化到 `~/.omni_studio/state.json`。
  */
 export interface ExtensionEntry {
   /** 扩展类型 */
   type: ExtensionType
   /** 扩展唯一标识符 */
   slug: string
+  /** 扩展显示名称，用于本地扩展列表展示；旧数据可能缺失 */
+  name?: string
   /** 已安装版本号 */
   version: string
   /** 是否启用 */

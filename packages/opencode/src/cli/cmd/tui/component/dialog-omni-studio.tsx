@@ -50,7 +50,7 @@ function debugLog(...args: unknown[]) {
  */
 type StatusResult =
   | { kind: "loading" }
-  | { kind: "ok"; config: { api_base: string; user: { username: string } } | null; extensions: Array<{ type: ExtensionType; slug: string; version: string; enabled: boolean }> }
+  | { kind: "ok"; config: { api_base: string; user: { username: string } } | null; extensions: Array<{ type: ExtensionType; slug: string; name?: string; version: string; enabled: boolean }> }
   | { kind: "error"; message: string }
 
 /**
@@ -249,82 +249,79 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
         </text>
       </box>
       <Show when={status().kind === "ok" && (status() as Extract<StatusResult, { kind: "ok" }>).extensions.length > 0}>
-        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: false }}>
+        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: true }}>
           <box gap={1}>
             <For each={pagedExtensions()}>
-              {(ext) => {
-                const action = pendingAction()
-                const isPending = action?.slug === ext.slug
-                return (
-                  <box flexDirection="row" justifyContent="space-between">
-                    <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
-                      {`${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`}
-                    </text>
-                    <box flexDirection="row" gap={2}>
-                      <Show when={isPending && action?.type === "enable"}>
+              {(ext) => (
+                <box flexDirection="row" justifyContent="space-between">
+                  <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
+                    {`${ext.name || ext.slug} (${ext.type}) v${ext.version}`}
+                  </text>
+                  <box flexDirection="row" gap={2}>
+                    <text fg={theme.textMuted}>|</text>
+                    <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "enable"}>
+                      <text
+                        fg={theme.primary}
+                        attributes={TextAttributes.BOLD}
+                        onMouseUp={() => handleEnable(ext)}
+                      >
+                        [确认启用]
+                      </text>
+                      <text fg={theme.textMuted} onMouseUp={() => setPendingAction(null)}>
+                        [取消]
+                      </text>
+                    </Show>
+                    <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "disable"}>
+                      <text
+                        fg={theme.primary}
+                        attributes={TextAttributes.BOLD}
+                        onMouseUp={() => handleDisable(ext)}
+                      >
+                        [确认禁用]
+                      </text>
+                      <text fg={theme.textMuted} onMouseUp={() => setPendingAction(null)}>
+                        [取消]
+                      </text>
+                    </Show>
+                    <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "uninstall"}>
+                      <text
+                        fg={theme.error}
+                        attributes={TextAttributes.BOLD}
+                        onMouseUp={() => handleUninstall(ext)}
+                      >
+                        [确认卸载]
+                      </text>
+                      <text fg={theme.textMuted} onMouseUp={() => setPendingAction(null)}>
+                        [取消]
+                      </text>
+                    </Show>
+                    <Show when={pendingAction()?.slug !== ext.slug}>
+                      <Show when={!ext.enabled}>
                         <text
                           fg={theme.primary}
-                          attributes={TextAttributes.BOLD}
-                          onMouseUp={() => handleEnable(ext)}
+                          onMouseUp={() => setPendingAction({ type: "enable", slug: ext.slug })}
                         >
-                          [确认启用]
-                        </text>
-                        <text fg={theme.textMuted} onMouseUp={() => setPendingAction(null)}>
-                          [取消]
+                          [启用]
                         </text>
                       </Show>
-                      <Show when={isPending && action?.type === "disable"}>
+                      <Show when={ext.enabled}>
                         <text
                           fg={theme.primary}
-                          attributes={TextAttributes.BOLD}
-                          onMouseUp={() => handleDisable(ext)}
+                          onMouseUp={() => setPendingAction({ type: "disable", slug: ext.slug })}
                         >
-                          [确认禁用]
-                        </text>
-                        <text fg={theme.textMuted} onMouseUp={() => setPendingAction(null)}>
-                          [取消]
+                          [禁用]
                         </text>
                       </Show>
-                      <Show when={isPending && action?.type === "uninstall"}>
-                        <text
-                          fg={theme.error}
-                          attributes={TextAttributes.BOLD}
-                          onMouseUp={() => handleUninstall(ext)}
-                        >
-                          [确认卸载]
-                        </text>
-                        <text fg={theme.textMuted} onMouseUp={() => setPendingAction(null)}>
-                          [取消]
-                        </text>
-                      </Show>
-                      <Show when={!isPending}>
-                        <Show when={!ext.enabled}>
-                          <text
-                            fg={theme.primary}
-                            onMouseUp={() => setPendingAction({ type: "enable", slug: ext.slug })}
-                          >
-                            [启用]
-                          </text>
-                        </Show>
-                        <Show when={ext.enabled}>
-                          <text
-                            fg={theme.primary}
-                            onMouseUp={() => setPendingAction({ type: "disable", slug: ext.slug })}
-                          >
-                            [禁用]
-                          </text>
-                        </Show>
-                        <text
-                          fg={theme.textMuted}
-                          onMouseUp={() => setPendingAction({ type: "uninstall", slug: ext.slug })}
-                        >
-                          [卸载]
-                        </text>
-                      </Show>
-                    </box>
+                      <text
+                        fg={theme.textMuted}
+                        onMouseUp={() => setPendingAction({ type: "uninstall", slug: ext.slug })}
+                      >
+                        [卸载]
+                      </text>
+                    </Show>
                   </box>
-                )
-              }}
+                </box>
+              )}
             </For>
           </box>
         </scrollbox>
@@ -494,7 +491,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           </box>
         }
       >
-        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: false }}>
+        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: true }}>
           <box gap={1}>
             <For each={(marketList() as Extract<ListResult, { kind: "ok" }>).data}>
               {(ext) => (
@@ -502,13 +499,16 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
                   <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
                     {`${ext.name} (${ext.type})${ext.version ? ` v${ext.version}` : ""}${ext.author ? ` - ${ext.author}` : ""}`}
                   </text>
-                  <text
-                    fg={theme.primary}
-                    attributes={TextAttributes.BOLD}
-                    onMouseUp={() => handleInstallExt(ext)}
-                  >
-                    [安装]
-                  </text>
+                  <box flexDirection="row" gap={2}>
+                    <text fg={theme.textMuted}>|</text>
+                    <text
+                      fg={theme.primary}
+                      attributes={TextAttributes.BOLD}
+                      onMouseUp={() => handleInstallExt(ext)}
+                    >
+                      [安装]
+                    </text>
+                  </box>
                 </box>
               )}
             </For>

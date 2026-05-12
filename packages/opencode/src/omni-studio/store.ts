@@ -81,6 +81,7 @@ export const layer = Layer.effect(
             {
               type: ext.type,
               slug: ext.slug,
+              name: ext.name,
               version: ext.version,
               enabled: true,
               installed_at: new Date().toISOString(),

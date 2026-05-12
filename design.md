@@ -31,7 +31,7 @@ omni-studio.json             {skills,tools,...}/
 | `executor.ts` | 扩展生命周期脚本执行（install/start/stop/uninstall/activate） | `src/omni-studio/executor.ts` |
 | `config.ts` | 配置文件读写 | `src/omni-studio/config.ts` |
 | `types.ts` | 共享类型定义 | `src/omni-studio/types.ts` |
-| `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio 菜单（status/list/install/uninstall/enable/disable/login/logout/setup） | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
+| `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio Extension 菜单（status/local/list/login/logout/setup）。安装/卸载/启用/禁用操作在 list 和 local 视图中以行内按钮提供 | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
 
 ## 3. 数据模型
 
@@ -124,15 +124,12 @@ TUI 中的 slash 命令（`/` 触发）与 CLI 子命令独立注册，通过 `a
 ```
 
 `DialogOmniStudio` 组件内部使用 `DialogSelect` 展示子菜单：
-- **Status**：调用 `Store.getStatus()`，展示登录状态和本地扩展列表
-- **List**：调用 `Market.list()`，展示远程扩展列表
-- **Install**：选择类型 → 输入 slug → 获取元数据 → 确认安装
-- **Uninstall**：选择本地扩展 → 确认卸载
-- **Enable**：选择已禁用扩展 → 确认启用
-- **Disable**：选择已启用扩展 → 确认禁用
-- **Login**：输入 username / password，从配置读取 auth_base 完成认证
+- **Status**：调用 `Store.getStatus()`，仅展示登录状态和 API 配置摘要
+- **Local**：调用 `Store.getStatus()`，展示本地扩展列表，每行提供行内 `[启用]`/`[禁用]`/`[卸载]` 按钮（点击后切换为 `[确认启用] [取消]` 等确认模式）
+- **List**：调用 `Market.listPaged()`，展示远程扩展列表，顶部支持 `[skill]`/`[tool]`/`[plugin]`/`[agent]` 类型切换，每行右侧提供 `[安装]` 按钮，点击后弹出确认并安装
+- **Login**：输入 username / password，从配置读取 api_base 完成认证
 - **Logout**：调用 `Auth.logout()`，清除本地 token
-- **Setup**：输入 auth_base 和 api_base，持久化到配置文件中
+- **Setup**：输入 api_base，持久化到配置文件中
 
 slash 命令的数据流与 CLI 命令共享同一套 Effect Service（`OmniStudioAuth`、`OmniStudioMarket`、`OmniStudioStore`），通过 `Effect.provide(defaultLayer)` 注入依赖。
 
@@ -302,22 +299,24 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 2. 输入 "omni-studio" 或 "omni" 后回车
 3. TUI 打开 DialogOmniStudio 组件（DialogSelect 菜单）
 4. 用户选择子操作：
-   - Status   → 调用 Store.getStatus() → 在文本框中展示登录状态和扩展列表
-   - List     → 调用 Market.list() → 在文本框中展示远程扩展列表
-   - Install  → 选择类型 → 输入 slug → 确认安装
-   - Uninstall→ 选择本地扩展 → 确认卸载
-   - Enable   → 选择已禁用扩展 → 确认启用
-   - Disable  → 选择已启用扩展 → 确认禁用
-   - Login    → 输入 username / password（从配置读取 api_base）
-   - Logout   → 调用 Auth.logout() → 展示登出结果
-   - Setup    → 输入 api_base → 保存配置
+   - Status → 调用 Store.getStatus() → 展示登录状态和 API 配置摘要
+   - Local  → 调用 Store.getStatus() → 展示本地扩展列表，支持行内启用/禁用/卸载（行内确认模式，不弹出独立 dialog）
+   - List   → 调用 Market.listPaged() → 展示远程扩展列表，支持类型切换和分页，每行提供 `[安装]` 按钮
+   - Login  → 输入 username / password（从配置读取 api_base）
+   - Logout → 调用 Auth.logout() → 展示登出结果
+   - Setup  → 输入 api_base → 保存配置
 5. 按 esc 返回菜单，再次按 esc 关闭对话框
+6. 列表和本地扩展视图中的 scrollbox 高度根据实际内容量自适应（`min(内容高度, 窗口高度 × 0.4)`），避免空白过多
+7. 列表项使用 `justifyContent="space-between"`，扩展名称居左，操作按钮居右，分界清晰
 ```
 
 **设计约束**：
 - TUI 中不使用 `@clack/prompts`（会与 TUI 终端渲染器冲突）
 - Login / Setup 使用 TUI 原生 DialogPrompt / DialogSelect 完成交互
 - 信息展示使用纯文本框（`<text>` 组件），不引入复杂交互
+- List / Local 视图中的操作按钮采用**行内确认模式**（点击 `[卸载]` 后该行变为 `[确认卸载] [取消]`），避免调用 `DialogConfirm.show` 触发 `dialog.replace` 导致的 `onClose` 回到主菜单问题
+- scrollbox 高度根据内容条数动态计算，最大不超过窗口高度的 40%，避免内容少时占据过多空间
+- 长扩展名称设置 `wrapMode="none" overflow="hidden"` 防止换行，按钮始终可见
 
 ### 5.10 脚本执行规则
 

@@ -59,4 +59,4 @@
 - [ ] 启用/禁用时如扩展包含 `start`/`stop` 脚本，脚本被正确执行
 - [ ] 执行任何生命周期脚本前，如存在 `activate` 脚本，先 source/调用 activate
 - [ ] 脚本执行失败时给出清晰错误信息，install/start 失败回滚状态
-- [ ] TUI 模式下输入 `/omni-studio` 显示 Omni Studio 管理菜单（status / list / install / uninstall / enable / disable / login / logout / setup）
+- [x] TUI 模式下输入 `/omni-studio` 显示 Omni Studio Extension 管理菜单（status / local / list / login / logout / setup）。安装/卸载/启用/禁用集成在 list 和 local 视图中以行内按钮形式提供

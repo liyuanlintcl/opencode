@@ -40,7 +40,7 @@ Task 1: 类型定义 & 配置模块
 | T8 | 集成测试：端到端验证各命令组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ✅ |
 | T9 | 交互式 list 命令：远程列表混合本地安装状态并支持一键安装 | 选中未安装扩展后 confirm 并调用 install，操作后循环返回列表 | 2h | ✅ |
 | T10 | 交互式 status 命令：本地扩展列表支持 enable/disable/uninstall | 选中扩展后二次选择动作，执行后循环返回列表 | 2h | ✅ |
-| T11 | TUI slash 命令集成：`/omni-studio` 在终端界面中显示管理菜单 | DialogOmniStudio 组件实现，在 app.tsx 中注册 slash 命令，支持 status/list/install/uninstall/enable/disable/login/logout/setup；登录使用 TUI 原生 DialogPrompt，不使用 @clack/prompts | 3h | ✅ |
+| T11 | TUI slash 命令集成：`/omni-studio` 在终端界面中显示管理菜单 | DialogOmniStudio 组件实现，在 app.tsx 中注册 slash 命令，支持 status/local/list/login/logout/setup；安装/卸载/启用/禁用集成在 list 和 local 视图中以行内按钮提供；登录使用 TUI 原生 DialogPrompt，不使用 @clack/prompts | 3h | ✅ |
 
 ### P1 — 完善与优化
 
@@ -50,6 +50,7 @@ Task 1: 类型定义 & 配置模块
 | T13 | 安装/更新冲突处理（已存在时提示覆盖） | 交互式确认，支持 `--force` 静默覆盖 | 2h | ⏳ |
 | T14 | 下载进度条显示 | 大文件下载时有视觉反馈 | 2h | ⏳ |
 | T15 | Token 自动刷新（accessToken 过期时用 refreshToken） | 401 时自动刷新，失败则提示重新登录 | 3h | ⏳ |
+| T16 | TUI 体验优化：行内确认、scrollbox 自适应、按钮靠右 | 本地扩展操作使用行内确认避免 dialog 跳转；scrollbox 高度根据内容自适应；列表项使用 space-between 让按钮靠右 | 2h | ✅ |
 
 ### P2 — 可选增强
 

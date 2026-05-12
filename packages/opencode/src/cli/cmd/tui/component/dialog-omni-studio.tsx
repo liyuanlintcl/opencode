@@ -79,6 +79,7 @@ function TypeSwitchBar(props: {
           <text
             fg={active ? theme.primary : theme.textMuted}
             attributes={active ? TextAttributes.BOLD : undefined}
+            selectable={false}
             onMouseUp={() => props.onSwitch(type)}
           >
             {active ? `[${type}]` : ` ${type} `}
@@ -98,7 +99,7 @@ function ScrollableList(props: { maxHeight: number; itemCount: number; children:
   const needsScroll = () => Math.max(props.itemCount * 2 + 1, 3) > props.maxHeight
   return (
     <Show when={needsScroll()} fallback={<box gap={1}>{props.children}</box>}>
-      <scrollbox maxHeight={props.maxHeight} scrollbarOptions={{ visible: false }}>
+      <scrollbox maxHeight={props.maxHeight}>
         <box gap={1} paddingBottom={1}>{props.children}</box>
       </scrollbox>
     </Show>
@@ -122,6 +123,7 @@ function PaginationBar(props: {
       <text
         fg={props.canPrev() ? theme.primary : theme.textMuted}
         attributes={props.canPrev() ? TextAttributes.BOLD : undefined}
+        selectable={false}
         onMouseUp={() => props.canPrev() && props.onPrev()}
       >
         ◀ 上一页
@@ -130,6 +132,7 @@ function PaginationBar(props: {
       <text
         fg={props.canNext() ? theme.primary : theme.textMuted}
         attributes={props.canNext() ? TextAttributes.BOLD : undefined}
+        selectable={false}
         onMouseUp={() => props.canNext() && props.onNext()}
       >
         下一页 ▶
@@ -182,7 +185,7 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
           Omni Studio Extension 状态
         </text>
-        <text fg={theme.textMuted} onMouseUp={() => props.onBack()}>
+        <text fg={theme.textMuted} selectable={false} onMouseUp={() => props.onBack()}>
           esc
         </text>
       </box>
@@ -336,41 +339,41 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       <box flexDirection="row" gap={2}>
         <text fg={theme.textMuted}>|</text>
         <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "enable"}>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD} onMouseUp={() => handleEnable(ext)}>
+          <text fg={theme.primary} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => handleEnable(ext)}>
             [确认启用]
           </text>
-          <text fg={theme.textMuted} onMouseUp={() => setPendingAction(null)}>
+          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingAction(null)}>
             [取消]
           </text>
         </Show>
         <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "disable"}>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD} onMouseUp={() => handleDisable(ext)}>
+          <text fg={theme.primary} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => handleDisable(ext)}>
             [确认禁用]
           </text>
-          <text fg={theme.textMuted} onMouseUp={() => setPendingAction(null)}>
+          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingAction(null)}>
             [取消]
           </text>
         </Show>
         <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "uninstall"}>
-          <text fg={theme.error} attributes={TextAttributes.BOLD} onMouseUp={() => handleUninstall(ext)}>
+          <text fg={theme.error} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => handleUninstall(ext)}>
             [确认卸载]
           </text>
-          <text fg={theme.textMuted} onMouseUp={() => setPendingAction(null)}>
+          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingAction(null)}>
             [取消]
           </text>
         </Show>
         <Show when={pendingAction()?.slug !== ext.slug}>
           <Show when={!ext.enabled}>
-            <text fg={theme.primary} onMouseUp={() => setPendingAction({ type: "enable", slug: ext.slug })}>
+            <text fg={theme.primary} selectable={false} onMouseUp={() => setPendingAction({ type: "enable", slug: ext.slug })}>
               [启用]
             </text>
           </Show>
           <Show when={ext.enabled}>
-            <text fg={theme.primary} onMouseUp={() => setPendingAction({ type: "disable", slug: ext.slug })}>
+            <text fg={theme.primary} selectable={false} onMouseUp={() => setPendingAction({ type: "disable", slug: ext.slug })}>
               [禁用]
             </text>
           </Show>
-          <text fg={theme.textMuted} onMouseUp={() => setPendingAction({ type: "uninstall", slug: ext.slug })}>
+          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingAction({ type: "uninstall", slug: ext.slug })}>
             [卸载]
           </text>
         </Show>
@@ -549,10 +552,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           <text fg={theme.textMuted}>安装中...</text>
         </Show>
         <Show when={pendingSlug() === ext.slug && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug}>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD} onMouseUp={() => handleInstallExt(ext)}>
+          <text fg={theme.primary} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => handleInstallExt(ext)}>
             [确认安装]
           </text>
-          <text fg={theme.textMuted} onMouseUp={() => setPendingSlug(null)}>
+          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingSlug(null)}>
             [取消]
           </text>
         </Show>
@@ -561,7 +564,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
             <text fg={theme.textMuted}>[已安装]</text>
           </Show>
           <Show when={!isInstalled(ext)}>
-            <text fg={theme.primary} attributes={TextAttributes.BOLD} onMouseUp={() => setPendingSlug(ext.slug)}>
+            <text fg={theme.primary} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => setPendingSlug(ext.slug)}>
               [ 安装 ]
             </text>
           </Show>

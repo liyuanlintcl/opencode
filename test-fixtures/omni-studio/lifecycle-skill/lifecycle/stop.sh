@@ -1,6 +1,11 @@
 #!/bin/sh
 # 停止脚本：扩展被禁用时执行
 
+if [ "$LIFECYCLE_TEST_FAIL" = "1" ]; then
+  echo "[lifecycle-skill] stop: 模拟失败（LIFECYCLE_TEST_FAIL=1）"
+  exit 1
+fi
+
 echo "[lifecycle-skill] stop: 开始停止"
 echo "[lifecycle-skill] stop: 当前目录 = $(pwd)"
 echo "[lifecycle-skill] stop: 环境变量 LIFECYCLE_SKILL_ACTIVATED = $LIFECYCLE_SKILL_ACTIVATED"

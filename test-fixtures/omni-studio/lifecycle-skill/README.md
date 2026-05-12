@@ -18,11 +18,21 @@ Omni Studio 生命周期测试 Skill。
 
 > 注意：脚本存放在 `lifecycle/` 子目录中，但执行时的工作目录（cwd）仍为扩展根目录。
 
+## 模拟失败测试
+
+所有生命周期脚本支持通过环境变量模拟失败：
+
+```bash
+export LIFECYCLE_TEST_FAIL=1
+```
+
+设置后执行任意生命周期脚本都会输出失败信息并返回 exit 1，用于测试 TUI 错误展示。
+
 ## 打包上传
 
 ```bash
 cd test-fixtures/omni-studio/lifecycle-skill
-chmod +x *.sh
+chmod +x lifecycle/*.sh
 zip -r lifecycle-skill.zip .
 ```
 

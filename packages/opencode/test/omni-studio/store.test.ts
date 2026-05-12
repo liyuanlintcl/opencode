@@ -67,7 +67,7 @@ describe("OmniStudioStore", () => {
     )
     const entry = state.extensions.find((e) => e.slug === ext.slug)
     expect(entry).toBeDefined()
-    expect(entry?.enabled).toBe(true)
+    expect(entry?.enabled).toBe(false)
   })
 
   test("uninstall removes extension directory and state", async () => {

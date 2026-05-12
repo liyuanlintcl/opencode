@@ -500,8 +500,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       })
     } catch (e) {
       setInstallingSlug(null)
-      setInstallResult({ slug: ext.slug, ok: false, msg: "失败" })
-      setTimeout(() => setInstallResult(null), 3000)
+      await DialogAlert.show(props.dialog, "安装失败", String(e))
     }
   }
 

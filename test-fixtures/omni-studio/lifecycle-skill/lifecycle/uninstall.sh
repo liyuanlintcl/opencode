@@ -1,6 +1,11 @@
 #!/bin/sh
 # 卸载脚本：扩展被卸载前执行
 
+if [ "$LIFECYCLE_TEST_FAIL" = "1" ]; then
+  echo "[lifecycle-skill] uninstall: 模拟失败（LIFECYCLE_TEST_FAIL=1）"
+  exit 1
+fi
+
 echo "[lifecycle-skill] uninstall: 开始卸载"
 echo "[lifecycle-skill] uninstall: 当前目录 = $(pwd)"
 echo "[lifecycle-skill] uninstall: 环境变量 LIFECYCLE_SKILL_ACTIVATED = $LIFECYCLE_SKILL_ACTIVATED"

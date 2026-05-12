@@ -19,6 +19,9 @@ import { OmniStudioMarket } from "@/omni-studio/market"
 
 import type { ExtensionType, Extension, ExtensionEntry, PagedResult } from "@/omni-studio/types"
 
+/** 当子视图中弹出 DialogAlert 时，阻止 backToMenu 被 dialog.replace 触发，避免 Alert 闪退。 */
+let suppressBackToMenu = false
+
 /** 调试日志文件路径 */
 const debugLogFile = path.join(Global.Path.home, ".omni_studio", "tui-debug.log")
 
@@ -253,7 +256,13 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       await refresh()
     } catch (e) {
       setPendingAction(null)
-      await DialogAlert.show(props.dialog, "启用失败", String(e))
+      suppressBackToMenu = true
+      try {
+        await DialogAlert.show(props.dialog, "启用失败", String(e))
+      } finally {
+        suppressBackToMenu = false
+      }
+      props.dialog.replace(() => <OmniStudioLocalView dialog={props.dialog} onBack={props.onBack} />, props.onBack)
     }
   }
 
@@ -269,7 +278,13 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       await refresh()
     } catch (e) {
       setPendingAction(null)
-      await DialogAlert.show(props.dialog, "禁用失败", String(e))
+      suppressBackToMenu = true
+      try {
+        await DialogAlert.show(props.dialog, "禁用失败", String(e))
+      } finally {
+        suppressBackToMenu = false
+      }
+      props.dialog.replace(() => <OmniStudioLocalView dialog={props.dialog} onBack={props.onBack} />, props.onBack)
     }
   }
 
@@ -285,7 +300,13 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       await refresh()
     } catch (e) {
       setPendingAction(null)
-      await DialogAlert.show(props.dialog, "卸载失败", String(e))
+      suppressBackToMenu = true
+      try {
+        await DialogAlert.show(props.dialog, "卸载失败", String(e))
+      } finally {
+        suppressBackToMenu = false
+      }
+      props.dialog.replace(() => <OmniStudioLocalView dialog={props.dialog} onBack={props.onBack} />, props.onBack)
     }
   }
 
@@ -500,7 +521,13 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       })
     } catch (e) {
       setInstallingSlug(null)
-      await DialogAlert.show(props.dialog, "安装失败", String(e))
+      suppressBackToMenu = true
+      try {
+        await DialogAlert.show(props.dialog, "安装失败", String(e))
+      } finally {
+        suppressBackToMenu = false
+      }
+      props.dialog.replace(() => <OmniStudioListView dialog={props.dialog} onBack={props.onBack} />, props.onBack)
     }
   }
 
@@ -639,6 +666,10 @@ export function DialogOmniStudio() {
    * 使用 setTimeout 避免与 dialog 系统的 onClose 回调产生递归。
    */
   const backToMenu = () => {
+    if (suppressBackToMenu) {
+      debugLog("[OmniStudio] backToMenu suppressed (Alert active)")
+      return
+    }
     debugLog("[OmniStudio] backToMenu")
     setTimeout(() => {
       dialog.replace(() => <DialogOmniStudio />)

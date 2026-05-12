@@ -7,6 +7,7 @@ import { OmniStudioConfig } from "./config"
 import { OmniStudioMarket } from "./market"
 import { detectScripts, runScript } from "./executor"
 import type { Extension, ExtensionType, ExtensionEntry, OmniStudioConfig as OmniStudioConfigType } from "./types"
+import NodeFS from "fs/promises"
 
 /** 将 ExtensionType 单数映射为目录名复数形式 */
 function toPlural(type: ExtensionType): string {
@@ -50,48 +51,60 @@ export const layer = Layer.effect(
     /** 安装扩展 */
     const install = Effect.fn("OmniStudioStore.install")(function* (ext: Extension) {
       const state = yield* configSvc.readState()
-      const tempDir = path.join(Global.Path.home, ".omni_studio", "tmp", `${ext.slug}-${Date.now()}`)
-      yield* fs.ensureDir(tempDir).pipe(Effect.orDie)
+      const cacheDir = path.join(Global.Path.home, ".omni_studio", "cache", toPlural(ext.type))
+      const cachePath = path.join(cacheDir, `${ext.slug}-${ext.version}.zip`)
+      const downloadOutputPath = path.join(cacheDir, `${ext.slug}.zip`)
 
-      yield* Effect.ensuring(
-        Effect.gen(function* () {
-          yield* marketSvc.download(ext, tempDir)
-          const zipPath = path.join(tempDir, `${ext.slug}.zip`)
-          const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(ext.type), ext.slug)
-          yield* fs.ensureDir(targetDir).pipe(Effect.orDie)
-          yield* Effect.tryPromise({
-            try: () => extractZip(zipPath, targetDir),
-            catch: (error) => (error instanceof Error ? error.message : String(error)),
-          })
+      yield* fs.ensureDir(cacheDir).pipe(Effect.orDie)
 
-          const scripts = yield* detectScripts(targetDir)
-          if (scripts.install) {
-            yield* runScript(targetDir, "install", scripts).pipe(
-              Effect.catch((error) =>
-                Effect.gen(function* () {
-                  yield* fs.remove(targetDir, { recursive: true, force: true }).pipe(Effect.catch(() => Effect.void))
-                  return yield* Effect.fail(error)
-                }),
-              ),
-            )
-          }
+      /** 若缓存不存在则下载，已下载的 zip 保留在缓存目录供下次复用 */
+      const zipPath = yield* Effect.gen(function* () {
+        const cacheExists = yield* Effect.tryPromise({
+          try: () => Bun.file(cachePath).exists(),
+          catch: () => false,
+        }).pipe(Effect.orElseSucceed(() => false))
 
-          const updated = [
-            ...state.extensions.filter((e) => !(e.type === ext.type && e.slug === ext.slug)),
-            {
-              type: ext.type,
-              slug: ext.slug,
-              name: ext.name,
-              version: ext.version,
-              enabled: false,
-              installed_at: new Date().toISOString(),
-            },
-          ]
+        if (cacheExists) {
+          return cachePath
+        }
 
-          yield* configSvc.writeState({ extensions: updated }).pipe(Effect.orDie).pipe(Effect.orDie)
-        }),
-        fs.remove(tempDir, { recursive: true, force: true }).pipe(Effect.catch(() => Effect.void)),
-      )
+        yield* marketSvc.download(ext, cacheDir)
+
+        yield* Effect.tryPromise({
+          try: () => NodeFS.rename(downloadOutputPath, cachePath),
+          catch: (error) => (error instanceof Error ? error.message : String(error)),
+        })
+
+        return cachePath
+      })
+
+      const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(ext.type), ext.slug)
+      yield* fs.ensureDir(targetDir).pipe(Effect.orDie)
+      yield* Effect.tryPromise({
+        try: () => extractZip(zipPath, targetDir),
+        catch: (error) => (error instanceof Error ? error.message : String(error)),
+      })
+
+      const scripts = yield* detectScripts(targetDir)
+      if (scripts.install) {
+        yield* runScript(targetDir, "install", scripts).pipe(
+          Effect.catch((error) => Effect.fail(error)),
+        )
+      }
+
+      const updated = [
+        ...state.extensions.filter((e) => !(e.type === ext.type && e.slug === ext.slug)),
+        {
+          type: ext.type,
+          slug: ext.slug,
+          name: ext.name,
+          version: ext.version,
+          enabled: false,
+          installed_at: new Date().toISOString(),
+        },
+      ]
+
+      yield* configSvc.writeState({ extensions: updated }).pipe(Effect.orDie).pipe(Effect.orDie)
     })
 
     /** 卸载扩展 */

@@ -326,10 +326,15 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
 
   /** 切换类型时重置到第 1 页和选中索引。 */
   const switchType = (type: ExtensionType) => {
-    if (type === selectedType()) return
+    debugLog("[OmniStudio][LocalView] switchType called:", type, "current:", selectedType())
+    if (type === selectedType()) {
+      debugLog("[OmniStudio][LocalView] switchType early return (same type)")
+      return
+    }
     setSelectedType(type)
     setCurrentPage(1)
     setSelectedIndex(0)
+    debugLog("[OmniStudio][LocalView] switchType done:", type)
   }
 
   createEffect(() => {
@@ -397,6 +402,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       evt.stopPropagation()
       const currentIdx = typeOptions.indexOf(selectedType())
       const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
+      debugLog("[OmniStudio][LocalView] Tab pressed, currentIdx:", currentIdx, "nextType:", nextType, "typeOptions:", typeOptions, "selectedType:", selectedType())
       switchType(nextType)
       setSelectedIndex(0)
     } else if (evt.name === "return") {
@@ -611,10 +617,15 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
    * 切换扩展类型，重置到第 1 页和选中索引。
    */
   const switchType = (type: ExtensionType) => {
-    if (type === selectedType()) return
+    debugLog("[OmniStudio][ListView] switchType called:", type, "current:", selectedType())
+    if (type === selectedType()) {
+      debugLog("[OmniStudio][ListView] switchType early return (same type)")
+      return
+    }
     setSelectedType(type)
     setCurrentPage(1)
     setSelectedIndex(0)
+    debugLog("[OmniStudio][ListView] switchType done:", type)
   }
 
   createEffect(() => {
@@ -694,6 +705,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       evt.stopPropagation()
       const currentIdx = typeOptions.indexOf(selectedType())
       const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
+      debugLog("[OmniStudio][ListView] Tab pressed, currentIdx:", currentIdx, "nextType:", nextType, "typeOptions:", typeOptions, "selectedType:", selectedType())
       switchType(nextType)
       setSelectedIndex(0)
     } else if (evt.name === "return") {

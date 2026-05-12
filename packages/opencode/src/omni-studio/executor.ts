@@ -19,23 +19,23 @@ export function detectScripts(extensionDir: string): Effect.Effect<ExtensionScri
     const scripts: ExtensionScripts = {}
 
     for (const name of ["install", "start", "stop", "uninstall", "activate"] as const) {
-      const primaryPath = path.join(extensionDir, `${name}${primarySuffix}`)
+      const primaryPath = path.join(extensionDir, "lifecycle", `${name}${primarySuffix}`)
       const exists = yield* Effect.tryPromise({
         try: () => Bun.file(primaryPath).exists(),
         catch: () => false,
       }).pipe(Effect.orElseSucceed(() => false))
 
       if (exists) {
-        scripts[name] = `${name}${primarySuffix}`
+        scripts[name] = path.join("lifecycle", `${name}${primarySuffix}`)
       } else if (fallbackSuffix) {
-        const fallbackPath = path.join(extensionDir, `${name}${fallbackSuffix}`)
+        const fallbackPath = path.join(extensionDir, "lifecycle", `${name}${fallbackSuffix}`)
         const fallbackExists = yield* Effect.tryPromise({
           try: () => Bun.file(fallbackPath).exists(),
           catch: () => false,
         }).pipe(Effect.orElseSucceed(() => false))
 
         if (fallbackExists) {
-          scripts[name] = `${name}${fallbackSuffix}`
+          scripts[name] = path.join("lifecycle", `${name}${fallbackSuffix}`)
         }
       }
     }

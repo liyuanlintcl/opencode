@@ -76,6 +76,18 @@ export const layer = Layer.effect(
             )
           }
 
+          /** 安装后默认启用，若存在 start 脚本则一并执行 */
+          if (scripts.start) {
+            yield* runScript(targetDir, "start", scripts).pipe(
+              Effect.catch((error) =>
+                Effect.gen(function* () {
+                  yield* fs.remove(targetDir, { recursive: true, force: true }).pipe(Effect.catch(() => Effect.void))
+                  return yield* Effect.fail(`Install succeeded but start failed: ${error}`)
+                }),
+              ),
+            )
+          }
+
           const updated = [
             ...state.extensions.filter((e) => !(e.type === ext.type && e.slug === ext.slug)),
             {

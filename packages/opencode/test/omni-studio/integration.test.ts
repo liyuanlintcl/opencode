@@ -106,18 +106,21 @@ describe("OmniStudio Integration", () => {
     const extDir = path.join(tmpHome, ".omni_studio", "skills", "script-test")
     await fs.mkdir(extDir, { recursive: true })
 
+    const lifecycleDir = path.join(extDir, "lifecycle")
+    await fs.mkdir(lifecycleDir, { recursive: true })
+
     // Write install.sh that creates a marker
-    await fs.writeFile(path.join(extDir, "install.sh"), "#!/bin/sh\ntouch install-marker.txt\n")
-    await fs.chmod(path.join(extDir, "install.sh"), 0o755)
+    await fs.writeFile(path.join(lifecycleDir, "install.sh"), "#!/bin/sh\ntouch install-marker.txt\n")
+    await fs.chmod(path.join(lifecycleDir, "install.sh"), 0o755)
 
     // Write stop.sh that creates a marker
-    await fs.writeFile(path.join(extDir, "stop.sh"), "#!/bin/sh\ntouch stop-marker.txt\n")
-    await fs.chmod(path.join(extDir, "stop.sh"), 0o755)
+    await fs.writeFile(path.join(lifecycleDir, "stop.sh"), "#!/bin/sh\ntouch stop-marker.txt\n")
+    await fs.chmod(path.join(lifecycleDir, "stop.sh"), 0o755)
 
     // Write uninstall.sh that creates a marker outside the extension dir
     // (the dir is deleted after uninstall runs)
-    await fs.writeFile(path.join(extDir, "uninstall.sh"), `#!/bin/sh\ntouch "${path.join(tmpHome, "uninstall-marker.txt")}"\n`)
-    await fs.chmod(path.join(extDir, "uninstall.sh"), 0o755)
+    await fs.writeFile(path.join(lifecycleDir, "uninstall.sh"), `#!/bin/sh\ntouch "${path.join(tmpHome, "uninstall-marker.txt")}"\n`)
+    await fs.chmod(path.join(lifecycleDir, "uninstall.sh"), 0o755)
 
     // Register in state as installed and enabled
     await Effect.runPromise(

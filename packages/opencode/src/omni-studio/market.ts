@@ -77,6 +77,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
      * 业务码非 200 时返回 [HTTP状态码] 错误信息，便于区分网络错误和 token 过期。
      */
     const checkError = Effect.fn("OmniStudioMarket.checkError")(function* (response: Response, envelope: ApiResponse) {
+      if (!envelope) return yield* Effect.fail(`[${response.status}] 响应体为空`)
       if (response.status === 401) return yield* Effect.fail(`[${response.status}] Unauthorized`)
       if (response.status === 404) return yield* Effect.fail(`[${response.status}] Extension not found`)
       if (response.status >= 500) return yield* Effect.fail(`[${response.status}] ${envelope.message || "Server error"}`)

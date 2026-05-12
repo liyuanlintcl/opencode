@@ -1,6 +1,6 @@
 import path from "path"
 import fs from "fs/promises"
-import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
+import { TextAttributes, RGBA, type ScrollBoxRenderable } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { useTerminalDimensions } from "@opentui/solid"
@@ -98,11 +98,22 @@ function TypeSwitchBar(props: {
  * 当内容高度超过 maxHeight 时启用 scrollbox；否则直接渲染内容。
  * maxHeight 调整为行高的整数倍，避免最后一行被部分截断出现灰色横条。
  */
-function ScrollableList(props: { maxHeight: number; itemCount: number; children: any }) {
+function ScrollableList(props: { maxHeight: number; itemCount: number; selectedIndex?: number; children: any }) {
+  let scroll: ScrollBoxRenderable | undefined
   const needsScroll = () => Math.max(props.itemCount * 2 + 1, 3) > props.maxHeight
+  createEffect(() => {
+    const idx = props.selectedIndex
+    if (idx === undefined || idx < 0 || !scroll) return
+    const itemY = idx * 2
+    if (itemY < scroll.scrollTop) {
+      scroll.scrollTo(itemY)
+    } else if (itemY + 2 > scroll.scrollTop + scroll.height) {
+      scroll.scrollTo(itemY + 2 - scroll.height)
+    }
+  })
   return (
     <Show when={needsScroll()} fallback={<box gap={1}>{props.children}</box>}>
-      <scrollbox maxHeight={props.maxHeight}>
+      <scrollbox maxHeight={props.maxHeight} ref={(r: ScrollBoxRenderable) => { scroll = r }}>
         <box gap={1} paddingBottom={1}>{props.children}</box>
       </scrollbox>
     </Show>
@@ -210,6 +221,9 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
   const [pendingAction, setPendingAction] = createSignal<{ type: "enable" | "disable" | "uninstall"; slug: string } | null>(null)
+  const [selectedIndex, setSelectedIndex] = createSignal(0)
+  const [selectedButtonIndex, setSelectedButtonIndex] = createSignal(0)
+  const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
   const PAGE_SIZE = 10
 
   createEffect(() => {
@@ -310,12 +324,105 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     }
   }
 
-  /** 切换类型时重置到第 1 页。 */
+  /** 切换类型时重置到第 1 页和选中索引。 */
   const switchType = (type: ExtensionType) => {
     if (type === selectedType()) return
     setSelectedType(type)
     setCurrentPage(1)
+    setSelectedIndex(0)
   }
+
+  createEffect(() => {
+    selectedIndex() // track
+    setSelectedButtonIndex(0)
+  })
+
+  /** 键盘导航：↑↓ 移动选中，←→ 在行内按钮间切换，PgUp/PgDn 翻页，Tab 切换类型，Enter 执行操作，ESC 取消 pending。 */
+  useKeyboard((evt) => {
+    if (evt.name === "escape") {
+      if (pendingAction()) {
+        setPendingAction(null)
+        evt.preventDefault()
+        evt.stopPropagation()
+        return
+      }
+    }
+
+    const items = pagedExtensions()
+    const maxIdx = items.length - 1
+    if (maxIdx < 0) return
+
+    if (evt.name === "up" || evt.name === "k") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setSelectedIndex((i) => (i <= 0 ? maxIdx : i - 1))
+    } else if (evt.name === "down" || evt.name === "j") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setSelectedIndex((i) => (i >= maxIdx ? 0 : i + 1))
+    } else if (evt.name === "left" || evt.name === "h") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      const pending = pendingAction()
+      const btnCount = pending?.slug === ext.slug ? 2 : 2
+      if (btnCount <= 1) return
+      setSelectedButtonIndex((i) => (i <= 0 ? btnCount - 1 : i - 1))
+    } else if (evt.name === "right" || evt.name === "l") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      const pending = pendingAction()
+      const btnCount = pending?.slug === ext.slug ? 2 : 2
+      if (btnCount <= 1) return
+      setSelectedButtonIndex((i) => (i >= btnCount - 1 ? 0 : i + 1))
+    } else if (evt.name === "pageup") {
+      if (canPrev()) {
+        evt.preventDefault()
+        evt.stopPropagation()
+        setCurrentPage((p) => p - 1)
+        setSelectedIndex(0)
+      }
+    } else if (evt.name === "pagedown") {
+      if (canNext()) {
+        evt.preventDefault()
+        evt.stopPropagation()
+        setCurrentPage((p) => p + 1)
+        setSelectedIndex(0)
+      }
+    } else if (evt.name === "tab") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const currentIdx = typeOptions.indexOf(selectedType())
+      const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
+      switchType(nextType)
+      setSelectedIndex(0)
+    } else if (evt.name === "return") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      const pending = pendingAction()
+      const btnIdx = selectedButtonIndex()
+      if (pending?.slug === ext.slug) {
+        if (btnIdx === 0) {
+          if (pending.type === "enable") handleEnable(ext)
+          else if (pending.type === "disable") handleDisable(ext)
+          else if (pending.type === "uninstall") handleUninstall(ext)
+        } else {
+          setPendingAction(null)
+        }
+      } else if (!ext.enabled) {
+        if (btnIdx === 0) setPendingAction({ type: "enable", slug: ext.slug })
+        else setPendingAction({ type: "uninstall", slug: ext.slug })
+      } else {
+        if (btnIdx === 0) setPendingAction({ type: "disable", slug: ext.slug })
+        else setPendingAction({ type: "uninstall", slug: ext.slug })
+      }
+    }
+  })
 
   /** 按当前选中类型过滤的本地扩展列表。 */
   const filteredExtensions = () => {
@@ -352,56 +459,69 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     return Math.min(contentHeight, adjustedMaxH)
   })
 
-  /** 渲染单行本地扩展条目，包含名称和行内操作按钮。 */
-  const LocalExtensionRow = (ext: { type: ExtensionType; slug: string; name?: string; version: string; enabled: boolean }) => (
-    <box flexDirection="row" justifyContent="space-between">
-      <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
-        {ext.name || ext.slug}
-      </text>
-      <box flexDirection="row" gap={2}>
-        <text fg={theme.textMuted}>|</text>
-        <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "enable"}>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => handleEnable(ext)}>
-            [确认启用]
-          </text>
-          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingAction(null)}>
-            [取消]
-          </text>
-        </Show>
-        <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "disable"}>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => handleDisable(ext)}>
-            [确认禁用]
-          </text>
-          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingAction(null)}>
-            [取消]
-          </text>
-        </Show>
-        <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "uninstall"}>
-          <text fg={theme.error} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => handleUninstall(ext)}>
-            [确认卸载]
-          </text>
-          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingAction(null)}>
-            [取消]
-          </text>
-        </Show>
-        <Show when={pendingAction()?.slug !== ext.slug}>
-          <Show when={!ext.enabled}>
-            <text fg={theme.primary} selectable={false} onMouseUp={() => setPendingAction({ type: "enable", slug: ext.slug })}>
-              [启用]
+  /** 渲染单行本地扩展条目，包含名称和行内操作按钮。选中行和聚焦按钮高亮显示。 */
+  const LocalExtensionRow = (ext: { type: ExtensionType; slug: string; name?: string; version: string; enabled: boolean }, index: () => number) => {
+    const isRowSelected = () => selectedIndex() === index()
+    const rowFg = () => isRowSelected() ? theme.primary : theme.textMuted
+    const rowAttrs = () => isRowSelected() ? TextAttributes.BOLD : undefined
+    const btnFg = (position: number, defaultFg: string | RGBA) => {
+      if (!isRowSelected()) return defaultFg
+      return selectedButtonIndex() === position ? theme.primary : theme.textMuted
+    }
+    const btnAttrs = (position: number) => {
+      if (!isRowSelected()) return undefined
+      return selectedButtonIndex() === position ? TextAttributes.BOLD : undefined
+    }
+    return (
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={rowFg()} attributes={rowAttrs()} wrapMode="none" overflow="hidden">
+          {ext.name || ext.slug}
+        </text>
+        <box flexDirection="row" gap={2}>
+          <text fg={rowFg()} attributes={rowAttrs()}>|</text>
+          <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "enable"}>
+            <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => handleEnable(ext)}>
+              [确认启用]
+            </text>
+            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingAction(null)}>
+              [取消]
             </text>
           </Show>
-          <Show when={ext.enabled}>
-            <text fg={theme.primary} selectable={false} onMouseUp={() => setPendingAction({ type: "disable", slug: ext.slug })}>
-              [禁用]
+          <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "disable"}>
+            <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => handleDisable(ext)}>
+              [确认禁用]
+            </text>
+            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingAction(null)}>
+              [取消]
             </text>
           </Show>
-          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingAction({ type: "uninstall", slug: ext.slug })}>
-            [卸载]
-          </text>
-        </Show>
+          <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "uninstall"}>
+            <text fg={btnFg(0, theme.error)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => handleUninstall(ext)}>
+              [确认卸载]
+            </text>
+            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingAction(null)}>
+              [取消]
+            </text>
+          </Show>
+          <Show when={pendingAction()?.slug !== ext.slug}>
+            <Show when={!ext.enabled}>
+              <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => setPendingAction({ type: "enable", slug: ext.slug })}>
+                [启用]
+              </text>
+            </Show>
+            <Show when={ext.enabled}>
+              <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => setPendingAction({ type: "disable", slug: ext.slug })}>
+                [禁用]
+              </text>
+            </Show>
+            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingAction({ type: "uninstall", slug: ext.slug })}>
+              [卸载]
+            </text>
+          </Show>
+        </box>
       </box>
-    </box>
-  )
+    )
+  }
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
@@ -415,7 +535,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       </box>
       <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
       <Show when={status().kind === "ok" && filteredExtensions().length > 0}>
-        <ScrollableList maxHeight={scrollHeight()} itemCount={pagedExtensions().length}>
+        <ScrollableList maxHeight={scrollHeight()} itemCount={pagedExtensions().length} selectedIndex={selectedIndex()}>
           <For each={pagedExtensions()}>{LocalExtensionRow}</For>
         </ScrollableList>
         <Show when={totalPages() > 1}>
@@ -423,8 +543,8 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
             canPrev={canPrev}
             canNext={canNext}
             pageText={pageText}
-            onPrev={() => setCurrentPage((p) => p - 1)}
-            onNext={() => setCurrentPage((p) => p + 1)}
+            onPrev={() => { setCurrentPage((p) => p - 1); setSelectedIndex(0) }}
+            onNext={() => { setCurrentPage((p) => p + 1); setSelectedIndex(0) }}
           />
         </Show>
       </Show>
@@ -451,6 +571,8 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
   const [localSlugs, setLocalSlugs] = createSignal<Set<string>>(new Set())
+  const [selectedIndex, setSelectedIndex] = createSignal(0)
+  const [selectedButtonIndex, setSelectedButtonIndex] = createSignal(0)
 
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
 
@@ -486,13 +608,108 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   })
 
   /**
-   * 切换扩展类型，重置到第 1 页。
+   * 切换扩展类型，重置到第 1 页和选中索引。
    */
   const switchType = (type: ExtensionType) => {
     if (type === selectedType()) return
     setSelectedType(type)
     setCurrentPage(1)
+    setSelectedIndex(0)
   }
+
+  createEffect(() => {
+    selectedIndex() // track
+    setSelectedButtonIndex(0)
+  })
+
+  /** 键盘导航：↑↓ 移动选中，←→ 在行内按钮间切换，PgUp/PgDn 翻页，Tab 切换类型，Enter 执行操作，ESC 取消 pending。 */
+  useKeyboard((evt) => {
+    if (evt.name === "escape") {
+      if (pendingSlug()) {
+        setPendingSlug(null)
+        evt.preventDefault()
+        evt.stopPropagation()
+        return
+      }
+      if (installResult()) {
+        setInstallResult(null)
+        evt.preventDefault()
+        evt.stopPropagation()
+        return
+      }
+    }
+
+    const l = marketList()
+    if (l.kind !== "ok") return
+    const items = l.data
+    const maxIdx = items.length - 1
+    if (maxIdx < 0) return
+
+    if (evt.name === "up" || evt.name === "k") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setSelectedIndex((i) => (i <= 0 ? maxIdx : i - 1))
+    } else if (evt.name === "down" || evt.name === "j") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setSelectedIndex((i) => (i >= maxIdx ? 0 : i + 1))
+    } else if (evt.name === "left" || evt.name === "h") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      let btnCount = 0
+      if (installResult()?.slug === ext.slug || installingSlug() === ext.slug) btnCount = 0
+      else if (pendingSlug() === ext.slug) btnCount = 2
+      else if (!isInstalled(ext)) btnCount = 1
+      if (btnCount <= 1) return
+      setSelectedButtonIndex((i) => (i <= 0 ? btnCount - 1 : i - 1))
+    } else if (evt.name === "right" || evt.name === "l") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      let btnCount = 0
+      if (installResult()?.slug === ext.slug || installingSlug() === ext.slug) btnCount = 0
+      else if (pendingSlug() === ext.slug) btnCount = 2
+      else if (!isInstalled(ext)) btnCount = 1
+      if (btnCount <= 1) return
+      setSelectedButtonIndex((i) => (i >= btnCount - 1 ? 0 : i + 1))
+    } else if (evt.name === "pageup") {
+      if (canPrev()) {
+        evt.preventDefault()
+        evt.stopPropagation()
+        setCurrentPage((p) => p - 1)
+        setSelectedIndex(0)
+      }
+    } else if (evt.name === "pagedown") {
+      if (canNext()) {
+        evt.preventDefault()
+        evt.stopPropagation()
+        setCurrentPage((p) => p + 1)
+        setSelectedIndex(0)
+      }
+    } else if (evt.name === "tab") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const currentIdx = typeOptions.indexOf(selectedType())
+      const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
+      switchType(nextType)
+      setSelectedIndex(0)
+    } else if (evt.name === "return") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      const btnIdx = selectedButtonIndex()
+      if (pendingSlug() === ext.slug) {
+        if (btnIdx === 0) handleInstallExt(ext)
+        else setPendingSlug(null)
+      } else if (!isInstalled(ext) && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug) {
+        setPendingSlug(ext.slug)
+      }
+    }
+  })
 
   /**
    * 点击确认安装扩展。
@@ -562,43 +779,56 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   /** 判断远程扩展是否已在本地安装。 */
   const isInstalled = (ext: Extension) => localSlugs().has(`${ext.type}:${ext.slug}`)
 
-  /** 渲染单行市场扩展条目，包含名称和行内安装按钮。 */
-  const MarketExtensionRow = (ext: Extension) => (
-    <box flexDirection="row" justifyContent="space-between">
-      <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
-        {`${ext.name}${ext.author ? ` - ${ext.author}` : ""}`}
-      </text>
-      <box flexDirection="row" gap={2}>
-        <text fg={theme.textMuted}>|</text>
-        <Show when={installResult()?.slug === ext.slug}>
-          <text fg={installResult()!.ok ? theme.primary : theme.error}>
-            {installResult()!.msg}
-          </text>
-        </Show>
-        <Show when={installingSlug() === ext.slug}>
-          <text fg={theme.textMuted}>安装中...</text>
-        </Show>
-        <Show when={pendingSlug() === ext.slug && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug}>
-          <text fg={theme.primary} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => handleInstallExt(ext)}>
-            [确认安装]
-          </text>
-          <text fg={theme.textMuted} selectable={false} onMouseUp={() => setPendingSlug(null)}>
-            [取消]
-          </text>
-        </Show>
-        <Show when={pendingSlug() !== ext.slug && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug}>
-          <Show when={isInstalled(ext)}>
-            <text fg={theme.textMuted}>[已安装]</text>
-          </Show>
-          <Show when={!isInstalled(ext)}>
-            <text fg={theme.primary} attributes={TextAttributes.BOLD} selectable={false} onMouseUp={() => setPendingSlug(ext.slug)}>
-              [ 安装 ]
+  /** 渲染单行市场扩展条目，包含名称和行内安装按钮。选中行和聚焦按钮高亮显示。 */
+  const MarketExtensionRow = (ext: Extension, index: () => number) => {
+    const isRowSelected = () => selectedIndex() === index()
+    const rowFg = () => isRowSelected() ? theme.primary : theme.textMuted
+    const rowAttrs = () => isRowSelected() ? TextAttributes.BOLD : undefined
+    const btnFg = (position: number, defaultFg: string | RGBA) => {
+      if (!isRowSelected()) return defaultFg
+      return selectedButtonIndex() === position ? theme.primary : theme.textMuted
+    }
+    const btnAttrs = (position: number) => {
+      if (!isRowSelected()) return undefined
+      return selectedButtonIndex() === position ? TextAttributes.BOLD : undefined
+    }
+    return (
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={rowFg()} attributes={rowAttrs()} wrapMode="none" overflow="hidden">
+          {`${ext.name}${ext.author ? ` - ${ext.author}` : ""}`}
+        </text>
+        <box flexDirection="row" gap={2}>
+          <text fg={rowFg()} attributes={rowAttrs()}>|</text>
+          <Show when={installResult()?.slug === ext.slug}>
+            <text fg={installResult()!.ok ? theme.primary : theme.error}>
+              {installResult()!.msg}
             </text>
           </Show>
-        </Show>
+          <Show when={installingSlug() === ext.slug}>
+            <text fg={theme.textMuted}>安装中...</text>
+          </Show>
+          <Show when={pendingSlug() === ext.slug && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug}>
+            <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => handleInstallExt(ext)}>
+              [确认安装]
+            </text>
+            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingSlug(null)}>
+              [取消]
+            </text>
+          </Show>
+          <Show when={pendingSlug() !== ext.slug && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug}>
+            <Show when={isInstalled(ext)}>
+              <text fg={theme.textMuted}>[已安装]</text>
+            </Show>
+            <Show when={!isInstalled(ext)}>
+              <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => setPendingSlug(ext.slug)}>
+                [ 安装 ]
+              </text>
+            </Show>
+          </Show>
+        </box>
       </box>
-    </box>
-  )
+    )
+  }
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
@@ -625,15 +855,15 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           </box>
         }
       >
-        <ScrollableList maxHeight={scrollHeight()} itemCount={(marketList() as Extract<ListResult, { kind: "ok" }>).data.length}>
+        <ScrollableList maxHeight={scrollHeight()} itemCount={(marketList() as Extract<ListResult, { kind: "ok" }>).data.length} selectedIndex={selectedIndex()}>
           <For each={(marketList() as Extract<ListResult, { kind: "ok" }>).data}>{MarketExtensionRow}</For>
         </ScrollableList>
         <PaginationBar
           canPrev={canPrev}
           canNext={canNext}
           pageText={pageText}
-          onPrev={() => setCurrentPage((p) => p - 1)}
-          onNext={() => setCurrentPage((p) => p + 1)}
+          onPrev={() => { setCurrentPage((p) => p - 1); setSelectedIndex(0) }}
+          onNext={() => { setCurrentPage((p) => p + 1); setSelectedIndex(0) }}
         />
       </Show>
     </box>

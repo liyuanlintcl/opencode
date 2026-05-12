@@ -487,6 +487,12 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       )
       setInstallingSlug(null)
       setInstallResult({ slug: ext.slug, ok: true, msg: "已安装" })
+      /** 更新本地已安装集合，使按钮在结果清除后仍显示 [已安装]。 */
+      setLocalSlugs((prev) => {
+        const next = new Set(prev)
+        next.add(`${ext.type}:${ext.slug}`)
+        return next
+      })
     } catch (e) {
       setInstallingSlug(null)
       setInstallResult({ slug: ext.slug, ok: false, msg: "失败" })

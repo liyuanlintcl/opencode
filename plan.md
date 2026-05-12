@@ -51,6 +51,11 @@ Task 1: 类型定义 & 配置模块
 | T14 | 下载进度条显示 | 大文件下载时有视觉反馈 | 2h | ⏳ |
 | T15 | Token 自动刷新（accessToken 过期时用 refreshToken） | 401 时自动刷新，失败则提示重新登录 | 3h | ⏳ |
 | T16 | TUI 体验优化：行内确认、scrollbox 自适应、按钮靠右 | 本地扩展操作使用行内确认避免 dialog 跳转；scrollbox 高度根据内容自适应；列表项使用 space-between 让按钮靠右 | 2h | ✅ |
+| T17 | 下载缓存机制 | install 时 zip 缓存到 ~/.omni_studio/cache/，同一版本重新安装跳过下载；install.sh 失败保留解压目录 | 2h | ✅ |
+| T18 | Alert 错误展示与闪退修复 | 脚本失败时 DialogAlert 展示完整 stdout/stderr；suppressBackToMenu 防止 Alert 被 backToMenu 替换闪退 | 2h | ✅ |
+| T19 | 生命周期脚本路径调整 | 脚本从扩展根目录移至 lifecycle/ 子目录，cwd 仍为扩展根目录 | 1h | ✅ |
+| T20 | 安装后默认禁用 | install 完成后 enabled 设为 false，需手动 enable 才执行 start 脚本 | 1h | ✅ |
+| T21 | TUI 键盘快捷键导航 | 列表/本地扩展视图支持 ↑/↓ 或 j/k 移动选中、Enter 执行、Tab 切换类型、←/→ 翻页 | 3h | ⏳ |
 
 ### P2 — 可选增强
 
@@ -97,10 +102,15 @@ Task 1: 类型定义 & 配置模块
 - [x] T9 — 交互式 list 命令（已完成）
 - [x] T10 — 交互式 status 命令（已完成）
 - [x] T11 — TUI slash 命令集成（已完成）
+- [x] T17 — 下载缓存机制（已完成）
+- [x] T18 — Alert 错误展示与闪退修复（已完成）
+- [x] T19 — 生命周期脚本路径调整（已完成）
+- [x] T20 — 安装后默认禁用（已完成）
 - [ ] T12 — 扩展包解压支持（未开始）
 - [ ] T13 — 安装/更新冲突处理（未开始）
 - [ ] T14 — 下载进度条显示（未开始）
 - [ ] T15 — Token 自动刷新（未开始）
+- [ ] T21 — TUI 键盘快捷键导航（未开始）
 - [ ] T16 — 扩展版本管理（未开始）
 - [ ] T17 — 扩展搜索（未开始）
 - [ ] T18 — 批量安装（未开始）

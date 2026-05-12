@@ -28,7 +28,7 @@ omni-studio.json             {skills,tools,...}/
 | `auth.ts` | 登录/登出/Token 管理 | `src/omni-studio/auth.ts` |
 | `market.ts` | HTTP 市场 API 调用 | `src/omni-studio/market.ts` |
 | `store.ts` | 本地扩展安装/卸载/状态 | `src/omni-studio/store.ts` |
-| `executor.ts` | 扩展生命周期脚本执行（install/start/stop/uninstall/activate） | `src/omni-studio/executor.ts` |
+| `executor.ts` | 扩展生命周期脚本检测与执行（install/start/stop/uninstall/activate），脚本存放在扩展目录的 `lifecycle/` 子目录中 | `src/omni-studio/executor.ts` |
 | `config.ts` | 配置文件读写 | `src/omni-studio/config.ts` |
 | `types.ts` | 共享类型定义 | `src/omni-studio/types.ts` |
 | `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio Extension 菜单（status/local/list/login/logout/setup）。安装/卸载/启用/禁用操作在 list 和 local 视图中以行内按钮提供 | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
@@ -207,16 +207,17 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 2. 调用 Market API 获取扩展元数据
 3. 检查本地是否已安装同名扩展
    - 已安装 → 提示是否覆盖/更新
-4. 下载扩展压缩包到临时目录
+4. 检查缓存 ~/.omni_studio/cache/{type}/{slug}-{version}.zip 是否存在
+   - 存在 → 直接使用缓存
+   - 不存在 → 下载扩展压缩包到缓存目录，重命名为 {slug}-{version}.zip
 5. 解压到 ~/.omni_studio/{type}/{slug}/
-6. 检测扩展目录中的生命周期脚本（detectScripts）
+6. 检测扩展目录 lifecycle/ 子目录中的生命周期脚本（detectScripts）
 7. 如存在 install 脚本：
    - 先检测是否存在 activate 脚本，有则先 source/调用
-   - 执行 install.sh / install.bat / install.ps1（根据 OS）
-   - 如脚本返回非 0，回滚已解压文件并输出错误
-8. 更新 state.json（enabled: true）
-9. 清理临时文件
-10. 输出安装成功信息
+   - 执行 lifecycle/install.sh（或 .bat/.ps1，根据 OS）
+   - 如脚本返回非 0，输出错误；保留解压目录和缓存 zip 便于排查
+8. 更新 state.json（enabled: false，需手动启用）
+9. 输出安装成功信息
 ```
 
 ### 5.4 列表交互流程（list）
@@ -308,6 +309,13 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 5. 按 esc 返回菜单，再次按 esc 关闭对话框
 6. 列表和本地扩展视图中的 scrollbox 高度根据实际内容量自适应（`min(内容高度, 窗口高度 × 0.4)`），避免空白过多
 7. 列表项使用 `justifyContent="space-between"`，扩展名称居左，操作按钮居右，分界清晰
+8. 键盘快捷键支持：
+   - ↑/↓（或 j/k）：在列表中移动选中行，当前行高亮显示
+   - Enter：执行当前行的操作（安装/确认安装/启用/禁用/卸载）
+   - Tab：切换 skill/tool/plugin/agent 类型
+   - ←/→（或 h/l）：上一页/下一页
+   - Esc：返回上一级（子视图 → 主菜单，主菜单 → 关闭对话框）
+9. 脚本执行失败时，通过 DialogAlert 展示完整错误信息（含 stdout/stderr），关闭 Alert 后重新打开当前子视图
 ```
 
 **设计约束**：
@@ -321,14 +329,15 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 ### 5.10 脚本执行规则
 
 ```
-- Shell 脚本（.sh）：在 Unix 系统通过 /bin/bash 或 /bin/sh 执行
+- 生命周期脚本存放在扩展目录的 lifecycle/ 子目录中，如 lifecycle/install.sh
+- Shell 脚本（.sh）：在 Unix 系统通过 /bin/sh 执行
 - Batch 脚本（.bat）：在 Windows 通过 cmd.exe /c 执行
 - PowerShell 脚本（.ps1）：在 Windows 优先通过 pwsh/powershell 执行
 - activate 脚本的特殊性：
-  - 如为 .sh，使用 "source activate.sh && <command>" 方式合并执行
+  - 如为 .sh，使用 "source lifecycle/activate.sh && <command>" 方式合并执行
   - 如为 .bat/.ps1，先执行 activate 脚本，再执行目标脚本（同进程环境继承）
   - activate 脚本本身不计入错误回滚条件，仅用于环境准备
-- 所有脚本执行工作目录设为扩展目录本身（cwd = ~/.omni_studio/{type}/{slug}/）
+- 所有脚本执行工作目录设为扩展目录本身（cwd = ~/.omni_studio/{type}/{slug}/），脚本路径为相对路径 lifecycle/{name}.{suffix}
 ```
 
 ## 6. 技术选型

@@ -60,3 +60,9 @@
 - [ ] 执行任何生命周期脚本前，如存在 `activate` 脚本，先 source/调用 activate
 - [ ] 脚本执行失败时给出清晰错误信息，install/start 失败回滚状态
 - [x] TUI 模式下输入 `/omni-studio` 显示 Omni Studio Extension 管理菜单（status / local / list / login / logout / setup）。安装/卸载/启用/禁用集成在 list 和 local 视图中以行内按钮形式提供
+- [x] TUI 列表和本地扩展视图支持键盘快捷键导航（↑/↓ 或 j/k 移动选中，Enter 执行，Tab 切换类型，←/→ 翻页，Esc 返回）
+- [x] 安装失败时 DialogAlert 展示完整脚本错误输出（stdout/stderr）
+- [x] 下载 zip 缓存机制：同一版本重新安装时跳过下载
+- [x] 安装后默认状态为 disabled，需手动启用才会执行 start 脚本
+- [x] 生命周期脚本从扩展根目录读取改为 `lifecycle/` 子目录读取，cwd 仍为扩展根目录
+- [x] install.sh 执行失败时保留解压目录（targetDir）便于排查问题

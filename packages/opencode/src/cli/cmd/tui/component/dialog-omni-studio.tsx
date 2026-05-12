@@ -91,14 +91,15 @@ function TypeSwitchBar(props: {
 
 /**
  * 带条件 scrollbox 的列表容器。
- * 当内容高度超过 maxHeight 时启用 scrollbox 并显示滚动条；否则直接渲染内容。
+ * 当内容高度超过 maxHeight 时启用 scrollbox；否则直接渲染内容。
+ * maxHeight 调整为行高的整数倍，避免最后一行被部分截断出现灰色横条。
  */
 function ScrollableList(props: { maxHeight: number; itemCount: number; children: any }) {
   const needsScroll = () => Math.max(props.itemCount * 2 + 1, 3) > props.maxHeight
   return (
     <Show when={needsScroll()} fallback={<box gap={1}>{props.children}</box>}>
-      <scrollbox maxHeight={props.maxHeight} scrollbarOptions={{ visible: true }}>
-        <box gap={1}>{props.children}</box>
+      <scrollbox maxHeight={props.maxHeight} scrollbarOptions={{ visible: false }}>
+        <box gap={1} paddingBottom={1}>{props.children}</box>
       </scrollbox>
     </Show>
   )
@@ -320,8 +321,10 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const scrollHeight = createMemo(() => {
     const itemCount = pagedExtensions().length
     const contentHeight = Math.max(itemCount * 2 + 1, 3)
-    const maxH = Math.max(3, Math.floor(dimensions().height * 0.4))
-    return Math.min(contentHeight, maxH)
+    const maxH = Math.max(3, Math.floor(dimensions().height * 0.6))
+    /** 调整为行高的整数倍（每行占2单位 + 1单位gap），避免最后一行被部分截断出现灰色横条。 */
+    const adjustedMaxH = Math.floor((maxH - 1) / 2) * 2 + 1
+    return Math.min(contentHeight, adjustedMaxH)
   })
 
   /** 渲染单行本地扩展条目，包含名称和行内操作按钮。 */
@@ -486,8 +489,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         ),
       )
       setInstallingSlug(null)
-      setInstallResult({ slug: ext.slug, ok: true, msg: "已安装" })
-      /** 更新本地已安装集合，使按钮在结果清除后仍显示 [已安装]。 */
+      /** 直接更新本地已安装集合，按钮会立即显示灰色 [已安装]，无黄色过渡。 */
       setLocalSlugs((prev) => {
         const next = new Set(prev)
         next.add(`${ext.type}:${ext.slug}`)
@@ -496,8 +498,8 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     } catch (e) {
       setInstallingSlug(null)
       setInstallResult({ slug: ext.slug, ok: false, msg: "失败" })
+      setTimeout(() => setInstallResult(null), 3000)
     }
-    setTimeout(() => setInstallResult(null), 3000)
   }
 
   const pageText = () => {
@@ -521,8 +523,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     const l = marketList()
     const itemCount = l.kind === "ok" ? l.data.length : 0
     const contentHeight = Math.max(itemCount * 2 + 1, 3)
-    const maxH = Math.max(3, Math.floor(dimensions().height * 0.4))
-    return Math.min(contentHeight, maxH)
+    const maxH = Math.max(3, Math.floor(dimensions().height * 0.6))
+    /** 调整为行高的整数倍（每行占2单位 + 1单位gap），避免最后一行被部分截断出现灰色横条。 */
+    const adjustedMaxH = Math.floor((maxH - 1) / 2) * 2 + 1
+    return Math.min(contentHeight, adjustedMaxH)
   })
 
   /** 判断远程扩展是否已在本地安装。 */
@@ -558,7 +562,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           </Show>
           <Show when={!isInstalled(ext)}>
             <text fg={theme.primary} attributes={TextAttributes.BOLD} onMouseUp={() => setPendingSlug(ext.slug)}>
-              [安装]
+              [ 安装 ]
             </text>
           </Show>
         </Show>

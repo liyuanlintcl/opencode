@@ -112,7 +112,7 @@ function ScrollableList(props: { maxHeight: number; itemCount: number; selectedI
     }
   })
   return (
-    <Show when={needsScroll()} fallback={<box gap={1}>{props.children}</box>}>
+    <Show when={needsScroll()} fallback={<box gap={1} maxHeight={props.maxHeight}>{props.children}</box>}>
       <scrollbox maxHeight={props.maxHeight} ref={(r: ScrollBoxRenderable) => { scroll = r }}>
         <box gap={1} paddingBottom={1}>{props.children}</box>
       </scrollbox>
@@ -770,7 +770,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     const l = marketList()
     const itemCount = l.kind === "ok" ? l.data.length : 0
     const contentHeight = Math.max(itemCount * 2 + 1, 3)
-    const maxH = Math.max(3, Math.floor(dimensions().height * 0.6))
+    const maxH = Math.max(3, Math.floor(dimensions().height * 0.4))
     /** 调整为行高的整数倍（每行占2单位 + 1单位gap），避免最后一行被部分截断出现灰色横条。 */
     const adjustedMaxH = Math.floor((maxH - 1) / 2) * 2 + 1
     return Math.min(contentHeight, adjustedMaxH)

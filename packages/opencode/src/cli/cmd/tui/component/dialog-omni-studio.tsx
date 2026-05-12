@@ -1,13 +1,15 @@
 import path from "path"
 import fs from "fs/promises"
-import { TextAttributes } from "@opentui/core"
+import { TextAttributes, type ScrollBoxRenderable } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
+import { useTerminalDimensions } from "@opentui/solid"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
-import { Show, createSignal, createEffect, For } from "solid-js"
+import { Show, createSignal, createEffect, For, createMemo } from "solid-js"
+import { useKeyboard } from "@opentui/solid"
 import { Effect } from "effect"
 import { Global } from "@opencode-ai/core/global"
 import { OmniStudioAuth } from "@/omni-studio/auth"
@@ -91,7 +93,8 @@ type ListResult =
 
 /**
  * Omni Studio 状态视图。
- * 本地扩展列表支持前端分页，底部显示页码和翻页按钮。
+ * 本地扩展列表支持前端分页，每条扩展可启用/禁用/卸载。
+ * 按 ESC 键盘返回主菜单。
  */
 function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void }) {
   const { theme } = useTheme()
@@ -115,6 +118,73 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
         setStatus({ kind: "error", message: String(e) })
       }
     })()
+  })
+
+  /** 刷新状态 */
+  const refresh = async () => {
+    try {
+      const result = await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.getStatus()).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      setStatus({ kind: "ok", config: result.config, extensions: result.extensions })
+    } catch (e) {
+      setStatus({ kind: "error", message: String(e) })
+    }
+  }
+
+  /** 启用扩展 */
+  const handleEnable = async (ext: { type: ExtensionType; slug: string }) => {
+    try {
+      await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.setEnabled(ext.type, ext.slug, true)).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      await refresh()
+    } catch (e) {
+      await DialogAlert.show(props.dialog, "启用失败", String(e))
+    }
+  }
+
+  /** 禁用扩展 */
+  const handleDisable = async (ext: { type: ExtensionType; slug: string }) => {
+    try {
+      await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.setEnabled(ext.type, ext.slug, false)).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      await refresh()
+    } catch (e) {
+      await DialogAlert.show(props.dialog, "禁用失败", String(e))
+    }
+  }
+
+  /** 卸载扩展 */
+  const handleUninstall = async (ext: { type: ExtensionType; slug: string }) => {
+    const confirmed = await DialogConfirm.show(props.dialog, "确认卸载", `卸载 ${ext.slug}?`)
+    if (!confirmed) return
+    try {
+      await Effect.runPromise(
+        OmniStudioStore.Service.use((svc) => svc.uninstall(ext.type, ext.slug)).pipe(
+          Effect.provide(OmniStudioStore.defaultLayer),
+        ),
+      )
+      await refresh()
+    } catch (e) {
+      await DialogAlert.show(props.dialog, "卸载失败", String(e))
+    }
+  }
+
+  /** 按 ESC 返回主菜单 */
+  useKeyboard((evt) => {
+    if (evt.name === "escape") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      props.onBack()
+    }
   })
 
   const headerLines = () => {
@@ -152,6 +222,9 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
   const canPrev = () => currentPage() > 1
   const canNext = () => currentPage() < totalPages()
 
+  const dimensions = useTerminalDimensions()
+  const scrollHeight = createMemo(() => Math.max(5, dimensions().height - 8))
+
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
@@ -169,13 +242,43 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
         <text fg={theme.textMuted}>{headerLines()}</text>
       </box>
       <Show when={status().kind === "ok" && (status() as Extract<StatusResult, { kind: "ok" }>).extensions.length > 0}>
-        <box paddingBottom={1}>
-          <text fg={theme.textMuted}>
-            {pagedExtensions()
-              .map((ext) => `  ${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`)
-              .join("\n")}
-          </text>
-        </box>
+        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: true }}>
+          <box gap={1}>
+            <For each={pagedExtensions()}>
+              {(ext) => (
+                <box flexDirection="row" gap={2}>
+                  <text fg={theme.textMuted}>
+                    {`${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`}
+                  </text>
+                  <Show when={!ext.enabled}>
+                    <text
+                      fg={theme.primary}
+                      attributes={TextAttributes.BOLD}
+                      onMouseUp={() => handleEnable(ext)}
+                    >
+                      [启用]
+                    </text>
+                  </Show>
+                  <Show when={ext.enabled}>
+                    <text
+                      fg={theme.primary}
+                      attributes={TextAttributes.BOLD}
+                      onMouseUp={() => handleDisable(ext)}
+                    >
+                      [禁用]
+                    </text>
+                  </Show>
+                  <text
+                    fg={theme.textMuted}
+                    onMouseUp={() => handleUninstall(ext)}
+                  >
+                    [卸载]
+                  </text>
+                </box>
+              )}
+            </For>
+          </box>
+        </scrollbox>
         <Show when={totalPages() > 1}>
           <box flexDirection="row" justifyContent="space-between" paddingTop={1}>
             <text
@@ -203,6 +306,7 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
 /**
  * Omni Studio 列表视图。
  * 支持 type 切换和分页浏览，底部显示页码和翻页按钮。
+ * 按 ESC 键盘返回主菜单。
  */
 function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }) {
   const { theme } = useTheme()
@@ -211,6 +315,15 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
 
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
+
+  /** 按 ESC 返回主菜单 */
+  useKeyboard((evt) => {
+    if (evt.name === "escape") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      props.onBack()
+    }
+  })
 
   /**
    * 加载指定 type 和页码的数据。
@@ -289,6 +402,9 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     return l.kind === "ok" && l.pageInfo.hasNext
   }
 
+  const dimensions = useTerminalDimensions()
+  const scrollHeight = createMemo(() => Math.max(5, dimensions().height - 6))
+
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
@@ -330,24 +446,26 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           </box>
         }
       >
-        <box paddingBottom={1} gap={1}>
-          <For each={(marketList() as Extract<ListResult, { kind: "ok" }>).data}>
-            {(ext) => (
-              <box flexDirection="row" gap={2}>
-                <text fg={theme.textMuted}>
-                  {`${ext.name} (${ext.type})${ext.version ? ` v${ext.version}` : ""}${ext.author ? ` - ${ext.author}` : ""}`}
-                </text>
-                <text
-                  fg={theme.primary}
-                  attributes={TextAttributes.BOLD}
-                  onMouseUp={() => handleInstallExt(ext)}
-                >
-                  [安装]
-                </text>
-              </box>
-            )}
-          </For>
-        </box>
+        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: true }}>
+          <box gap={1}>
+            <For each={(marketList() as Extract<ListResult, { kind: "ok" }>).data}>
+              {(ext) => (
+                <box flexDirection="row" gap={2}>
+                  <text fg={theme.textMuted}>
+                    {`${ext.name} (${ext.type})${ext.version ? ` v${ext.version}` : ""}${ext.author ? ` - ${ext.author}` : ""}`}
+                  </text>
+                  <text
+                    fg={theme.primary}
+                    attributes={TextAttributes.BOLD}
+                    onMouseUp={() => handleInstallExt(ext)}
+                  >
+                    [安装]
+                  </text>
+                </box>
+              )}
+            </For>
+          </box>
+        </scrollbox>
         <box flexDirection="row" justifyContent="space-between" paddingTop={1}>
           <text
             fg={canPrev() ? theme.primary : theme.textMuted}

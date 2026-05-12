@@ -93,17 +93,71 @@ type ListResult =
 
 /**
  * Omni Studio 状态视图。
- * 本地扩展列表支持前端分页，每条扩展可启用/禁用/卸载。
- * 按 ESC 键盘返回主菜单。
+ * 仅显示登录状态和配置摘要。
  */
 function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void }) {
+  const { theme } = useTheme()
+  const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
+
+  createEffect(() => {
+    debugLog("[OmniStudio] StatusView 挂载，开始刷新")
+    void (async () => {
+      setStatus({ kind: "loading" })
+      try {
+        const result = await Effect.runPromise(
+          OmniStudioStore.Service.use((svc) => svc.getStatus()).pipe(
+            Effect.provide(OmniStudioStore.defaultLayer),
+          ),
+        )
+        setStatus({ kind: "ok", config: result.config, extensions: result.extensions })
+      } catch (e) {
+        setStatus({ kind: "error", message: String(e) })
+      }
+    })()
+  })
+
+  const headerLines = () => {
+    const s = status()
+    if (s.kind === "loading") return "加载中..."
+    if (s.kind === "error") return `错误: ${s.message}`
+    const lines = [
+      `登录状态: ${s.config ? "已登录" : "未登录"}`,
+      s.config ? `API 地址: ${s.config.api_base}` : "",
+      s.config ? `用户名: ${s.config.user.username}` : "",
+      `扩展数量: ${s.extensions.length}`,
+    ]
+    return lines.filter(Boolean).join("\n")
+  }
+
+  return (
+    <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          Omni Studio Extension 状态
+        </text>
+        <text fg={theme.textMuted} onMouseUp={() => props.onBack()}>
+          esc
+        </text>
+      </box>
+      <box paddingBottom={1}>
+        <text fg={theme.textMuted}>{headerLines()}</text>
+      </box>
+    </box>
+  )
+}
+
+/**
+ * Omni Studio 本地扩展视图。
+ * 显示已安装扩展列表，支持启用/禁用/卸载和前端分页。
+ */
+function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void }) {
   const { theme } = useTheme()
   const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
   const [currentPage, setCurrentPage] = createSignal(1)
   const PAGE_SIZE = 10
 
   createEffect(() => {
-    debugLog("[OmniStudio] StatusView 挂载，开始刷新")
+    debugLog("[OmniStudio] LocalView 挂载，开始刷新")
     void (async () => {
       setStatus({ kind: "loading" })
       try {
@@ -178,28 +232,6 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
     }
   }
 
-  /** 按 ESC 返回主菜单 */
-  useKeyboard((evt) => {
-    if (evt.name === "escape") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      props.onBack()
-    }
-  })
-
-  const headerLines = () => {
-    const s = status()
-    if (s.kind === "loading") return "加载中..."
-    if (s.kind === "error") return `错误: ${s.message}`
-    const lines = [
-      `登录状态: ${s.config ? "已登录" : "未登录"}`,
-      s.config ? `API 地址: ${s.config.api_base}` : "",
-      s.config ? `用户名: ${s.config.user.username}` : "",
-      `扩展数量: ${s.extensions.length}`,
-    ]
-    return lines.filter(Boolean).join("\n")
-  }
-
   const pagedExtensions = () => {
     const s = status()
     if (s.kind !== "ok") return []
@@ -223,31 +255,25 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
   const canNext = () => currentPage() < totalPages()
 
   const dimensions = useTerminalDimensions()
-  const scrollHeight = createMemo(() => Math.max(5, dimensions().height - 8))
+  const scrollHeight = createMemo(() => Math.max(3, Math.floor(dimensions().height * 0.6)))
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          Omni Studio 状态
+          本地扩展
         </text>
-        <text
-          fg={theme.textMuted}
-          onMouseUp={() => props.onBack()}
-        >
+        <text fg={theme.textMuted} onMouseUp={() => props.onBack()}>
           esc
         </text>
       </box>
-      <box paddingBottom={1}>
-        <text fg={theme.textMuted}>{headerLines()}</text>
-      </box>
       <Show when={status().kind === "ok" && (status() as Extract<StatusResult, { kind: "ok" }>).extensions.length > 0}>
-        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: true }}>
+        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: false }}>
           <box gap={1}>
             <For each={pagedExtensions()}>
               {(ext) => (
                 <box flexDirection="row" gap={2}>
-                  <text fg={theme.textMuted}>
+                  <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
                     {`${ext.slug} (${ext.type}) v${ext.version} [${ext.enabled ? "已启用" : "已禁用"}]`}
                   </text>
                   <Show when={!ext.enabled}>
@@ -268,10 +294,7 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
                       [禁用]
                     </text>
                   </Show>
-                  <text
-                    fg={theme.textMuted}
-                    onMouseUp={() => handleUninstall(ext)}
-                  >
+                  <text fg={theme.textMuted} onMouseUp={() => handleUninstall(ext)}>
                     [卸载]
                   </text>
                 </box>
@@ -316,14 +339,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
 
-  /** 按 ESC 返回主菜单 */
-  useKeyboard((evt) => {
-    if (evt.name === "escape") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      props.onBack()
-    }
-  })
+
 
   /**
    * 加载指定 type 和页码的数据。
@@ -403,13 +419,13 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   }
 
   const dimensions = useTerminalDimensions()
-  const scrollHeight = createMemo(() => Math.max(5, dimensions().height - 6))
+  const scrollHeight = createMemo(() => Math.max(3, Math.floor(dimensions().height * 0.6)))
 
   return (
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          Omni Studio 扩展列表
+          Omni Studio Extension 列表
         </text>
         <text
           fg={theme.textMuted}
@@ -446,12 +462,12 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           </box>
         }
       >
-        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: true }}>
+        <scrollbox maxHeight={scrollHeight()} scrollbarOptions={{ visible: false }}>
           <box gap={1}>
             <For each={(marketList() as Extract<ListResult, { kind: "ok" }>).data}>
               {(ext) => (
                 <box flexDirection="row" gap={2}>
-                  <text fg={theme.textMuted}>
+                  <text fg={theme.textMuted} wrapMode="none" overflow="hidden">
                     {`${ext.name} (${ext.type})${ext.version ? ` v${ext.version}` : ""}${ext.author ? ` - ${ext.author}` : ""}`}
                   </text>
                   <text
@@ -511,10 +527,13 @@ export function DialogOmniStudio() {
 
   /**
    * 返回菜单。
+   * 使用 setTimeout 避免与 dialog 系统的 onClose 回调产生递归。
    */
   const backToMenu = () => {
     debugLog("[OmniStudio] backToMenu")
-    dialog.replace(() => <DialogOmniStudio />)
+    setTimeout(() => {
+      dialog.replace(() => <DialogOmniStudio />)
+    }, 0)
   }
 
   /**
@@ -542,7 +561,7 @@ export function DialogOmniStudio() {
    * 处理地址配置操作。
    */
   const handleSetup = async () => {
-    const apiBase = await DialogPrompt.show(dialog, "Omni Studio API 地址", {
+    const apiBase = await DialogPrompt.show(dialog, "Omni Studio Extension API 地址", {
       placeholder: "http://192.88.1.63:3008",
       value: "http://192.88.1.63:3008",
     })
@@ -570,9 +589,9 @@ export function DialogOmniStudio() {
           Effect.provide(OmniStudioAuth.defaultLayer),
         ),
       )
-      await showResult("Omni Studio", "已登出")
+      await showResult("Omni Studio Extension", "已登出")
     } catch (e) {
-      await showResult("Omni Studio", `登出失败: ${e}`)
+      await showResult("Omni Studio Extension", `登出失败: ${e}`)
     }
   }
 
@@ -627,7 +646,7 @@ export function DialogOmniStudio() {
       )
       const extensions = filterFn ? result.extensions.filter(filterFn) : result.extensions
       if (extensions.length === 0) {
-        await showResult("Omni Studio", "没有符合条件的扩展")
+        await showResult("Omni Studio Extension", "没有符合条件的扩展")
         return null
       }
       return await showSelect(dialog, "选择扩展",
@@ -716,15 +735,24 @@ export function DialogOmniStudio() {
 
   return (
     <DialogSelect
-      title="Omni Studio"
+      title="Omni Studio Extension"
       options={[
         {
           title: "状态",
           value: "status",
-          description: "查看登录状态和已安装的扩展",
+          description: "查看登录状态和 API 配置",
           onSelect: () => {
             debugLog("[OmniStudio] 点击状态")
-            dialog.replace(() => <OmniStudioStatusView dialog={dialog} onBack={backToMenu} />)
+            dialog.replace(() => <OmniStudioStatusView dialog={dialog} onBack={backToMenu} />, backToMenu)
+          },
+        },
+        {
+          title: "本地扩展",
+          value: "local",
+          description: "查看和管理已安装的扩展",
+          onSelect: () => {
+            debugLog("[OmniStudio] 点击本地扩展")
+            dialog.replace(() => <OmniStudioLocalView dialog={dialog} onBack={backToMenu} />, backToMenu)
           },
         },
         {
@@ -733,7 +761,7 @@ export function DialogOmniStudio() {
           description: "列出市场中的扩展",
           onSelect: () => {
             debugLog("[OmniStudio] 点击列表")
-            dialog.replace(() => <OmniStudioListView dialog={dialog} onBack={backToMenu} />)
+            dialog.replace(() => <OmniStudioListView dialog={dialog} onBack={backToMenu} />, backToMenu)
           },
         },
         {

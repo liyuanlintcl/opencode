@@ -8,7 +8,7 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
-import { Show, createSignal, createEffect, For, createMemo } from "solid-js"
+import { Show, createSignal, createEffect, For, createMemo, type Accessor } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { Effect } from "effect"
 import { Global } from "@opencode-ai/core/global"
@@ -21,32 +21,6 @@ import type { ExtensionType, Extension, ExtensionEntry, PagedResult } from "@/om
 
 /** 当子视图中弹出 DialogAlert 时，阻止 backToMenu 被 dialog.replace 触发，避免 Alert 闪退。 */
 let suppressBackToMenu = false
-
-/** 调试日志文件路径 */
-const debugLogFile = path.join(Global.Path.home, ".omni_studio", "tui-debug.log")
-
-/**
- * 写入调试日志到文件。
- * 异步执行，失败时静默忽略。
- */
-function debugLog(...args: unknown[]) {
-  const line =
-    `[${new Date().toISOString()}] ` +
-    args
-      .map((a) => {
-        if (typeof a === "object") {
-          try {
-            return JSON.stringify(a)
-          } catch {
-            return String(a)
-          }
-        }
-        return String(a)
-      })
-      .join(" ") +
-    "\n"
-  void fs.appendFile(debugLogFile, line).catch(() => {})
-}
 
 /**
  * 本地扩展状态查询结果。
@@ -156,6 +130,157 @@ function PaginationBar(props: {
 }
 
 /**
+ * 扩展列表行外壳组件。
+ * 封装左侧名称和右侧按钮容器的高亮逻辑。
+ */
+function ExtensionRowShell(props: {
+  name: string
+  isSelected: Accessor<boolean>
+  children: any
+}) {
+  const { theme } = useTheme()
+  const rowFg = () => (props.isSelected() ? theme.primary : theme.textMuted)
+  const rowAttrs = () => (props.isSelected() ? TextAttributes.BOLD : undefined)
+  return (
+    <box flexDirection="row" justifyContent="space-between">
+      <text fg={rowFg()} attributes={rowAttrs()} wrapMode="none" overflow="hidden">
+        {props.name}
+      </text>
+      <box flexDirection="row" gap={2}>
+        <text fg={rowFg()} attributes={rowAttrs()}>|</text>
+        {props.children}
+      </box>
+    </box>
+  )
+}
+
+/**
+ * 扩展列表行内操作按钮组件。
+ * 根据行选中状态和按钮焦点位置高亮显示。
+ */
+function ActionButton(props: {
+  position: number
+  defaultFg: string | RGBA
+  isRowSelected: Accessor<boolean>
+  selectedButtonIndex: Accessor<number>
+  onClick: () => void
+  children: any
+}) {
+  const { theme } = useTheme()
+  const fg = () => {
+    if (!props.isRowSelected()) return props.defaultFg
+    return props.selectedButtonIndex() === props.position ? theme.primary : theme.textMuted
+  }
+  const attrs = () => {
+    if (!props.isRowSelected()) return undefined
+    return props.selectedButtonIndex() === props.position ? TextAttributes.BOLD : undefined
+  }
+  return (
+    <text fg={fg()} attributes={attrs()} selectable={false} onMouseUp={props.onClick}>
+      {props.children}
+    </text>
+  )
+}
+
+/**
+ * 扩展列表共享键盘导航 hook。
+ * 管理选中索引和按钮焦点，处理 ↑↓←→PgUp/PgDn/Tab/Enter/ESC。
+ */
+function useExtensionKeyboard(props: {
+  items: () => any[]
+  typeOptions: ExtensionType[]
+  selectedType: () => ExtensionType
+  setSelectedType: (type: ExtensionType) => void
+  setCurrentPage: (fn: (p: number) => number) => void
+  getButtonCount: (item: any) => number
+  canPrev: () => boolean
+  canNext: () => boolean
+  onEnter: (item: any, buttonIndex: number) => void
+  onEsc?: () => boolean
+}) {
+  const [selectedIndex, setSelectedIndex] = createSignal(0)
+  const [selectedButtonIndex, setSelectedButtonIndex] = createSignal(0)
+
+  createEffect(() => {
+    selectedIndex()
+    setSelectedButtonIndex(() => 0)
+  })
+
+  useKeyboard((evt) => {
+    if (evt.name === "escape") {
+      if (props.onEsc?.()) {
+        evt.preventDefault()
+        evt.stopPropagation()
+        return
+      }
+    }
+
+    if (evt.name === "tab") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const currentIdx = props.typeOptions.indexOf(props.selectedType())
+      const nextType = props.typeOptions[(currentIdx + 1) % props.typeOptions.length]
+      props.setSelectedType(nextType)
+      props.setCurrentPage(() => 1)
+      setSelectedIndex(() => 0)
+      return
+    }
+
+    const items = props.items()
+    const maxIdx = items.length - 1
+    if (maxIdx < 0) return
+
+    if (evt.name === "up" || evt.name === "k") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setSelectedIndex((i) => (i <= 0 ? maxIdx : i - 1))
+    } else if (evt.name === "down" || evt.name === "j") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setSelectedIndex((i) => (i >= maxIdx ? 0 : i + 1))
+    } else if (evt.name === "left" || evt.name === "h") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      const btnCount = props.getButtonCount(ext)
+      if (btnCount <= 1) return
+      setSelectedButtonIndex((i) => (i <= 0 ? btnCount - 1 : i - 1))
+    } else if (evt.name === "right" || evt.name === "l") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      const btnCount = props.getButtonCount(ext)
+      if (btnCount <= 1) return
+      setSelectedButtonIndex((i) => (i >= btnCount - 1 ? 0 : i + 1))
+    } else if (evt.name === "pageup") {
+      if (props.canPrev()) {
+        evt.preventDefault()
+        evt.stopPropagation()
+        props.setCurrentPage((p) => p - 1)
+        setSelectedIndex(() => 0)
+      }
+    } else if (evt.name === "pagedown") {
+      if (props.canNext()) {
+        evt.preventDefault()
+        evt.stopPropagation()
+        props.setCurrentPage((p) => p + 1)
+        setSelectedIndex(() => 0)
+      }
+    } else if (evt.name === "return") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      props.onEnter(ext, selectedButtonIndex())
+    }
+  })
+
+  return { selectedIndex, selectedButtonIndex, setSelectedIndex }
+}
+
+/**
  * Omni Studio 状态视图。
  * 仅显示登录状态和配置摘要。
  */
@@ -164,7 +289,6 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
   const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
 
   createEffect(() => {
-    debugLog("[OmniStudio] StatusView 挂载，开始刷新")
     void (async () => {
       setStatus({ kind: "loading" })
       try {
@@ -221,13 +345,10 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
   const [pendingAction, setPendingAction] = createSignal<{ type: "enable" | "disable" | "uninstall"; slug: string } | null>(null)
-  const [selectedIndex, setSelectedIndex] = createSignal(0)
-  const [selectedButtonIndex, setSelectedButtonIndex] = createSignal(0)
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
   const PAGE_SIZE = 10
 
   createEffect(() => {
-    debugLog("[OmniStudio] LocalView 挂载，开始刷新")
     void (async () => {
       setStatus({ kind: "loading" })
       try {
@@ -324,118 +445,24 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     }
   }
 
-  /** 切换类型时重置到第 1 页和选中索引。 */
-  const switchType = (type: ExtensionType) => {
-    debugLog("[OmniStudio][LocalView] switchType called:", type, "current:", selectedType())
-    if (type === selectedType()) {
-      debugLog("[OmniStudio][LocalView] switchType early return (same type)")
-      return
-    }
-    setSelectedType(type)
-    setCurrentPage(1)
-    setSelectedIndex(0)
-    debugLog("[OmniStudio][LocalView] switchType done:", type)
-  }
-
-  createEffect(() => {
-    selectedIndex() // track
-    setSelectedButtonIndex(0)
-  })
-
-  /** 键盘导航：↑↓ 移动选中，←→ 在行内按钮间切换，PgUp/PgDn 翻页，Tab 切换类型，Enter 执行操作，ESC 取消 pending。 */
-  useKeyboard((evt) => {
-    debugLog("[OmniStudio][LocalView] Keyboard event:", evt.name, "ctrl:", evt.ctrl, "shift:", evt.shift, "meta:", evt.meta, "defaultPrevented:", evt.defaultPrevented)
-    if (evt.name === "escape") {
+  const { selectedIndex, selectedButtonIndex, setSelectedIndex } = useExtensionKeyboard({
+    items: () => pagedExtensions(),
+    typeOptions,
+    selectedType,
+    setSelectedType,
+    setCurrentPage,
+    canPrev: () => canPrev(),
+    canNext: () => canNext(),
+    onEsc: () => {
       if (pendingAction()) {
         setPendingAction(null)
-        evt.preventDefault()
-        evt.stopPropagation()
-        debugLog("[OmniStudio][LocalView] return: ESC cancel pending")
-        return
+        return true
       }
-    }
-
-    if (evt.name === "tab") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const currentIdx = typeOptions.indexOf(selectedType())
-      const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
-      debugLog("[OmniStudio][LocalView] Tab pressed, currentIdx:", currentIdx, "nextType:", nextType, "typeOptions:", typeOptions, "selectedType:", selectedType())
-      switchType(nextType)
-      setSelectedIndex(0)
-      return
-    }
-
-    const items = pagedExtensions()
-    const maxIdx = items.length - 1
-    if (maxIdx < 0) {
-      debugLog("[OmniStudio][LocalView] return: empty pagedExtensions")
-      return
-    }
-
-    if (evt.name === "up" || evt.name === "k") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      setSelectedIndex((i) => (i <= 0 ? maxIdx : i - 1))
-    } else if (evt.name === "down" || evt.name === "j") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      setSelectedIndex((i) => (i >= maxIdx ? 0 : i + 1))
-    } else if (evt.name === "left" || evt.name === "h") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const ext = items[selectedIndex()]
-      if (!ext) {
-        debugLog("[OmniStudio][LocalView] return: no ext at selectedIndex (left)")
-        return
-      }
+      return false
+    },
+    onEnter: (ext, btnIdx) => {
       const pending = pendingAction()
-      const btnCount = pending?.slug === ext.slug ? 2 : 2
-      if (btnCount <= 1) {
-        debugLog("[OmniStudio][LocalView] return: btnCount <= 1 (left)")
-        return
-      }
-      setSelectedButtonIndex((i) => (i <= 0 ? btnCount - 1 : i - 1))
-    } else if (evt.name === "right" || evt.name === "l") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const ext = items[selectedIndex()]
-      if (!ext) {
-        debugLog("[OmniStudio][LocalView] return: no ext at selectedIndex (right)")
-        return
-      }
-      const pending = pendingAction()
-      const btnCount = pending?.slug === ext.slug ? 2 : 2
-      if (btnCount <= 1) {
-        debugLog("[OmniStudio][LocalView] return: btnCount <= 1 (right)")
-        return
-      }
-      setSelectedButtonIndex((i) => (i >= btnCount - 1 ? 0 : i + 1))
-    } else if (evt.name === "pageup") {
-      if (canPrev()) {
-        evt.preventDefault()
-        evt.stopPropagation()
-        setCurrentPage((p) => p - 1)
-        setSelectedIndex(0)
-      }
-    } else if (evt.name === "pagedown") {
-      if (canNext()) {
-        evt.preventDefault()
-        evt.stopPropagation()
-        setCurrentPage((p) => p + 1)
-        setSelectedIndex(0)
-      }
-    } else if (evt.name === "return") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const ext = items[selectedIndex()]
-      if (!ext) {
-        debugLog("[OmniStudio][LocalView] return: no ext at selectedIndex (enter)")
-        return
-      }
-      const pending = pendingAction()
-      const btnIdx = selectedButtonIndex()
-      if (pending?.slug === ext.slug) {
+      if (pending && pending.slug === ext.slug) {
         if (btnIdx === 0) {
           if (pending.type === "enable") handleEnable(ext)
           else if (pending.type === "disable") handleDisable(ext)
@@ -450,8 +477,22 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
         if (btnIdx === 0) setPendingAction({ type: "disable", slug: ext.slug })
         else setPendingAction({ type: "uninstall", slug: ext.slug })
       }
-    }
+    },
+    getButtonCount: (ext) => {
+      const pending = pendingAction()
+      return pending?.slug === ext.slug ? 2 : 2
+    },
   })
+
+  /** 切换类型时重置到第 1 页和选中索引。 */
+  const switchType = (type: ExtensionType) => {
+    if (type === selectedType()) {
+      return
+    }
+    setSelectedType(type)
+    setCurrentPage(1)
+    setSelectedIndex(0)
+  }
 
   /** 按当前选中类型过滤的本地扩展列表。 */
   const filteredExtensions = () => {
@@ -491,64 +532,43 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   /** 渲染单行本地扩展条目，包含名称和行内操作按钮。选中行和聚焦按钮高亮显示。 */
   const LocalExtensionRow = (ext: { type: ExtensionType; slug: string; name?: string; version: string; enabled: boolean }, index: () => number) => {
     const isRowSelected = () => selectedIndex() === index()
-    const rowFg = () => isRowSelected() ? theme.primary : theme.textMuted
-    const rowAttrs = () => isRowSelected() ? TextAttributes.BOLD : undefined
-    const btnFg = (position: number, defaultFg: string | RGBA) => {
-      if (!isRowSelected()) return defaultFg
-      return selectedButtonIndex() === position ? theme.primary : theme.textMuted
+
+    const buttons = () => {
+      const pending = pendingAction()
+      if (pending && pending.slug === ext.slug && pending.type === "enable") {
+        return [
+          <ActionButton defaultFg={theme.primary} position={0} onClick={() => handleEnable(ext)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[确认启用]</ActionButton>,
+          <ActionButton defaultFg={theme.textMuted} position={1} onClick={() => setPendingAction(null)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[取消]</ActionButton>,
+        ]
+      }
+      if (pending && pending.slug === ext.slug && pending.type === "disable") {
+        return [
+          <ActionButton defaultFg={theme.primary} position={0} onClick={() => handleDisable(ext)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[确认禁用]</ActionButton>,
+          <ActionButton defaultFg={theme.textMuted} position={1} onClick={() => setPendingAction(null)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[取消]</ActionButton>,
+        ]
+      }
+      if (pending && pending.slug === ext.slug && pending.type === "uninstall") {
+        return [
+          <ActionButton defaultFg={theme.error} position={0} onClick={() => handleUninstall(ext)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[确认卸载]</ActionButton>,
+          <ActionButton defaultFg={theme.textMuted} position={1} onClick={() => setPendingAction(null)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[取消]</ActionButton>,
+        ]
+      }
+      if (!ext.enabled) {
+        return [
+          <ActionButton defaultFg={theme.primary} position={0} onClick={() => setPendingAction({ type: "enable", slug: ext.slug })} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[启用]</ActionButton>,
+          <ActionButton defaultFg={theme.textMuted} position={1} onClick={() => setPendingAction({ type: "uninstall", slug: ext.slug })} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[卸载]</ActionButton>,
+        ]
+      }
+      return [
+        <ActionButton defaultFg={theme.primary} position={0} onClick={() => setPendingAction({ type: "disable", slug: ext.slug })} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[禁用]</ActionButton>,
+        <ActionButton defaultFg={theme.textMuted} position={1} onClick={() => setPendingAction({ type: "uninstall", slug: ext.slug })} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[卸载]</ActionButton>,
+      ]
     }
-    const btnAttrs = (position: number) => {
-      if (!isRowSelected()) return undefined
-      return selectedButtonIndex() === position ? TextAttributes.BOLD : undefined
-    }
+
     return (
-      <box flexDirection="row" justifyContent="space-between">
-        <text fg={rowFg()} attributes={rowAttrs()} wrapMode="none" overflow="hidden">
-          {ext.name || ext.slug}
-        </text>
-        <box flexDirection="row" gap={2}>
-          <text fg={rowFg()} attributes={rowAttrs()}>|</text>
-          <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "enable"}>
-            <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => handleEnable(ext)}>
-              [确认启用]
-            </text>
-            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingAction(null)}>
-              [取消]
-            </text>
-          </Show>
-          <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "disable"}>
-            <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => handleDisable(ext)}>
-              [确认禁用]
-            </text>
-            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingAction(null)}>
-              [取消]
-            </text>
-          </Show>
-          <Show when={pendingAction()?.slug === ext.slug && pendingAction()?.type === "uninstall"}>
-            <text fg={btnFg(0, theme.error)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => handleUninstall(ext)}>
-              [确认卸载]
-            </text>
-            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingAction(null)}>
-              [取消]
-            </text>
-          </Show>
-          <Show when={pendingAction()?.slug !== ext.slug}>
-            <Show when={!ext.enabled}>
-              <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => setPendingAction({ type: "enable", slug: ext.slug })}>
-                [启用]
-              </text>
-            </Show>
-            <Show when={ext.enabled}>
-              <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => setPendingAction({ type: "disable", slug: ext.slug })}>
-                [禁用]
-              </text>
-            </Show>
-            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingAction({ type: "uninstall", slug: ext.slug })}>
-              [卸载]
-            </text>
-          </Show>
-        </box>
-      </box>
+      <ExtensionRowShell name={ext.name || ext.slug} isSelected={isRowSelected}>
+        {buttons()}
+      </ExtensionRowShell>
     )
   }
 
@@ -600,8 +620,6 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
   const [localSlugs, setLocalSlugs] = createSignal<Set<string>>(new Set())
-  const [selectedIndex, setSelectedIndex] = createSignal(0)
-  const [selectedButtonIndex, setSelectedButtonIndex] = createSignal(0)
 
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
 
@@ -612,7 +630,6 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   createEffect(() => {
     const page = currentPage()
     const type = selectedType()
-    debugLog("[OmniStudio] ListView 加载", type, "第", page, "页")
     void (async () => {
       setMarketList({ kind: "loading" })
       try {
@@ -636,142 +653,55 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     })()
   })
 
-  /**
-   * 切换扩展类型，重置到第 1 页和选中索引。
-   */
-  const switchType = (type: ExtensionType) => {
-    debugLog("[OmniStudio][ListView] switchType called:", type, "current:", selectedType())
-    if (type === selectedType()) {
-      debugLog("[OmniStudio][ListView] switchType early return (same type)")
-      return
-    }
-    setSelectedType(type)
-    setCurrentPage(1)
-    setSelectedIndex(0)
-    debugLog("[OmniStudio][ListView] switchType done:", type)
-  }
-
-  createEffect(() => {
-    selectedIndex() // track
-    setSelectedButtonIndex(0)
-  })
-
-  /** 键盘导航：↑↓ 移动选中，←→ 在行内按钮间切换，PgUp/PgDn 翻页，Tab 切换类型，Enter 执行操作，ESC 取消 pending。 */
-  useKeyboard((evt) => {
-    debugLog("[OmniStudio][ListView] Keyboard event:", evt.name, "ctrl:", evt.ctrl, "shift:", evt.shift, "meta:", evt.meta, "defaultPrevented:", evt.defaultPrevented)
-    if (evt.name === "escape") {
+  const { selectedIndex, selectedButtonIndex, setSelectedIndex } = useExtensionKeyboard({
+    items: () => {
+      const l = marketList()
+      return l.kind === "ok" ? l.data : []
+    },
+    typeOptions,
+    selectedType,
+    setSelectedType,
+    setCurrentPage,
+    canPrev: () => canPrev(),
+    canNext: () => canNext(),
+    onEsc: () => {
       if (pendingSlug()) {
         setPendingSlug(null)
-        evt.preventDefault()
-        evt.stopPropagation()
-        debugLog("[OmniStudio][ListView] return: ESC cancel pendingSlug")
-        return
+        return true
       }
       if (installResult()) {
         setInstallResult(null)
-        evt.preventDefault()
-        evt.stopPropagation()
-        debugLog("[OmniStudio][ListView] return: ESC cancel installResult")
-        return
+        return true
       }
-    }
-
-    if (evt.name === "tab") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const currentIdx = typeOptions.indexOf(selectedType())
-      const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
-      debugLog("[OmniStudio][ListView] Tab pressed, currentIdx:", currentIdx, "nextType:", nextType, "typeOptions:", typeOptions, "selectedType:", selectedType())
-      switchType(nextType)
-      setSelectedIndex(0)
-      return
-    }
-
-    const l = marketList()
-    if (l.kind !== "ok") {
-      debugLog("[OmniStudio][ListView] return: marketList not ok, kind:", l.kind)
-      return
-    }
-    const items = l.data
-    const maxIdx = items.length - 1
-    if (maxIdx < 0) {
-      debugLog("[OmniStudio][ListView] return: empty marketList data")
-      return
-    }
-
-    if (evt.name === "up" || evt.name === "k") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      setSelectedIndex((i) => (i <= 0 ? maxIdx : i - 1))
-    } else if (evt.name === "down" || evt.name === "j") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      setSelectedIndex((i) => (i >= maxIdx ? 0 : i + 1))
-    } else if (evt.name === "left" || evt.name === "h") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const ext = items[selectedIndex()]
-      if (!ext) {
-        debugLog("[OmniStudio][ListView] return: no ext at selectedIndex (left)")
-        return
-      }
-      let btnCount = 0
-      if (installResult()?.slug === ext.slug || installingSlug() === ext.slug) btnCount = 0
-      else if (pendingSlug() === ext.slug) btnCount = 2
-      else if (!isInstalled(ext)) btnCount = 1
-      if (btnCount <= 1) {
-        debugLog("[OmniStudio][ListView] return: btnCount <= 1 (left)")
-        return
-      }
-      setSelectedButtonIndex((i) => (i <= 0 ? btnCount - 1 : i - 1))
-    } else if (evt.name === "right" || evt.name === "l") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const ext = items[selectedIndex()]
-      if (!ext) {
-        debugLog("[OmniStudio][ListView] return: no ext at selectedIndex (right)")
-        return
-      }
-      let btnCount = 0
-      if (installResult()?.slug === ext.slug || installingSlug() === ext.slug) btnCount = 0
-      else if (pendingSlug() === ext.slug) btnCount = 2
-      else if (!isInstalled(ext)) btnCount = 1
-      if (btnCount <= 1) {
-        debugLog("[OmniStudio][ListView] return: btnCount <= 1 (right)")
-        return
-      }
-      setSelectedButtonIndex((i) => (i >= btnCount - 1 ? 0 : i + 1))
-    } else if (evt.name === "pageup") {
-      if (canPrev()) {
-        evt.preventDefault()
-        evt.stopPropagation()
-        setCurrentPage((p) => p - 1)
-        setSelectedIndex(0)
-      }
-    } else if (evt.name === "pagedown") {
-      if (canNext()) {
-        evt.preventDefault()
-        evt.stopPropagation()
-        setCurrentPage((p) => p + 1)
-        setSelectedIndex(0)
-      }
-    } else if (evt.name === "return") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const ext = items[selectedIndex()]
-      if (!ext) {
-        debugLog("[OmniStudio][ListView] return: no ext at selectedIndex (enter)")
-        return
-      }
-      const btnIdx = selectedButtonIndex()
+      return false
+    },
+    onEnter: (ext, btnIdx) => {
       if (pendingSlug() === ext.slug) {
         if (btnIdx === 0) handleInstallExt(ext)
         else setPendingSlug(null)
       } else if (!isInstalled(ext) && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug) {
         setPendingSlug(ext.slug)
       }
-    }
+    },
+    getButtonCount: (ext) => {
+      if (installResult()?.slug === ext.slug || installingSlug() === ext.slug) return 0
+      if (pendingSlug() === ext.slug) return 2
+      if (!isInstalled(ext)) return 1
+      return 0
+    },
   })
+
+  /**
+   * 切换扩展类型，重置到第 1 页和选中索引。
+   */
+  const switchType = (type: ExtensionType) => {
+    if (type === selectedType()) {
+      return
+    }
+    setSelectedType(type)
+    setCurrentPage(1)
+    setSelectedIndex(0)
+  }
 
   /**
    * 点击确认安装扩展。
@@ -844,51 +774,37 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   /** 渲染单行市场扩展条目，包含名称和行内安装按钮。选中行和聚焦按钮高亮显示。 */
   const MarketExtensionRow = (ext: Extension, index: () => number) => {
     const isRowSelected = () => selectedIndex() === index()
-    const rowFg = () => isRowSelected() ? theme.primary : theme.textMuted
-    const rowAttrs = () => isRowSelected() ? TextAttributes.BOLD : undefined
-    const btnFg = (position: number, defaultFg: string | RGBA) => {
-      if (!isRowSelected()) return defaultFg
-      return selectedButtonIndex() === position ? theme.primary : theme.textMuted
+    const title = () => `${ext.name}${ext.author ? ` - ${ext.author}` : ""}`
+
+    const buttons = () => {
+      if (installResult()?.slug === ext.slug) {
+        return [
+          <text fg={installResult()!.ok ? theme.primary : theme.error}>
+            {installResult()!.msg}
+          </text>,
+        ]
+      }
+      if (installingSlug() === ext.slug) {
+        return [<text fg={theme.textMuted}>安装中...</text>]
+      }
+      if (pendingSlug() === ext.slug) {
+        return [
+          <ActionButton defaultFg={theme.primary} position={0} onClick={() => handleInstallExt(ext)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[确认安装]</ActionButton>,
+          <ActionButton defaultFg={theme.textMuted} position={1} onClick={() => setPendingSlug(null)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[取消]</ActionButton>,
+        ]
+      }
+      if (isInstalled(ext)) {
+        return [<text fg={theme.textMuted}>[已安装]</text>]
+      }
+      return [
+        <ActionButton defaultFg={theme.primary} position={0} onClick={() => setPendingSlug(ext.slug)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[ 安装 ]</ActionButton>,
+      ]
     }
-    const btnAttrs = (position: number) => {
-      if (!isRowSelected()) return undefined
-      return selectedButtonIndex() === position ? TextAttributes.BOLD : undefined
-    }
+
     return (
-      <box flexDirection="row" justifyContent="space-between">
-        <text fg={rowFg()} attributes={rowAttrs()} wrapMode="none" overflow="hidden">
-          {`${ext.name}${ext.author ? ` - ${ext.author}` : ""}`}
-        </text>
-        <box flexDirection="row" gap={2}>
-          <text fg={rowFg()} attributes={rowAttrs()}>|</text>
-          <Show when={installResult()?.slug === ext.slug}>
-            <text fg={installResult()!.ok ? theme.primary : theme.error}>
-              {installResult()!.msg}
-            </text>
-          </Show>
-          <Show when={installingSlug() === ext.slug}>
-            <text fg={theme.textMuted}>安装中...</text>
-          </Show>
-          <Show when={pendingSlug() === ext.slug && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug}>
-            <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => handleInstallExt(ext)}>
-              [确认安装]
-            </text>
-            <text fg={btnFg(1, theme.textMuted)} attributes={btnAttrs(1)} selectable={false} onMouseUp={() => setPendingSlug(null)}>
-              [取消]
-            </text>
-          </Show>
-          <Show when={pendingSlug() !== ext.slug && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug}>
-            <Show when={isInstalled(ext)}>
-              <text fg={theme.textMuted}>[已安装]</text>
-            </Show>
-            <Show when={!isInstalled(ext)}>
-              <text fg={btnFg(0, theme.primary)} attributes={btnAttrs(0)} selectable={false} onMouseUp={() => setPendingSlug(ext.slug)}>
-                [ 安装 ]
-              </text>
-            </Show>
-          </Show>
-        </box>
-      </box>
+      <ExtensionRowShell name={title()} isSelected={isRowSelected}>
+        {buttons()}
+      </ExtensionRowShell>
     )
   }
 
@@ -942,15 +858,12 @@ export function DialogOmniStudio() {
   const dialog = useDialog()
   const { theme } = useTheme()
 
-  debugLog("[OmniStudio] DialogOmniStudio 挂载")
 
   /**
    * 显示操作结果提示，确认后返回 Omni Studio 菜单。
    */
   const showResult = async (title: string, message: string) => {
-    debugLog("[OmniStudio] showResult:", title, message)
     await DialogAlert.show(dialog, title, message)
-    debugLog("[OmniStudio] dialog.replace after alert")
     dialog.replace(() => <DialogOmniStudio />)
   }
 
@@ -960,10 +873,8 @@ export function DialogOmniStudio() {
    */
   const backToMenu = () => {
     if (suppressBackToMenu) {
-      debugLog("[OmniStudio] backToMenu suppressed (Alert active)")
       return
     }
-    debugLog("[OmniStudio] backToMenu")
     setTimeout(() => {
       dialog.replace(() => <DialogOmniStudio />)
     }, 0)
@@ -1033,30 +944,27 @@ export function DialogOmniStudio() {
       title="Omni Studio Extension"
       options={[
         {
-          title: "状态",
-          value: "status",
-          description: "查看登录状态和 API 配置",
-          onSelect: () => {
-            debugLog("[OmniStudio] 点击状态")
-            dialog.replace(() => <OmniStudioStatusView dialog={dialog} onBack={backToMenu} />, backToMenu)
-          },
-        },
-        {
           title: "本地扩展",
           value: "local",
           description: "查看和管理已安装的扩展",
           onSelect: () => {
-            debugLog("[OmniStudio] 点击本地扩展")
             dialog.replace(() => <OmniStudioLocalView dialog={dialog} onBack={backToMenu} />, backToMenu)
           },
         },
         {
-          title: "列表",
+          title: "扩展市场",
           value: "list",
           description: "浏览市场扩展并安装",
           onSelect: () => {
-            debugLog("[OmniStudio] 点击列表")
             dialog.replace(() => <OmniStudioListView dialog={dialog} onBack={backToMenu} />, backToMenu)
+          },
+        },
+        {
+          title: "状态",
+          value: "status",
+          description: "查看登录状态和 API 配置",
+          onSelect: () => {
+            dialog.replace(() => <OmniStudioStatusView dialog={dialog} onBack={backToMenu} />, backToMenu)
           },
         },
         {

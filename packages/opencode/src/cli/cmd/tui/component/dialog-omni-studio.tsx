@@ -350,13 +350,28 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
         setPendingAction(null)
         evt.preventDefault()
         evt.stopPropagation()
+        debugLog("[OmniStudio][LocalView] return: ESC cancel pending")
         return
       }
     }
 
+    if (evt.name === "tab") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const currentIdx = typeOptions.indexOf(selectedType())
+      const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
+      debugLog("[OmniStudio][LocalView] Tab pressed, currentIdx:", currentIdx, "nextType:", nextType, "typeOptions:", typeOptions, "selectedType:", selectedType())
+      switchType(nextType)
+      setSelectedIndex(0)
+      return
+    }
+
     const items = pagedExtensions()
     const maxIdx = items.length - 1
-    if (maxIdx < 0) return
+    if (maxIdx < 0) {
+      debugLog("[OmniStudio][LocalView] return: empty pagedExtensions")
+      return
+    }
 
     if (evt.name === "up" || evt.name === "k") {
       evt.preventDefault()
@@ -370,19 +385,31 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       evt.preventDefault()
       evt.stopPropagation()
       const ext = items[selectedIndex()]
-      if (!ext) return
+      if (!ext) {
+        debugLog("[OmniStudio][LocalView] return: no ext at selectedIndex (left)")
+        return
+      }
       const pending = pendingAction()
       const btnCount = pending?.slug === ext.slug ? 2 : 2
-      if (btnCount <= 1) return
+      if (btnCount <= 1) {
+        debugLog("[OmniStudio][LocalView] return: btnCount <= 1 (left)")
+        return
+      }
       setSelectedButtonIndex((i) => (i <= 0 ? btnCount - 1 : i - 1))
     } else if (evt.name === "right" || evt.name === "l") {
       evt.preventDefault()
       evt.stopPropagation()
       const ext = items[selectedIndex()]
-      if (!ext) return
+      if (!ext) {
+        debugLog("[OmniStudio][LocalView] return: no ext at selectedIndex (right)")
+        return
+      }
       const pending = pendingAction()
       const btnCount = pending?.slug === ext.slug ? 2 : 2
-      if (btnCount <= 1) return
+      if (btnCount <= 1) {
+        debugLog("[OmniStudio][LocalView] return: btnCount <= 1 (right)")
+        return
+      }
       setSelectedButtonIndex((i) => (i >= btnCount - 1 ? 0 : i + 1))
     } else if (evt.name === "pageup") {
       if (canPrev()) {
@@ -398,19 +425,14 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
         setCurrentPage((p) => p + 1)
         setSelectedIndex(0)
       }
-    } else if (evt.name === "tab") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const currentIdx = typeOptions.indexOf(selectedType())
-      const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
-      debugLog("[OmniStudio][LocalView] Tab pressed, currentIdx:", currentIdx, "nextType:", nextType, "typeOptions:", typeOptions, "selectedType:", selectedType())
-      switchType(nextType)
-      setSelectedIndex(0)
     } else if (evt.name === "return") {
       evt.preventDefault()
       evt.stopPropagation()
       const ext = items[selectedIndex()]
-      if (!ext) return
+      if (!ext) {
+        debugLog("[OmniStudio][LocalView] return: no ext at selectedIndex (enter)")
+        return
+      }
       const pending = pendingAction()
       const btnIdx = selectedButtonIndex()
       if (pending?.slug === ext.slug) {
@@ -642,21 +664,40 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         setPendingSlug(null)
         evt.preventDefault()
         evt.stopPropagation()
+        debugLog("[OmniStudio][ListView] return: ESC cancel pendingSlug")
         return
       }
       if (installResult()) {
         setInstallResult(null)
         evt.preventDefault()
         evt.stopPropagation()
+        debugLog("[OmniStudio][ListView] return: ESC cancel installResult")
         return
       }
     }
 
+    if (evt.name === "tab") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const currentIdx = typeOptions.indexOf(selectedType())
+      const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
+      debugLog("[OmniStudio][ListView] Tab pressed, currentIdx:", currentIdx, "nextType:", nextType, "typeOptions:", typeOptions, "selectedType:", selectedType())
+      switchType(nextType)
+      setSelectedIndex(0)
+      return
+    }
+
     const l = marketList()
-    if (l.kind !== "ok") return
+    if (l.kind !== "ok") {
+      debugLog("[OmniStudio][ListView] return: marketList not ok, kind:", l.kind)
+      return
+    }
     const items = l.data
     const maxIdx = items.length - 1
-    if (maxIdx < 0) return
+    if (maxIdx < 0) {
+      debugLog("[OmniStudio][ListView] return: empty marketList data")
+      return
+    }
 
     if (evt.name === "up" || evt.name === "k") {
       evt.preventDefault()
@@ -670,23 +711,35 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       evt.preventDefault()
       evt.stopPropagation()
       const ext = items[selectedIndex()]
-      if (!ext) return
+      if (!ext) {
+        debugLog("[OmniStudio][ListView] return: no ext at selectedIndex (left)")
+        return
+      }
       let btnCount = 0
       if (installResult()?.slug === ext.slug || installingSlug() === ext.slug) btnCount = 0
       else if (pendingSlug() === ext.slug) btnCount = 2
       else if (!isInstalled(ext)) btnCount = 1
-      if (btnCount <= 1) return
+      if (btnCount <= 1) {
+        debugLog("[OmniStudio][ListView] return: btnCount <= 1 (left)")
+        return
+      }
       setSelectedButtonIndex((i) => (i <= 0 ? btnCount - 1 : i - 1))
     } else if (evt.name === "right" || evt.name === "l") {
       evt.preventDefault()
       evt.stopPropagation()
       const ext = items[selectedIndex()]
-      if (!ext) return
+      if (!ext) {
+        debugLog("[OmniStudio][ListView] return: no ext at selectedIndex (right)")
+        return
+      }
       let btnCount = 0
       if (installResult()?.slug === ext.slug || installingSlug() === ext.slug) btnCount = 0
       else if (pendingSlug() === ext.slug) btnCount = 2
       else if (!isInstalled(ext)) btnCount = 1
-      if (btnCount <= 1) return
+      if (btnCount <= 1) {
+        debugLog("[OmniStudio][ListView] return: btnCount <= 1 (right)")
+        return
+      }
       setSelectedButtonIndex((i) => (i >= btnCount - 1 ? 0 : i + 1))
     } else if (evt.name === "pageup") {
       if (canPrev()) {
@@ -702,19 +755,14 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         setCurrentPage((p) => p + 1)
         setSelectedIndex(0)
       }
-    } else if (evt.name === "tab") {
-      evt.preventDefault()
-      evt.stopPropagation()
-      const currentIdx = typeOptions.indexOf(selectedType())
-      const nextType = typeOptions[(currentIdx + 1) % typeOptions.length]
-      debugLog("[OmniStudio][ListView] Tab pressed, currentIdx:", currentIdx, "nextType:", nextType, "typeOptions:", typeOptions, "selectedType:", selectedType())
-      switchType(nextType)
-      setSelectedIndex(0)
     } else if (evt.name === "return") {
       evt.preventDefault()
       evt.stopPropagation()
       const ext = items[selectedIndex()]
-      if (!ext) return
+      if (!ext) {
+        debugLog("[OmniStudio][ListView] return: no ext at selectedIndex (enter)")
+        return
+      }
       const btnIdx = selectedButtonIndex()
       if (pendingSlug() === ext.slug) {
         if (btnIdx === 0) handleInstallExt(ext)

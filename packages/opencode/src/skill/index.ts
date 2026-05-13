@@ -8,6 +8,7 @@ import { withStatics } from "@/util/schema"
 import { NamedError } from "@opencode-ai/core/util/error"
 import type { Agent } from "@/agent/agent"
 import { Bus } from "@/bus"
+import { GlobalBus } from "@/bus/global"
 import { InstanceState } from "@/effect"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { Global } from "@opencode-ai/core/global"
@@ -71,6 +72,7 @@ export interface Interface {
   readonly all: () => Effect.Effect<Info[]>
   readonly dirs: () => Effect.Effect<string[]>
   readonly available: (agent?: Agent.Info) => Effect.Effect<Info[]>
+  readonly refresh: () => Effect.Effect<void>
 }
 
 const add = Effect.fnUntraced(function* (state: State, match: string, bus: Bus.Interface) {
@@ -192,6 +194,22 @@ const discoverSkills = Effect.fnUntraced(function* (
     }
   }
 
+  /** 扫描 Omni Studio 安装的已启用 skill 扩展 */
+  const omniStudioStatePath = path.join(Global.Path.home, ".omni_studio", "state.json")
+  const omniState = yield* Effect.tryPromise({
+    try: () => Bun.file(omniStudioStatePath).json().catch(() => ({ extensions: [] })),
+    catch: () => ({ extensions: [] }),
+  }).pipe(Effect.orElseSucceed(() => ({ extensions: [] })))
+
+  for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {
+    if (ext.type === "skill" && ext.enabled) {
+      const extDir = path.join(Global.Path.home, ".omni_studio", "skills", ext.slug)
+      if (yield* fsys.isDir(extDir)) {
+        yield* scan(state, extDir, SKILL_PATTERN)
+      }
+    }
+  }
+
   return {
     matches: Array.from(state.matches),
     dirs: Array.from(state.dirs),
@@ -250,7 +268,20 @@ export const layer = Layer.effect(
       return list.filter((skill) => Permission.evaluate("skill", skill.name, agent.permission).action !== "deny")
     })
 
-    return Service.of({ get, all, dirs, available })
+    const refresh = Effect.fn("Skill.refresh")(function* () {
+      yield* InstanceState.invalidate(discovered)
+      yield* InstanceState.invalidate(state)
+    })
+
+    const listener = (evt: any) => {
+      if (evt.payload?.type === "omni-studio:extension-changed") {
+        Effect.runPromise(refresh()).catch(() => {})
+      }
+    }
+    GlobalBus.on("event", listener)
+    yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
+
+    return Service.of({ get, all, dirs, available, refresh })
   }),
 )
 

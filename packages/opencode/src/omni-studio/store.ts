@@ -8,6 +8,7 @@ import { OmniStudioMarket } from "./market"
 import { detectScripts, runScript } from "./executor"
 import type { Extension, ExtensionType, ExtensionEntry, OmniStudioConfig as OmniStudioConfigType } from "./types"
 import NodeFS from "fs/promises"
+import { GlobalBus } from "@/bus/global"
 
 /** 将 ExtensionType 单数映射为目录名复数形式 */
 function toPlural(type: ExtensionType): string {
@@ -105,6 +106,7 @@ export const layer = Layer.effect(
       ]
 
       yield* configSvc.writeState({ extensions: updated }).pipe(Effect.orDie).pipe(Effect.orDie)
+      GlobalBus.emit("event", { payload: { type: "omni-studio:extension-changed" } })
     })
 
     /** 卸载扩展 */
@@ -144,6 +146,7 @@ export const layer = Layer.effect(
 
       const updated = state.extensions.filter((e) => !(e.type === type && e.slug === slug))
       yield* configSvc.writeState({ extensions: updated }).pipe(Effect.orDie)
+      GlobalBus.emit("event", { payload: { type: "omni-studio:extension-changed" } })
     })
 
     /** 启用或禁用扩展 */
@@ -172,6 +175,7 @@ export const layer = Layer.effect(
         e.type === type && e.slug === slug ? { ...e, enabled } : e,
       )
       yield* configSvc.writeState({ extensions: updated }).pipe(Effect.orDie)
+      GlobalBus.emit("event", { payload: { type: "omni-studio:extension-changed" } })
 
       /** 禁用时执行 stop 脚本；失败仅警告 */
       if (!enabled && scripts.stop) {

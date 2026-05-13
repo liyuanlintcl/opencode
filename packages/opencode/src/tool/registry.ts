@@ -30,7 +30,9 @@ import * as Truncate from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
 import { Glob } from "@opencode-ai/core/util/glob"
 import path from "path"
+import os from "os"
 import { pathToFileURL } from "url"
+import { GlobalBus } from "@/bus/global"
 import { Effect, Layer, Context } from "effect"
 import { FetchHttpClient, HttpClient } from "effect/unstable/http"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
@@ -65,6 +67,7 @@ export interface Interface {
   readonly all: () => Effect.Effect<Tool.Def[]>
   readonly named: () => Effect.Effect<{ task: TaskDef; read: ReadDef }>
   readonly tools: (model: { providerID: ProviderID; modelID: ModelID; agent: Agent.Info }) => Effect.Effect<Tool.Def[]>
+  readonly refresh: () => Effect.Effect<void>
 }
 
 export class Service extends Context.Service<Service, Interface>()("@opencode/ToolRegistry") {}
@@ -175,6 +178,26 @@ export const layer: Layer.Layer<
           }
         }
 
+        /** 扫描 Omni Studio 安装的已启用 tool 扩展 */
+        const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+        const omniState = yield* Effect.tryPromise({
+          try: () => Bun.file(path.join(omniStudioDir, "state.json")).json().catch(() => ({ extensions: [] })),
+          catch: () => ({ extensions: [] }),
+        }).pipe(Effect.orElseSucceed(() => ({ extensions: [] })))
+
+        for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {
+          if (ext.type !== "tool" || !ext.enabled) continue
+          const extDir = path.join(omniStudioDir, "tools", ext.slug)
+          const toolMatches = Glob.scanSync("{tool,tools}/*.{js,ts}", { cwd: extDir, absolute: true, dot: true, symlink: true })
+          for (const match of toolMatches) {
+            const namespace = path.basename(match, path.extname(match))
+            const mod = yield* Effect.promise(() => import(pathToFileURL(match).href))
+            for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
+              custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
+            }
+          }
+        }
+
         const plugins = yield* plugin.list()
         for (const p of plugins) {
           for (const [id, def] of Object.entries(p.tool ?? {})) {
@@ -237,6 +260,18 @@ export const layer: Layer.Layer<
       const s = yield* InstanceState.get(state)
       return [...s.builtin, ...s.custom] as Tool.Def[]
     })
+
+    const refresh = Effect.fn("ToolRegistry.refresh")(function* () {
+      yield* InstanceState.invalidate(state)
+    })
+
+    const listener = (evt: any) => {
+      if (evt.payload?.type === "omni-studio:extension-changed") {
+        Effect.runPromise(refresh()).catch(() => {})
+      }
+    }
+    GlobalBus.on("event", listener)
+    yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
 
     const ids: Interface["ids"] = Effect.fn("ToolRegistry.ids")(function* () {
       return (yield* all()).map((tool) => tool.id)
@@ -322,7 +357,7 @@ export const layer: Layer.Layer<
       return { task: s.task, read: s.read }
     })
 
-    return Service.of({ ids, all, named, tools })
+    return Service.of({ ids, all, named, tools, refresh })
   }),
 )
 

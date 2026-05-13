@@ -286,6 +286,7 @@ export interface Interface {
   readonly update: (config: Info, options?: { dispose?: boolean }) => Effect.Effect<void>
   readonly updateGlobal: (config: Info) => Effect.Effect<Info>
   readonly invalidate: (wait?: boolean) => Effect.Effect<void>
+  readonly refresh: () => Effect.Effect<void>
   readonly directories: () => Effect.Effect<string[]>
   readonly waitForDependencies: () => Effect.Effect<void>
 }
@@ -580,6 +581,28 @@ export const layer = Layer.effect(
           yield* mergePluginOrigins(dir, list)
         }
 
+        /** 加载 Omni Studio 安装的已启用扩展 */
+        const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+        const omniState = yield* Effect.tryPromise({
+          try: () => Bun.file(path.join(omniStudioDir, "state.json")).json().catch(() => ({ extensions: [] })),
+          catch: () => ({ extensions: [] }),
+        }).pipe(Effect.orElseSucceed(() => ({ extensions: [] })))
+
+        for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {
+          if (!ext.enabled) continue
+          const extDir = path.join(omniStudioDir, ext.type + "s", ext.slug)
+          const dirExists = yield* fs.isDir(extDir).pipe(Effect.orElseSucceed(() => false))
+          if (!dirExists) continue
+
+          if (ext.type === "agent") {
+            result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.load(extDir)))
+            result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.loadMode(extDir)))
+          } else if (ext.type === "plugin") {
+            const list = yield* Effect.promise(() => ConfigPlugin.load(extDir))
+            yield* mergePluginOrigins(extDir, list, "global")
+          }
+        }
+
         if (process.env.OPENCODE_CONFIG_CONTENT) {
           const source = "OPENCODE_CONFIG_CONTENT"
           const next = yield* loadConfig(process.env.OPENCODE_CONFIG_CONTENT, {
@@ -774,6 +797,18 @@ export const layer = Layer.effect(
       return next
     })
 
+    const refresh = Effect.fn("Config.refresh")(function* () {
+      yield* InstanceState.invalidate(state)
+    })
+
+    const listener = (evt: any) => {
+      if (evt.payload?.type === "omni-studio:extension-changed") {
+        Effect.runPromise(refresh()).catch(() => {})
+      }
+    }
+    GlobalBus.on("event", listener)
+    yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
+
     return Service.of({
       get,
       getGlobal,
@@ -781,6 +816,7 @@ export const layer = Layer.effect(
       update,
       updateGlobal,
       invalidate,
+      refresh,
       directories,
       waitForDependencies,
     })

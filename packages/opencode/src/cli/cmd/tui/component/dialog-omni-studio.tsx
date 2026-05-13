@@ -344,6 +344,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
 
   /** 键盘导航：↑↓ 移动选中，←→ 在行内按钮间切换，PgUp/PgDn 翻页，Tab 切换类型，Enter 执行操作，ESC 取消 pending。 */
   useKeyboard((evt) => {
+    debugLog("[OmniStudio][LocalView] Keyboard event:", evt.name, "ctrl:", evt.ctrl, "shift:", evt.shift, "meta:", evt.meta, "defaultPrevented:", evt.defaultPrevented)
     if (evt.name === "escape") {
       if (pendingAction()) {
         setPendingAction(null)
@@ -635,6 +636,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 
   /** 键盘导航：↑↓ 移动选中，←→ 在行内按钮间切换，PgUp/PgDn 翻页，Tab 切换类型，Enter 执行操作，ESC 取消 pending。 */
   useKeyboard((evt) => {
+    debugLog("[OmniStudio][ListView] Keyboard event:", evt.name, "ctrl:", evt.ctrl, "shift:", evt.shift, "meta:", evt.meta, "defaultPrevented:", evt.defaultPrevented)
     if (evt.name === "escape") {
       if (pendingSlug()) {
         setPendingSlug(null)

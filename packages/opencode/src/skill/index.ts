@@ -196,16 +196,30 @@ const discoverSkills = Effect.fnUntraced(function* (
 
   /** 扫描 Omni Studio 安装的已启用 skill 扩展 */
   const omniStudioStatePath = path.join(Global.Path.home, ".omni_studio", "state.json")
+  log.info("scanning omni studio skills", { statePath: omniStudioStatePath })
+
   const omniState = yield* Effect.tryPromise({
     try: () => Bun.file(omniStudioStatePath).json().catch(() => ({ extensions: [] })),
     catch: () => ({ extensions: [] }),
   }).pipe(Effect.orElseSucceed(() => ({ extensions: [] })))
 
+  log.info("omni studio state loaded", {
+    statePath: omniStudioStatePath,
+    resultType: typeof omniState,
+    hasExtensions: "extensions" in (omniState as any),
+    extensionsCount: (omniState as any).extensions?.length ?? 0,
+  })
+
   for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {
+    log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
     if (ext.type === "skill" && ext.enabled) {
       const extDir = path.join(Global.Path.home, ".omni_studio", "skills", ext.slug)
-      if (yield* fsys.isDir(extDir)) {
+      const dirExists = yield* fsys.isDir(extDir)
+      log.info("omni studio skill directory check", { slug: ext.slug, extDir, exists: dirExists })
+      if (dirExists) {
+        const beforeMatches = state.matches.size
         yield* scan(state, extDir, SKILL_PATTERN)
+        log.info("omni studio skill scanned", { slug: ext.slug, newMatches: state.matches.size - beforeMatches })
       }
     }
   }
@@ -273,11 +287,11 @@ export const layer = Layer.effect(
       yield* InstanceState.invalidate(state)
     })
 
-    const listener = (evt: any) => {
+    const listener = InstanceState.bind((evt: any) => {
       if (evt.payload?.type === "omni-studio:extension-changed") {
         Effect.runPromise(refresh()).catch(() => {})
       }
-    }
+    })
     GlobalBus.on("event", listener)
     yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
 

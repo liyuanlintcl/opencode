@@ -583,23 +583,44 @@ export const layer = Layer.effect(
 
         /** 加载 Omni Studio 安装的已启用扩展 */
         const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+        log.info("loading omni studio extensions", { omniStudioDir })
+
         const omniState = yield* Effect.tryPromise({
           try: () => Bun.file(path.join(omniStudioDir, "state.json")).json().catch(() => ({ extensions: [] })),
           catch: () => ({ extensions: [] }),
         }).pipe(Effect.orElseSucceed(() => ({ extensions: [] })))
 
+        log.info("omni studio state loaded", {
+          omniStudioDir,
+          resultType: typeof omniState,
+          hasExtensions: "extensions" in (omniState as any),
+          extensionsCount: (omniState as any).extensions?.length ?? 0,
+        })
+
         for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {
-          if (!ext.enabled) continue
+          log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
+          if (!ext.enabled) {
+            log.info("omni studio extension disabled, skipping", { type: ext.type, slug: ext.slug })
+            continue
+          }
           const extDir = path.join(omniStudioDir, ext.type + "s", ext.slug)
           const dirExists = yield* fs.isDir(extDir).pipe(Effect.orElseSucceed(() => false))
-          if (!dirExists) continue
+          log.info("omni studio extension directory check", { type: ext.type, slug: ext.slug, extDir, exists: dirExists })
+          if (!dirExists) {
+            log.warn("omni studio extension directory not found", { type: ext.type, slug: ext.slug, extDir })
+            continue
+          }
 
           if (ext.type === "agent") {
+            log.info("loading omni studio agent", { slug: ext.slug, extDir })
             result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.load(extDir)))
             result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.loadMode(extDir)))
+            log.info("omni studio agent loaded", { slug: ext.slug })
           } else if (ext.type === "plugin") {
+            log.info("loading omni studio plugin", { slug: ext.slug, extDir })
             const list = yield* Effect.promise(() => ConfigPlugin.load(extDir))
             yield* mergePluginOrigins(extDir, list, "global")
+            log.info("omni studio plugin loaded", { slug: ext.slug, count: list?.length ?? 0 })
           }
         }
 
@@ -801,11 +822,11 @@ export const layer = Layer.effect(
       yield* InstanceState.invalidate(state)
     })
 
-    const listener = (evt: any) => {
+    const listener = InstanceState.bind((evt: any) => {
       if (evt.payload?.type === "omni-studio:extension-changed") {
         Effect.runPromise(refresh()).catch(() => {})
       }
-    }
+    })
     GlobalBus.on("event", listener)
     yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
 

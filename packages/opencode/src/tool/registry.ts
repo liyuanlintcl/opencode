@@ -180,15 +180,30 @@ export const layer: Layer.Layer<
 
         /** 扫描 Omni Studio 安装的已启用 tool 扩展 */
         const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+        log.info("scanning omni studio tools", { omniStudioDir })
+
         const omniState = yield* Effect.tryPromise({
           try: () => Bun.file(path.join(omniStudioDir, "state.json")).json().catch(() => ({ extensions: [] })),
           catch: () => ({ extensions: [] }),
         }).pipe(Effect.orElseSucceed(() => ({ extensions: [] })))
 
+        log.info("omni studio state loaded", {
+          omniStudioDir,
+          resultType: typeof omniState,
+          hasExtensions: "extensions" in (omniState as any),
+          extensionsCount: (omniState as any).extensions?.length ?? 0,
+        })
+
         for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {
-          if (ext.type !== "tool" || !ext.enabled) continue
+          log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
+          if (ext.type !== "tool" || !ext.enabled) {
+            log.info("omni studio extension not tool or disabled, skipping", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
+            continue
+          }
           const extDir = path.join(omniStudioDir, "tools", ext.slug)
+          log.info("scanning omni studio tool files", { slug: ext.slug, extDir })
           const toolMatches = Glob.scanSync("{tool,tools}/*.{js,ts}", { cwd: extDir, absolute: true, dot: true, symlink: true })
+          log.info("omni studio tool files found", { slug: ext.slug, count: toolMatches.length, files: toolMatches })
           for (const match of toolMatches) {
             const namespace = path.basename(match, path.extname(match))
             const mod = yield* Effect.promise(() => import(pathToFileURL(match).href))
@@ -265,11 +280,11 @@ export const layer: Layer.Layer<
       yield* InstanceState.invalidate(state)
     })
 
-    const listener = (evt: any) => {
+    const listener = InstanceState.bind((evt: any) => {
       if (evt.payload?.type === "omni-studio:extension-changed") {
         Effect.runPromise(refresh()).catch(() => {})
       }
-    }
+    })
     GlobalBus.on("event", listener)
     yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
 

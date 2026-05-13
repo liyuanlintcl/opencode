@@ -285,9 +285,14 @@ export const layer: Layer.Layer<
     const listener = InstanceState.bind((evt: any) => {
       if (evt.payload?.type === "omni-studio:extension-changed") {
         const ctx = Instance.current
+        log.info("omni studio extension changed event received, refreshing tools", { directory: ctx.directory })
         Effect.runPromise(
           refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-        ).catch(() => {})
+        ).then(() => {
+          log.info("tool registry refresh completed")
+        }).catch((err) => {
+          log.error("tool registry refresh failed", { error: err instanceof Error ? err.message : String(err) })
+        })
       }
     })
     GlobalBus.on("event", listener)

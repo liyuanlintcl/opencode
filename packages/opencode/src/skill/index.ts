@@ -292,9 +292,14 @@ export const layer = Layer.effect(
     const listener = InstanceState.bind((evt: any) => {
       if (evt.payload?.type === "omni-studio:extension-changed") {
         const ctx = Instance.current
+        log.info("omni studio extension changed event received, refreshing skills", { directory: ctx.directory })
         Effect.runPromise(
           refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-        ).catch(() => {})
+        ).then(() => {
+          log.info("skill refresh completed")
+        }).catch((err) => {
+          log.error("skill refresh failed", { error: err instanceof Error ? err.message : String(err) })
+        })
       }
     })
     GlobalBus.on("event", listener)

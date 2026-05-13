@@ -10,6 +10,8 @@ import type { Agent } from "@/agent/agent"
 import { Bus } from "@/bus"
 import { GlobalBus } from "@/bus/global"
 import { InstanceState } from "@/effect"
+import { InstanceRef } from "@/effect/instance-ref"
+import { Instance } from "@/project/instance"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { Global } from "@opencode-ai/core/global"
 import { Permission } from "@/permission"
@@ -289,7 +291,10 @@ export const layer = Layer.effect(
 
     const listener = InstanceState.bind((evt: any) => {
       if (evt.payload?.type === "omni-studio:extension-changed") {
-        Effect.runPromise(refresh()).catch(() => {})
+        const ctx = Instance.current
+        Effect.runPromise(
+          refresh().pipe(Effect.provideService(InstanceRef, ctx)),
+        ).catch(() => {})
       }
     })
     GlobalBus.on("event", listener)

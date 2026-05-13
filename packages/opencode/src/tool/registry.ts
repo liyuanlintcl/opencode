@@ -40,6 +40,8 @@ import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { Ripgrep } from "../file/ripgrep"
 import { Format } from "../format"
 import { InstanceState } from "@/effect"
+import { InstanceRef } from "@/effect/instance-ref"
+import { Instance } from "@/project/instance"
 import { Question } from "../question"
 import { Todo } from "../session/todo"
 import { LSP } from "../lsp"
@@ -282,7 +284,10 @@ export const layer: Layer.Layer<
 
     const listener = InstanceState.bind((evt: any) => {
       if (evt.payload?.type === "omni-studio:extension-changed") {
-        Effect.runPromise(refresh()).catch(() => {})
+        const ctx = Instance.current
+        Effect.runPromise(
+          refresh().pipe(Effect.provideService(InstanceRef, ctx)),
+        ).catch(() => {})
       }
     })
     GlobalBus.on("event", listener)

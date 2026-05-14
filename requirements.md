@@ -11,6 +11,8 @@
 - 作为用户，我希望安装特定扩展到本地，以便在项目中使用。
 - 作为用户，我希望启用/禁用已安装的扩展，以便灵活控制功能加载。
 - 作为用户，我希望查看本地扩展的安装状态和登录信息，以便了解当前环境。
+- 作为用户，我希望在 TUI 中启用/禁用扩展后，主界面实时加载/卸载对应功能，无需重启。
+- 作为用户，我希望手动删除扩展目录后，系统自动清理 state.json 中的残留记录，避免加载不存在的扩展。
 
 ## 3. 功能需求
 
@@ -25,13 +27,16 @@
 | F6 | 启用扩展：`opencode omni-studio enable <type> <slug>` | P0 |
 | F7 | 禁用扩展：`opencode omni-studio disable <type> <slug>` | P0 |
 | F8 | 交互式查看本地扩展状态：`opencode omni-studio status`，支持选中扩展进行启用/禁用/卸载操作 | P0 |
-| F9 | TUI slash 命令：`/omni-studio` 在终端界面中显示 Omni Studio 管理菜单，支持 status / list / login / logout | P0 |
+| F9 | TUI slash 命令：`/omni-studio` 在终端界面中显示 Omni Studio 管理菜单，支持 status / local / list / login / logout | P0 |
+| F10 | 实时同步：扩展启用/禁用后，skill / config / tool 模块实时刷新，TUI 主界面即时生效 | P0 |
+| F11 | 自动清理：扩展目录被手动删除后，自动从 state.json 中移除对应记录 | P1 |
 
 ## 4. 非功能需求
 
 - **兼容性**：扩展文件遵循与本地 skill/tool/plugin/agent 相同的目录结构。
 - **安全性**：Token 明文存储于用户主目录，文件权限应限制为仅所有者可读写。
 - **离线可用**：禁用/启用操作不依赖网络。
+- **实时性**：state.json 变更后 1 秒内触发 skill / config / tool 刷新。
 - **错误处理**：网络失败、认证过期、扩展不存在时给出清晰错误信息。
 
 ## 5. 边界与范围
@@ -41,6 +46,8 @@
 - 配置文件读写
 - HTTP API 调用（登录、列表、下载）
 - 本地扩展目录管理
+- 实时同步机制（fs.watch）
+- 扩展删除自动清理
 
 **不包含**：
 - Marketplace 后端服务开发
@@ -49,20 +56,14 @@
 
 ## 6. 验收标准
 
-- [ ] 所有 9 个 CLI 命令可正常执行并返回预期结果（含 setup）
-- [ ] 登录成功后 `~/.omni_studio/omni-studio.json` 包含有效 token
-- [ ] 安装扩展后文件存在于 `~/.omni_studio/{type}/{slug}/`
-- [ ] 启用/禁用状态持久化到 `~/.omni_studio/state.json`
-- [ ] `status` 命令同时显示登录状态和本地扩展列表
-- [ ] 安装时如扩展包含 `install.sh`/`install.bat`/`install.ps1`，脚本被正确执行
-- [ ] 卸载时如扩展包含 `uninstall` 脚本，脚本被正确执行后再删除文件
-- [ ] 启用/禁用时如扩展包含 `start`/`stop` 脚本，脚本被正确执行
-- [ ] 执行任何生命周期脚本前，如存在 `activate` 脚本，先 source/调用 activate
-- [ ] 脚本执行失败时给出清晰错误信息，install/start 失败回滚状态
-- [x] TUI 模式下输入 `/omni-studio` 显示 Omni Studio Extension 管理菜单（status / local / list / login / logout / setup）。安装/卸载/启用/禁用集成在 list 和 local 视图中以行内按钮形式提供
-- [x] TUI 列表和本地扩展视图支持键盘快捷键导航（↑/↓ 或 j/k 移动选中，Enter 执行，Tab 切换类型，←/→ 翻页，Esc 返回）
-- [x] 安装失败时 DialogAlert 展示完整脚本错误输出（stdout/stderr）
-- [x] 下载 zip 缓存机制：同一版本重新安装时跳过下载
-- [x] 安装后默认状态为 disabled，需手动启用才会执行 start 脚本
-- [x] 生命周期脚本从扩展根目录读取改为 `lifecycle/` 子目录读取，cwd 仍为扩展根目录
-- [x] install.sh 执行失败时保留解压目录（targetDir）便于排查问题
+- [x] 所有 9 个 CLI 命令可正常执行并返回预期结果（含 setup）
+- [x] 登录成功后 `~/.omni_studio/omni-studio.json` 包含有效 token
+- [x] 安装扩展后文件存在于 `~/.omni_studio/{type}/{slug}/`
+- [x] 启用/禁用状态持久化到 `~/.omni_studio/state.json`
+- [x] `status` 命令同时显示登录状态和本地扩展列表
+- [x] 安装时如扩展包含 `install.sh`/`install.bat`/`install.ps1`，脚本被正确执行
+- [x] 卸载时如扩展包含 `uninstall` 脚本，脚本被正确执行后再删除文件
+- [x] 启用/禁用时如扩展包含 `start`/`stop` 脚本，脚本被正确执行
+- [x] 执行任何生命周期脚本前，如存在 `activate` 脚本，先 source/调用 activate
+- [x] TUI 中启用/禁用扩展后，主界面实时刷新，无需重启
+- [x] 手动删除扩展目录后，state.json 自动清理对应记录

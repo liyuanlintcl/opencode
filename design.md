@@ -27,7 +27,7 @@ omni-studio.json             {skills,tools,...}/
 | `cli.ts` | 命令解析与路由 | `src/omni-studio/cli.ts` |
 | `auth.ts` | 登录/登出/Token 管理 | `src/omni-studio/auth.ts` |
 | `market.ts` | HTTP 市场 API 调用 | `src/omni-studio/market.ts` |
-| `store.ts` | 本地扩展安装/卸载/状态 | `src/omni-studio/store.ts` |
+| `store.ts` | 本地扩展安装/卸载/状态，含 fs.watch 自动清理 | `src/omni-studio/store.ts` |
 | `executor.ts` | 扩展生命周期脚本检测与执行（install/start/stop/uninstall/activate），脚本存放在扩展目录的 `lifecycle/` 子目录中 | `src/omni-studio/executor.ts` |
 | `config.ts` | 配置文件读写 | `src/omni-studio/config.ts` |
 | `types.ts` | 共享类型定义 | `src/omni-studio/types.ts` |
@@ -110,16 +110,17 @@ type Command =
 
 ### 4.1a TUI Slash 命令接口
 
-TUI 中的 slash 命令（`/` 触发）与 CLI 子命令独立注册，通过 `app.tsx` 的 `command.register` 机制注入。
+TUI 中的 slash 命令（`/` 触发）通过 `app.tsx` 的 command registry 机制注入。
 
 ```ts
-// app.tsx 中注册的 slash 命令示例
+// app.tsx 中注册的 slash 命令示例（dev 分支新结构）
 {
+  name: "omni-studio",
   title: "Omni Studio",
-  value: "omni-studio",
-  category: "Omni Studio",
-  slash: { name: "omni-studio", aliases: ["omni"] },
-  onSelect: () => dialog.replace(() => <DialogOmniStudio />),
+  category: "System",
+  slashName: "omni-studio",
+  slashAliases: ["omni"],
+  run: () => dialog.replace(() => <DialogOmniStudio />),
 }
 ```
 
@@ -340,6 +341,30 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 - 所有脚本执行工作目录设为扩展目录本身（cwd = ~/.omni_studio/{type}/{slug}/），脚本路径为相对路径 lifecycle/{name}.{suffix}
 ```
 
+### 5.11 实时同步机制
+
+```
+背景：
+- store.ts 在启用/禁用扩展时会写入 state.json
+- skill/index.ts、config/config.ts、tool/registry.ts 需要感知 state.json 变化并刷新缓存
+- 最初使用 GlobalBus 发射事件，但 Bun Web Worker 的模块缓存隔离导致 worker.ts
+  和 skill/config/tool 三处的 GlobalBus 不是同一实例，listener 永远无法收到事件
+
+最终方案：
+- 完全基于文件系统事件，不依赖进程内消息传递
+- skill/index.ts：fs.watch 监听 ~/.omni_studio/，state.json 变化时触发 skill 刷新
+- config/config.ts：fs.watch 监听 ~/.omni_studio/，state.json 变化时触发 config 刷新
+- tool/registry.ts：fs.watch 监听 ~/.omni_studio/，state.json 变化时触发 tool registry 刷新
+- 回调通过 InstanceState.bind() 包装，自动恢复 InstanceContext
+- Effect.runPromise(refresh().pipe(Effect.provideService(InstanceRef, ctx))) 显式注入上下文
+
+store.ts 额外监听：
+- store.ts 也启动 fs.watch 监听 ~/.omni_studio/ 目录
+- 当 skills/agents/plugins/tools 下的扩展目录被删除时
+- 自动从 state.json 中移除对应扩展记录，防止加载不存在的扩展
+- 幂等设计：即使多次触发或 uninstall API 已清理过，都不会重复写入
+```
+
 ## 6. 技术选型
 
 | 层面 | 选型 | 理由 |
@@ -348,7 +373,10 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 | 配置存储 | JSON 文件 + `Bun.file()` | 符合项目风格，简单可靠 |
 | 压缩解压 | `Bun.write()` + `unzip` 或 `fflate` | 扩展包通常为 zip 格式 |
 | 脚本执行 | `Bun.spawn()` 或 `$` | Bun 内置进程管理，支持流式输出和退出码捕获 |
-| 交互提示 | 现有 CLI 提示库（如有）或 `readline` | 保持与主 CLI 一致的交互风格 |
+| 类型校验 | Effect Schema（dev 分支已迁移） | 项目全面迁移到 Effect-TS，Zod 已逐步移除 |
+| 后端框架 | Bun.serve + Effect HttpApi（dev 分支已迁移） | 从 Hono 迁移到原生 Bun HTTP 服务 |
+| 实时同步 | `fs.watch` | 绕过 Bun Web Worker 模块缓存隔离问题，跨进程可靠 |
+| Effect Service | `Effect.gen` + `Layer.effect` | 项目标准模式，支持依赖注入和上下文管理 |
 
 ## 7. 风险与假设
 

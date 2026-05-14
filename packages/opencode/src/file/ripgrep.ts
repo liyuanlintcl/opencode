@@ -287,16 +287,44 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | ChildPro
 
       const filepath = yield* Effect.cached(
         Effect.gen(function* () {
-          // 优先查找 CLI 打包目录中的 rg（与 opencode 二进制同目录）
-          const bundled = path.join(path.dirname(process.execPath), `rg${process.platform === "win32" ? ".exe" : ""}`)
-          if (yield* fs.isFile(bundled).pipe(Effect.orDie)) return bundled
+          const suffix = process.platform === "win32" ? ".exe" : ""
+          const candidates: string[] = []
 
+          // 开发模式检测：process.execPath 指向 bun 而非 opencode 二进制
+          const isDevMode = path.basename(process.execPath).toLowerCase().startsWith("bun")
+
+          if (isDevMode) {
+            // 开发模式：查找项目目录下的 node_modules/.bin/rg（npm 安装的 rg）
+            candidates.push(path.resolve(process.cwd(), "node_modules/.bin/rg" + suffix))
+            // 开发模式：查找 packages/opencode/node_modules/.bin/rg
+            candidates.push(path.resolve(process.cwd(), "packages/opencode/node_modules/.bin/rg" + suffix))
+          } else {
+            // 生产模式（编译后的二进制）：查找与 opencode 同目录的 rg
+            candidates.push(path.join(path.dirname(process.execPath), "rg" + suffix))
+          }
+
+          // 通用查找路径
+          candidates.push(path.join(Global.Path.bin, "rg" + suffix))
+
+          // 逐一检查候选路径
+          for (const candidate of candidates) {
+            log.debug("checking ripgrep candidate", { path: candidate })
+            if (yield* fs.isFile(candidate).pipe(Effect.orDie)) {
+              log.info("found ripgrep", { path: candidate })
+              return candidate
+            }
+          }
+
+          // 系统 PATH 查找
           const system = yield* Effect.sync(() => which(process.platform === "win32" ? "rg.exe" : "rg"))
-          if (system && (yield* fs.isFile(system).pipe(Effect.orDie))) return system
+          if (system && (yield* fs.isFile(system).pipe(Effect.orDie))) {
+            log.info("found ripgrep in PATH", { path: system })
+            return system
+          }
 
-          const target = path.join(Global.Path.bin, `rg${process.platform === "win32" ? ".exe" : ""}`)
-          if (yield* fs.isFile(target).pipe(Effect.orDie)) return target
+          log.info("ripgrep not found locally, attempting download")
 
+          const target = path.join(Global.Path.bin, "rg" + suffix)
           const platformKey = `${process.arch}-${process.platform}` as keyof typeof PLATFORM
           const config = PLATFORM[platformKey]
           if (!config) {

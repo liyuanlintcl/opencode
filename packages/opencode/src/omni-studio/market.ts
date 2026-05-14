@@ -27,9 +27,9 @@ function toEntityType(type: ExtensionType): string {
  */
 export interface Interface {
   /** 列出市场扩展（仅返回第一页数据，兼容旧调用方） */
-  readonly list: (type?: ExtensionType) => Effect.Effect<Extension[], string>
+  readonly list: (type?: ExtensionType, search?: string) => Effect.Effect<Extension[], string>
   /** 分页列出市场扩展，返回记录和分页信息 */
-  readonly listPaged: (type?: ExtensionType, page?: number) => Effect.Effect<PagedResult<Extension>, string>
+  readonly listPaged: (type?: ExtensionType, page?: number, search?: string) => Effect.Effect<PagedResult<Extension>, string>
   /** 获取扩展元数据 */
   readonly getMeta: (type: ExtensionType, slug: string) => Effect.Effect<Extension, string>
   /** 下载扩展包到指定目录；onProgress 回调报告已下载字节数和总字节数 */
@@ -110,10 +110,13 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
     }
 
     /** 分页列出市场扩展 */
-    const listPaged = Effect.fn("OmniStudioMarket.listPaged")(function* (type?: ExtensionType, page = 1) {
+    const listPaged = Effect.fn("OmniStudioMarket.listPaged")(function* (type?: ExtensionType, page = 1, search?: string) {
       const base = yield* getApiBase()
       const entityType = toEntityType(type ?? "skill")
-      const url = `${base}/api/v1/packages/${entityType}?page=${page}&size=10&withVersion=true`
+      let url = `${base}/api/v1/packages/${entityType}?page=${page}&size=10&withVersion=true`
+      if (search) {
+        url += `&keyword=${encodeURIComponent(search)}`
+      }
 
       const envelope = yield* fetchWithRefresh((headers) =>
         Effect.gen(function* () {
@@ -156,8 +159,8 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
     })
 
     /** 列出市场扩展（仅返回第一页 records，兼容旧调用方） */
-    const list = Effect.fn("OmniStudioMarket.list")(function* (type?: ExtensionType) {
-      const result = yield* listPaged(type, 1)
+    const list = Effect.fn("OmniStudioMarket.list")(function* (type?: ExtensionType, search?: string) {
+      const result = yield* listPaged(type, 1, search)
       return result.records
     })
 

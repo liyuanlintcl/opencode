@@ -351,6 +351,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
+  const [searchKeyword, setSearchKeyword] = createSignal("")
   const [pendingAction, setPendingAction] = createSignal<{ type: "enable" | "disable" | "uninstall"; slug: string } | null>(null)
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
   const PAGE_SIZE = 10
@@ -491,7 +492,16 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     },
   })
 
-  /** 切换类型时重置到第 1 页和选中索引。 */
+  /** 按 / 键弹出搜索输入框 */
+  useKeyboard((evt) => {
+    if (evt.name === "/" && !pendingAction()) {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void handleSearch()
+    }
+  })
+
+  /** 切换类型时重置到第 1 页和选中索引，保留搜索词。 */
   const switchType = (type: ExtensionType) => {
     if (type === selectedType()) {
       return
@@ -501,11 +511,43 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     setSelectedIndex(0)
   }
 
-  /** 按当前选中类型过滤的本地扩展列表。 */
+  /**
+   * 弹出搜索输入框，输入关键词后触发本地过滤。
+   */
+  const handleSearch = async () => {
+    const keyword = await DialogPrompt.show(props.dialog, "搜索本地扩展", {
+      placeholder: "输入关键词",
+      value: searchKeyword(),
+    })
+    if (keyword !== null) {
+      setSearchKeyword(keyword.trim())
+      setCurrentPage(1)
+      setSelectedIndex(0)
+    }
+  }
+
+  /**
+   * 清除当前搜索词，恢复完整列表。
+   */
+  const clearSearch = () => {
+    setSearchKeyword("")
+    setCurrentPage(1)
+    setSelectedIndex(0)
+  }
+
+  /** 按当前选中类型和搜索词过滤的本地扩展列表。 */
   const filteredExtensions = () => {
     const s = status()
     if (s.kind !== "ok") return []
-    return s.extensions.filter((e) => e.type === selectedType())
+    const keyword = searchKeyword().toLowerCase()
+    return s.extensions.filter((e) => {
+      if (e.type !== selectedType()) return false
+      if (!keyword) return true
+      return (
+        e.slug.toLowerCase().includes(keyword) ||
+        (e.name?.toLowerCase().includes(keyword) ?? false)
+      )
+    })
   }
 
   /** 过滤后分页的本地扩展列表。 */
@@ -590,6 +632,18 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
         </text>
       </box>
       <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
+      <Show when={searchKeyword()}>
+        <box flexDirection="row" gap={2} paddingBottom={1}>
+          <text fg={theme.textMuted}>搜索: {searchKeyword()}</text>
+          <text
+            fg={theme.primary}
+            selectable={false}
+            onMouseUp={clearSearch}
+          >
+            [清除]
+          </text>
+        </box>
+      </Show>
       <Show when={status().kind === "ok" && filteredExtensions().length > 0}>
         <ScrollableList maxHeight={scrollHeight()} itemCount={pagedExtensions().length} selectedIndex={selectedIndex()}>
           <For each={pagedExtensions()}>{LocalExtensionRow}</For>
@@ -606,7 +660,11 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       </Show>
       <Show when={status().kind === "ok" && filteredExtensions().length === 0}>
         <box paddingBottom={1}>
-          <text fg={theme.textMuted}>该类型下没有已安装的扩展</text>
+          <text fg={theme.textMuted}>
+            {searchKeyword()
+              ? `未找到匹配 "${searchKeyword()}" 的本地扩展`
+              : "该类型下没有已安装的扩展"}
+          </text>
         </box>
       </Show>
     </box>
@@ -623,6 +681,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [marketList, setMarketList] = createSignal<ListResult>({ kind: "loading" })
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
+  const [searchKeyword, setSearchKeyword] = createSignal("")
   const [pendingSlug, setPendingSlug] = createSignal<string | null>(null)
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
@@ -632,18 +691,19 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
 
   /**
-   * 加载指定 type 和页码的远程数据，同时刷新本地已安装扩展列表。
-   * currentPage 或 selectedType 变化时自动触发。
+   * 加载指定 type、页码和搜索词的远程数据，同时刷新本地已安装扩展列表。
+   * currentPage、selectedType 或 searchKeyword 变化时自动触发。
    */
   createEffect(() => {
     const page = currentPage()
     const type = selectedType()
+    const keyword = searchKeyword()
     void (async () => {
       setMarketList({ kind: "loading" })
       try {
         const [result, status] = await Promise.all([
           Effect.runPromise(
-            OmniStudioMarket.Service.use((svc) => svc.listPaged(type, page)).pipe(
+            OmniStudioMarket.Service.use((svc) => svc.listPaged(type, page, keyword)).pipe(
               Effect.provide(OmniStudioMarket.defaultLayer),
             ),
           ),
@@ -699,14 +759,47 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     },
   })
 
+  /** 按 / 键弹出搜索输入框 */
+  useKeyboard((evt) => {
+    if (evt.name === "/" && !pendingSlug() && !installingSlug() && !installResult()) {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void handleSearch()
+    }
+  })
+
   /**
-   * 切换扩展类型，重置到第 1 页和选中索引。
+   * 切换扩展类型，重置到第 1 页和选中索引，保留搜索词。
    */
   const switchType = (type: ExtensionType) => {
     if (type === selectedType()) {
       return
     }
     setSelectedType(type)
+    setCurrentPage(1)
+    setSelectedIndex(0)
+  }
+
+  /**
+   * 弹出搜索输入框，输入关键词后触发远程搜索。
+   */
+  const handleSearch = async () => {
+    const keyword = await DialogPrompt.show(props.dialog, "搜索扩展", {
+      placeholder: "输入关键词",
+      value: searchKeyword(),
+    })
+    if (keyword !== null) {
+      setSearchKeyword(keyword.trim())
+      setCurrentPage(1)
+      setSelectedIndex(0)
+    }
+  }
+
+  /**
+   * 清除当前搜索词，恢复完整列表。
+   */
+  const clearSearch = () => {
+    setSearchKeyword("")
     setCurrentPage(1)
     setSelectedIndex(0)
   }
@@ -845,6 +938,18 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         </text>
       </box>
       <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
+      <Show when={searchKeyword()}>
+        <box flexDirection="row" gap={2} paddingBottom={1}>
+          <text fg={theme.textMuted}>搜索: {searchKeyword()}</text>
+          <text
+            fg={theme.primary}
+            selectable={false}
+            onMouseUp={clearSearch}
+          >
+            [清除]
+          </text>
+        </box>
+      </Show>
       <Show
         when={marketList().kind === "ok" && (marketList() as Extract<ListResult, { kind: "ok" }>).data.length > 0}
         fallback={
@@ -854,7 +959,9 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
                 ? "加载中..."
                 : marketList().kind === "error"
                   ? `错误: ${(marketList() as Extract<ListResult, { kind: "error" }>).message}`
-                  : "未找到扩展"}
+                  : searchKeyword()
+                    ? `未找到匹配 "${searchKeyword()}" 的扩展`
+                    : "未找到扩展"}
             </text>
           </box>
         }

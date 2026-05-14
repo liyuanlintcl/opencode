@@ -16,6 +16,7 @@ import * as Tool from "./tool"
 import { Config } from "../config"
 import { type ToolContext as PluginToolContext, type ToolDefinition } from "@opencode-ai/plugin"
 import { Schema } from "effect"
+import fs from "fs"
 import z from "zod"
 import { ZodOverride } from "@/util/effect-zod"
 import { Plugin } from "../plugin"
@@ -297,6 +298,32 @@ export const layer: Layer.Layer<
     })
     GlobalBus.on("event", listener)
     yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
+
+    /** 兜底：监听 state.json 文件变化，绕过 GlobalBus 进程隔离问题 */
+    const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+    try {
+      const watcher = fs.watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {
+        const name = filename ? (typeof filename === "string" ? filename : filename.toString()) : null
+        if (name === "state.json" || name === null) {
+          log.info("state.json changed, refreshing tools")
+          try {
+            const ctx = Instance.current
+            Effect.runPromise(
+              refresh().pipe(Effect.provideService(InstanceRef, ctx)),
+            ).then(() => {
+              log.info("tool registry refresh completed (fs.watch)")
+            }).catch((err) => {
+              log.error("tool registry refresh failed (fs.watch)", { error: err instanceof Error ? err.message : String(err) })
+            })
+          } catch (err) {
+            log.warn("fs.watch callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
+          }
+        }
+      }))
+      yield* Effect.addFinalizer(() => Effect.sync(() => { watcher.close() }))
+    } catch (err) {
+      log.warn("failed to watch omni studio directory", { dir: omniStudioDir, error: err instanceof Error ? err.message : String(err) })
+    }
 
     const ids: Interface["ids"] = Effect.fn("ToolRegistry.ids")(function* () {
       return (yield* all()).map((tool) => tool.id)

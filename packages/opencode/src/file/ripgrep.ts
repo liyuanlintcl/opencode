@@ -290,8 +290,18 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | ChildPro
           const suffix = process.platform === "win32" ? ".exe" : ""
           const candidates: string[] = []
 
+          // 输出关键诊断信息，帮助排查路径问题
+          log.info("ripgrep lookup diagnostics", {
+            execPath: process.execPath,
+            argv0: process.argv[0],
+            cwd: process.cwd(),
+            platform: process.platform,
+            arch: process.arch,
+          })
+
           // 开发模式检测：process.execPath 指向 bun 而非 opencode 二进制
           const isDevMode = path.basename(process.execPath).toLowerCase().startsWith("bun")
+          log.info("ripgrep dev mode detection", { isDevMode, execPathBase: path.basename(process.execPath) })
 
           if (isDevMode) {
             // 开发模式：查找项目目录下的 node_modules/.bin/rg（npm 安装的 rg）
@@ -300,7 +310,9 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | ChildPro
             candidates.push(path.resolve(process.cwd(), "packages/opencode/node_modules/.bin/rg" + suffix))
           } else {
             // 生产模式（编译后的二进制）：查找与 opencode 同目录的 rg
-            candidates.push(path.join(path.dirname(process.execPath), "rg" + suffix))
+            const cliDir = path.dirname(process.execPath)
+            candidates.push(path.join(cliDir, "rg" + suffix))
+            log.info("ripgrep production mode lookup", { cliDir, candidate: path.join(cliDir, "rg" + suffix) })
           }
 
           // 通用查找路径
@@ -308,18 +320,28 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | ChildPro
 
           // 逐一检查候选路径
           for (const candidate of candidates) {
-            log.debug("checking ripgrep candidate", { path: candidate })
-            if (yield* fs.isFile(candidate).pipe(Effect.orDie)) {
+            log.info("checking ripgrep candidate", { path: candidate })
+            const exists = yield* fs.isFile(candidate).pipe(Effect.orDie)
+            if (exists) {
               log.info("found ripgrep", { path: candidate })
               return candidate
             }
+            log.info("ripgrep candidate not found", { path: candidate })
           }
 
           // 系统 PATH 查找
+          log.info("ripgrep checking system PATH")
           const system = yield* Effect.sync(() => which(process.platform === "win32" ? "rg.exe" : "rg"))
-          if (system && (yield* fs.isFile(system).pipe(Effect.orDie))) {
-            log.info("found ripgrep in PATH", { path: system })
-            return system
+          if (system) {
+            log.info("ripgrep which returned", { path: system })
+            const exists = yield* fs.isFile(system).pipe(Effect.orDie)
+            if (exists) {
+              log.info("found ripgrep in PATH", { path: system })
+              return system
+            }
+            log.info("ripgrep which result not a file", { path: system })
+          } else {
+            log.info("ripgrep not found in system PATH")
           }
 
           log.info("ripgrep not found locally, attempting download")

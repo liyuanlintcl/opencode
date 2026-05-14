@@ -40,13 +40,14 @@ jobs:
       - name: Stage artifact for upload
         run: |
           New-Item -ItemType Directory -Force -Path artifact
-          Copy-Item packages/opencode/dist/opencode-windows-x64/bin/opencode.exe artifact/opencode-windows-x64.exe
+          # 打包整个 bin 目录（包含 opencode.exe 和 rg.exe）
+          Compress-Archive -Path packages/opencode/dist/opencode-windows-x64/bin/* -DestinationPath artifact/opencode-windows-x64.zip
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
           name: opencode-cli-windows
-          path: artifact/opencode-windows-x64.exe
+          path: artifact/opencode-windows-x64.zip
           if-no-files-found: error
 
       - name: Publish to GitHub Release
@@ -59,14 +60,14 @@ jobs:
             Write-Host "Creating cli-latest pre-release..."
             gh release create cli-latest `
               --title "CLI Nightly" `
-              --notes "CLI 自动构建产物，每次 push 到 cli 分支时更新。" `
+              --notes "CLI 自动构建产物，每次 push 到 cli 分支时更新。解压后将 opencode.exe 和 rg.exe 放在同一目录即可使用。" `
               --prerelease `
               --target cli `
               --repo ${{ github.repository }}
           } else {
             Write-Host "cli-latest release exists, uploading asset..."
           }
-          gh release upload cli-latest artifact/opencode-windows-x64.exe `
+          gh release upload cli-latest artifact/opencode-windows-x64.zip `
             --clobber `
             --repo ${{ github.repository }}
           Write-Host "Windows release asset uploaded successfully."
@@ -98,13 +99,14 @@ jobs:
       - name: Stage artifact for upload
         run: |
           mkdir -p artifact
-          cp packages/opencode/dist/opencode-linux-x64/bin/opencode artifact/opencode-linux-x64
+          # 打包整个 bin 目录（包含 opencode 和 rg）
+          tar -czf artifact/opencode-linux-x64.tar.gz -C packages/opencode/dist/opencode-linux-x64/bin .
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
           name: opencode-cli-linux
-          path: artifact/opencode-linux-x64
+          path: artifact/opencode-linux-x64.tar.gz
           if-no-files-found: error
 
       - name: Publish to GitHub Release
@@ -115,14 +117,14 @@ jobs:
             echo "Creating cli-latest pre-release..."
             gh release create cli-latest \
               --title "CLI Nightly" \
-              --notes "CLI 自动构建产物，每次 push 到 cli 分支时更新。" \
+              --notes "CLI 自动构建产物，每次 push 到 cli 分支时更新。解压后将 opencode 和 rg 放在同一目录即可使用。" \
               --prerelease \
               --target cli \
               --repo ${{ github.repository }}
           else
             echo "cli-latest release exists, uploading asset..."
           fi
-          gh release upload cli-latest artifact/opencode-linux-x64 \
+          gh release upload cli-latest artifact/opencode-linux-x64.tar.gz \
             --clobber \
             --repo ${{ github.repository }}
           echo "Linux release asset uploaded successfully."

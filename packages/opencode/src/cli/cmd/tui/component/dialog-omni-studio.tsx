@@ -625,6 +625,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [pendingSlug, setPendingSlug] = createSignal<string | null>(null)
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
+  const [installProgress, setInstallProgress] = createSignal<{ slug: string; downloaded: number; total: number } | null>(null)
   const [localVersions, setLocalVersions] = createSignal<Map<string, string>>(new Map())
 
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
@@ -724,11 +725,14 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         ),
       )
       await Effect.runPromise(
-        OmniStudioStore.Service.use((svc) => svc.install(meta)).pipe(
+        OmniStudioStore.Service.use((svc) => svc.install(meta, (downloaded, total) => {
+          setInstallProgress({ slug: ext.slug, downloaded, total })
+        })).pipe(
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
       setInstallingSlug(null)
+      setInstallProgress(null)
       /** 直接更新本地已安装集合，按钮会立即显示灰色 [已安装]，无黄色过渡。 */
       setLocalVersions((prev) => {
         const next = new Map(prev)
@@ -737,6 +741,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       })
     } catch (e) {
       setInstallingSlug(null)
+      setInstallProgress(null)
       suppressBackToMenu = true
       try {
         await DialogAlert.show(props.dialog, "安装失败", String(e))
@@ -795,6 +800,11 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         ]
       }
       if (installingSlug() === ext.slug) {
+        const progress = installProgress()
+        if (progress && progress.slug === ext.slug && progress.total > 0) {
+          const pct = Math.min(100, Math.round((progress.downloaded / progress.total) * 100))
+          return [<text fg={theme.textMuted}>下载中 {pct}%</text>]
+        }
         return [<text fg={theme.textMuted}>安装中...</text>]
       }
       if (pendingSlug() === ext.slug) {

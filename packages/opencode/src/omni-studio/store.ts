@@ -21,8 +21,8 @@ function toPlural(type: ExtensionType): string {
  * 负责扩展的安装、卸载、启用/禁用以及状态查询。
  */
 export interface Interface {
-  /** 安装扩展：下载扩展包、解压到本地目录、更新 state.json */
-  readonly install: (ext: Extension) => Effect.Effect<void, string>
+  /** 安装扩展：下载扩展包、解压到本地目录、更新 state.json；onProgress 回调报告下载进度 */
+  readonly install: (ext: Extension, onProgress?: (downloaded: number, total: number) => void) => Effect.Effect<void, string>
   /** 卸载扩展：删除本地目录、从 state.json 移除记录 */
   readonly uninstall: (type: ExtensionType, slug: string) => Effect.Effect<void, string>
   /** 启用或禁用扩展 */
@@ -51,7 +51,7 @@ export const layer = Layer.effect(
     const fs = yield* AppFileSystem.Service
 
     /** 安装扩展 */
-    const install = Effect.fn("OmniStudioStore.install")(function* (ext: Extension) {
+    const install = Effect.fn("OmniStudioStore.install")(function* (ext: Extension, onProgress?: (downloaded: number, total: number) => void) {
       const state = yield* configSvc.readState()
       const cacheDir = path.join(Global.Path.home, ".omni_studio", "cache", toPlural(ext.type))
       const cachePath = path.join(cacheDir, `${ext.slug}-${ext.version}.zip`)
@@ -62,7 +62,7 @@ export const layer = Layer.effect(
 
       yield* fs.ensureDir(cacheDir).pipe(Effect.orDie)
 
-      /** 若缓存不存在则下载，已下载的 zip 保留在缓存目录供下次复用 */
+      /** 若缓存不存在则下载，已下载的 zip 保留在缓存目录供下次复用；通过 onProgress 回调报告下载进度 */
       const zipPath = yield* Effect.gen(function* () {
         const cacheExists = yield* Effect.tryPromise({
           try: () => Bun.file(cachePath).exists(),
@@ -73,7 +73,7 @@ export const layer = Layer.effect(
           return cachePath
         }
 
-        yield* marketSvc.download(ext, cacheDir)
+        yield* marketSvc.download(ext, cacheDir, onProgress)
 
         yield* Effect.tryPromise({
           try: () => NodeFS.rename(downloadOutputPath, cachePath),

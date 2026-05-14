@@ -32,8 +32,8 @@ export interface Interface {
   readonly listPaged: (type?: ExtensionType, page?: number) => Effect.Effect<PagedResult<Extension>, string>
   /** 获取扩展元数据 */
   readonly getMeta: (type: ExtensionType, slug: string) => Effect.Effect<Extension, string>
-  /** 下载扩展包到指定目录 */
-  readonly download: (ext: Extension, targetDir: string) => Effect.Effect<void, string>
+  /** 下载扩展包到指定目录；onProgress 回调报告已下载字节数和总字节数 */
+  readonly download: (ext: Extension, targetDir: string, onProgress?: (downloaded: number, total: number) => void) => Effect.Effect<void, string>
 }
 
 /**
@@ -166,8 +166,8 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       } as Extension
     })
 
-    /** 下载扩展包到指定目录 */
-    const download = Effect.fn("OmniStudioMarket.download")(function* (ext: Extension, targetDir: string) {
+    /** 下载扩展包到指定目录；使用 ReadableStream 逐块读取并写入，支持进度回调 */
+    const download = Effect.fn("OmniStudioMarket.download")(function* (ext: Extension, targetDir: string, onProgress?: (downloaded: number, total: number) => void) {
       const headers = yield* authSvc.getAuthHeaders()
       const base = yield* getApiBase()
       const entityType = toEntityType(ext.type)
@@ -190,20 +190,30 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const actualUrl = String((envelope.data as { downloadUrl?: string })?.downloadUrl ?? "")
       if (!actualUrl) return yield* Effect.fail("No download URL returned")
 
-      /** 请求预签名下载地址并保存文件 */
+      /** 请求预签名下载地址并使用流式读取，实时报告下载进度 */
       const fileResponse = yield* Effect.tryPromise({
         try: () => fetch(actualUrl),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
       if (!fileResponse.ok) return yield* Effect.fail(`Download failed: HTTP ${fileResponse.status}`)
 
-      const buffer = yield* Effect.tryPromise({
-        try: () => fileResponse.arrayBuffer(),
-        catch: (error) => (error instanceof Error ? error.message : String(error)),
-      })
+      const contentLength = Number(fileResponse.headers.get("content-length") || "0")
       const filePath = `${targetDir}/${ext.slug}.zip`
+
       yield* Effect.tryPromise({
-        try: () => Bun.write(filePath, buffer),
+        try: async () => {
+          const writer = Bun.file(filePath).writer()
+          const reader = fileResponse.body!.getReader()
+          let downloaded = 0
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) break
+            writer.write(value)
+            downloaded += value.byteLength
+            onProgress?.(downloaded, contentLength)
+          }
+          await writer.end()
+        },
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
     })

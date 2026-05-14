@@ -208,8 +208,8 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 2. 调用 Market API 获取扩展元数据
 3. 查找本地是否已有同类型同 slug 的扩展，记录其 enabled 状态（更新场景需保留）
 4. 检查缓存 ~/.omni_studio/cache/{type}/{slug}-{version}.zip 是否存在
-   - 存在 → 直接使用缓存
-   - 不存在 → 下载扩展压缩包到缓存目录，重命名为 {slug}-{version}.zip
+   - 存在 → 直接使用缓存，跳过下载
+   - 不存在 → 使用 fetch ReadableStream 流式下载扩展包，通过 onProgress 回调实时报告已下载字节数和 Content-Length 总字节数；TUI 列表行展示 `下载中 XX%`
 5. 若目标目录 ~/.omni_studio/{type}s/{slug}/ 已存在（更新场景），先 rm -rf 删除旧目录，避免旧版本文件残留
 6. 解压到 ~/.omni_studio/{type}s/{slug}/
 7. 检测扩展目录 lifecycle/ 子目录中的生命周期脚本（detectScripts）

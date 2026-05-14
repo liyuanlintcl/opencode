@@ -625,7 +625,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [pendingSlug, setPendingSlug] = createSignal<string | null>(null)
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
-  const [localSlugs, setLocalSlugs] = createSignal<Set<string>>(new Set())
+  const [localVersions, setLocalVersions] = createSignal<Map<string, string>>(new Map())
 
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
 
@@ -652,7 +652,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           ).catch(() => ({ extensions: [] as ExtensionEntry[] })),
         ])
         setMarketList({ kind: "ok", data: result.records, pageInfo: result.pageInfo })
-        setLocalSlugs(new Set(status.extensions.map((e) => `${e.type}:${e.slug}`)))
+        setLocalVersions(new Map(status.extensions.map((e) => [`${e.type}:${e.slug}`, e.version])))
       } catch (e) {
         setMarketList({ kind: "error", message: String(e) })
       }
@@ -685,14 +685,14 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       if (pendingSlug() === ext.slug) {
         if (btnIdx === 0) handleInstallExt(ext)
         else setPendingSlug(null)
-      } else if (!isInstalled(ext) && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug) {
+      } else if ((!isInstalled(ext) || needsUpdate(ext)) && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug) {
         setPendingSlug(ext.slug)
       }
     },
     getButtonCount: (ext) => {
       if (installResult()?.slug === ext.slug || installingSlug() === ext.slug) return 0
       if (pendingSlug() === ext.slug) return 2
-      if (!isInstalled(ext)) return 1
+      if (!isInstalled(ext) || needsUpdate(ext)) return 1
       return 0
     },
   })
@@ -730,9 +730,9 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       )
       setInstallingSlug(null)
       /** 直接更新本地已安装集合，按钮会立即显示灰色 [已安装]，无黄色过渡。 */
-      setLocalSlugs((prev) => {
-        const next = new Set(prev)
-        next.add(`${ext.type}:${ext.slug}`)
+      setLocalVersions((prev) => {
+        const next = new Map(prev)
+        next.set(`${ext.type}:${ext.slug}`, ext.version)
         return next
       })
     } catch (e) {
@@ -775,7 +775,13 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   })
 
   /** 判断远程扩展是否已在本地安装。 */
-  const isInstalled = (ext: Extension) => localSlugs().has(`${ext.type}:${ext.slug}`)
+  const isInstalled = (ext: Extension) => localVersions().has(`${ext.type}:${ext.slug}`)
+
+  /** 判断远程扩展版本是否比本地已安装版本新，需要更新。 */
+  const needsUpdate = (ext: Extension) => {
+    const localVer = localVersions().get(`${ext.type}:${ext.slug}`)
+    return localVer !== undefined && localVer !== ext.version
+  }
 
   /** 渲染单行市场扩展条目，包含名称和行内安装按钮。选中行和聚焦按钮高亮显示。 */
   const MarketExtensionRow = (ext: Extension, index: () => number) => {
@@ -795,6 +801,11 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         return [
           <ActionButton defaultFg={theme.primary} position={0} onClick={() => handleInstallExt(ext)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[确认安装]</ActionButton>,
           <ActionButton defaultFg={theme.textMuted} position={1} onClick={() => setPendingSlug(null)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[取消]</ActionButton>,
+        ]
+      }
+      if (needsUpdate(ext)) {
+        return [
+          <ActionButton defaultFg={theme.primary} position={0} onClick={() => setPendingSlug(ext.slug)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[ 更新 ]</ActionButton>,
         ]
       }
       if (isInstalled(ext)) {

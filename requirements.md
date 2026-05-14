@@ -23,6 +23,7 @@
 | F2 | 登出：`opencode omni-studio logout` | P0 |
 | F3 | 交互式列出市场扩展：`opencode omni-studio list [type]`，显示本地安装状态并支持选中直接安装 | P0 |
 | F4 | 安装扩展：`opencode omni-studio install <type> <slug> [version]` | P0 |
+| F4a | 更新检测：TUI 市场列表自动比对本地版本与远程版本，版本不一致时展示 `[更新]` 按钮 | P0 |
 | F5 | 卸载扩展：`opencode omni-studio uninstall <type> <slug>` | P0 |
 | F6 | 启用扩展：`opencode omni-studio enable <type> <slug>` | P0 |
 | F7 | 禁用扩展：`opencode omni-studio disable <type> <slug>` | P0 |

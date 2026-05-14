@@ -206,34 +206,37 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 ```
 1. 检查是否已登录（读取 omni-studio.json）
 2. 调用 Market API 获取扩展元数据
-3. 检查本地是否已安装同名扩展
-   - 已安装 → 提示是否覆盖/更新
+3. 查找本地是否已有同类型同 slug 的扩展，记录其 enabled 状态（更新场景需保留）
 4. 检查缓存 ~/.omni_studio/cache/{type}/{slug}-{version}.zip 是否存在
    - 存在 → 直接使用缓存
    - 不存在 → 下载扩展压缩包到缓存目录，重命名为 {slug}-{version}.zip
-5. 解压到 ~/.omni_studio/{type}/{slug}/
-6. 检测扩展目录 lifecycle/ 子目录中的生命周期脚本（detectScripts）
-7. 如存在 install 脚本：
+5. 若目标目录 ~/.omni_studio/{type}s/{slug}/ 已存在（更新场景），先 rm -rf 删除旧目录，避免旧版本文件残留
+6. 解压到 ~/.omni_studio/{type}s/{slug}/
+7. 检测扩展目录 lifecycle/ 子目录中的生命周期脚本（detectScripts）
+8. 如存在 install 脚本：
    - 先检测是否存在 activate 脚本，有则先 source/调用
    - 执行 lifecycle/install.sh（或 .bat/.ps1，根据 OS）
    - 如脚本返回非 0，输出错误；保留解压目录和缓存 zip 便于排查
-8. 更新 state.json（enabled: false，需手动启用）
-9. 输出安装成功信息
+9. 清理 cache 目录中同 slug 的旧版本 zip 文件（如 math-tool-v1.0.0.zip），仅保留当前版本，避免磁盘无限增长
+10. 更新 state.json（新安装 enabled: false；更新保留原有 enabled 状态）
+11. 输出安装成功信息
 ```
 
 ### 5.4 列表交互流程（list）
 
 ```
 1. 调用 Market API 获取远程扩展列表
-2. 调用 Store.getStatus() 获取本地已安装扩展
-3. 构建 prompts.select 选项：
-   - 每个选项显示：name (v1.0.0) [已安装] / [未安装]
-   - 末尾增加「退出」选项
-4. 用户选择扩展：
-   - 未安装 → confirm("Install {slug}?") → 是则执行 install → 成功/失败提示 → 返回列表
-   - 已安装 → log.info("Already installed") → 返回列表
-   - 退出 → 结束交互
-5. 使用 while 循环支持连续操作
+2. 调用 Store.getStatus() 获取本地已安装扩展及其版本号
+3. 构建扩展列表，每行判断状态：
+   - 未安装 → 右侧展示 [ 安装 ] 按钮
+   - 已安装且版本一致 → 右侧展示 [已安装] 灰色文字
+   - 已安装但版本不一致 → 右侧展示 [ 更新 ] 按钮（橙色，同安装按钮）
+4. 用户选中扩展按 Enter：
+   - 未安装 / 需要更新 → 进入确认模式（[确认安装]/[取消] 或 [确认更新]/[取消]）
+   - 已安装 → 无操作
+5. 确认后执行 install（更新场景会覆盖旧版本）
+6. 安装结果通过行内状态展示（成功/失败），3 秒后自动清除
+7. 使用 while 循环支持连续操作
 ```
 
 ### 5.5 状态交互流程（status）

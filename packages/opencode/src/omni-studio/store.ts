@@ -57,6 +57,9 @@ export const layer = Layer.effect(
       const cachePath = path.join(cacheDir, `${ext.slug}-${ext.version}.zip`)
       const downloadOutputPath = path.join(cacheDir, `${ext.slug}.zip`)
 
+      /** 查找本地是否已有同类型同 slug 的扩展，记录其启用状态用于更新时保留 */
+      const existing = state.extensions.find((e) => e.type === ext.type && e.slug === ext.slug)
+
       yield* fs.ensureDir(cacheDir).pipe(Effect.orDie)
 
       /** 若缓存不存在则下载，已下载的 zip 保留在缓存目录供下次复用 */
@@ -81,6 +84,13 @@ export const layer = Layer.effect(
       })
 
       const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(ext.type), ext.slug)
+
+      /** 若目标目录已存在（更新场景），先删除旧目录避免旧版本文件残留 */
+      const targetExists = yield* fs.isDir(targetDir).pipe(Effect.orElseSucceed(() => false))
+      if (targetExists) {
+        yield* fs.remove(targetDir, { recursive: true, force: true }).pipe(Effect.catch(() => Effect.void))
+      }
+
       yield* fs.ensureDir(targetDir).pipe(Effect.orDie)
       yield* Effect.tryPromise({
         try: () => extractZip(zipPath, targetDir),
@@ -94,6 +104,7 @@ export const layer = Layer.effect(
         )
       }
 
+      /** 更新 state.json：保留原有启用状态（更新场景），新安装默认禁用 */
       const updated = [
         ...state.extensions.filter((e) => !(e.type === ext.type && e.slug === ext.slug)),
         {
@@ -101,10 +112,23 @@ export const layer = Layer.effect(
           slug: ext.slug,
           name: ext.name,
           version: ext.version,
-          enabled: false,
+          enabled: existing?.enabled ?? false,
           installed_at: new Date().toISOString(),
         },
       ]
+
+      /** 安装成功后清理 cache 目录中同 slug 的旧版本 zip，避免磁盘空间无限增长 */
+      yield* Effect.tryPromise({
+        try: async () => {
+          const entries = await NodeFS.readdir(cacheDir)
+          for (const entry of entries) {
+            if (entry.startsWith(`${ext.slug}-`) && entry.endsWith(".zip") && entry !== `${ext.slug}-${ext.version}.zip`) {
+              await NodeFS.rm(path.join(cacheDir, entry), { force: true })
+            }
+          }
+        },
+        catch: () => {},
+      }).pipe(Effect.catch(() => Effect.void))
 
       yield* configSvc.writeState({ extensions: updated }).pipe(Effect.orDie).pipe(Effect.orDie)
       GlobalBus.emit("event", { payload: { type: "omni-studio:extension-changed" } })

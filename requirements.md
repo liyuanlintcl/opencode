@@ -32,6 +32,7 @@
 | F9 | TUI slash 命令：`/omni-studio` 在终端界面中显示 Omni Studio 管理菜单，支持 status / local / list / login / logout | P0 |
 | F10 | 实时同步：扩展启用/禁用后，skill / config / tool 模块实时刷新，TUI 主界面即时生效 | P0 |
 | F11 | 自动清理：扩展目录被手动删除后，自动从 state.json 中移除对应记录 | P1 |
+| F12 | Token 自动刷新：accessToken 过期时自动调用 refresh-token 接口，更新本地 token 并重试原请求 | P1 |
 
 ## 4. 非功能需求
 

@@ -52,7 +52,7 @@ Task 1: 类型定义 & 配置模块
 | T15 | 扩展包解压支持（zip / tar.gz） | 自动识别压缩格式并正确解压 | 2h | ✅ |
 | T16 | 安装/更新冲突处理（已存在时提示覆盖） | TUI 市场列表自动比对版本，版本不一致时展示 `[更新]` 按钮；install 方法覆盖旧版本，保留 enabled 状态，清理旧缓存 | 2h | ✅ |
 | T17 | 下载进度条显示 | fetch ReadableStream 流式下载，onProgress 回调实时报告进度，TUI 列表行展示 `下载中 XX%` | 2h | ✅ |
-| T18 | Token 自动刷新（accessToken 过期时用 refreshToken） | 401 时自动刷新，失败则提示重新登录 | 3h | ⏳ |
+| T18 | Token 自动刷新（accessToken 过期时用 refreshToken） | auth.ts 实现 refreshToken 方法；market.ts 引入 fetchWithRefresh 包装器，401 时自动刷新并重试 | 3h | ✅ |
 | T19 | TUI 体验优化：行内确认、scrollbox 自适应、按钮靠右 | 本地扩展操作使用行内确认避免 dialog 跳转；scrollbox 高度根据内容自适应；列表项使用 space-between 让按钮靠右 | 2h | ✅ |
 | T20 | 下载缓存机制 | install 时 zip 缓存到 ~/.omni_studio/cache/，同一版本重新安装跳过下载；install.sh 失败保留解压目录 | 2h | ✅ |
 | T21 | Alert 错误展示与闪退修复 | 脚本失败时 DialogAlert 展示完整 stdout/stderr；suppressBackToMenu 防止 Alert 被 backToMenu 替换闪退 | 2h | ✅ |

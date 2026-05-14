@@ -16,6 +16,8 @@ export interface Interface {
   readonly getAuthHeaders: () => Effect.Effect<Record<string, string>, string>
   /** 检查当前是否已登录 */
   readonly isLoggedIn: () => Effect.Effect<boolean>
+  /** 使用 refresh_token 刷新 access_token；刷新成功后更新本地配置 */
+  readonly refreshToken: () => Effect.Effect<OmniStudioConfigType, string>
 }
 
 /**
@@ -109,11 +111,68 @@ export const layer = Layer.effect(
       return config !== null
     })
 
+    /** 使用 refresh_token 刷新 access_token；刷新成功后更新本地配置 */
+    const refreshToken = Effect.fn("OmniStudioAuth.refreshToken")(function* () {
+      const config = yield* configSvc.read()
+      if (!config) return yield* Effect.fail("Not logged in")
+
+      const response = yield* Effect.tryPromise({
+        try: () =>
+          fetch(`${config.api_base}/api/auth/auth/refresh-token`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${config.access_token}`,
+            },
+            body: JSON.stringify({ accessToken: config.access_token }),
+          }),
+        catch: (error) => (error instanceof Error ? error.message : String(error)),
+      })
+
+      if (!response.ok) {
+        const text = yield* Effect.tryPromise({
+          try: () => response.text(),
+          catch: () => "Refresh token failed",
+        })
+        return yield* Effect.fail(text || `Refresh token failed with status ${response.status}`)
+      }
+
+      const result = yield* Effect.tryPromise({
+        try: () => response.json() as Promise<{
+          code: number
+          data: {
+            accessToken: string
+            refreshToken: string
+          }
+          message: string
+        }>,
+        catch: (error) => (error instanceof Error ? error.message : String(error)),
+      })
+
+      if (result.code !== 200) {
+        return yield* Effect.fail(result.message || `Refresh token failed with code ${result.code}`)
+      }
+
+      const data = result.data
+
+      /** 保留已有的 api_base 和用户信息，仅更新 token */
+      const updated: OmniStudioConfigType = {
+        api_base: config.api_base,
+        access_token: data.accessToken,
+        refresh_token: data.refreshToken,
+        user: config.user,
+      }
+
+      yield* configSvc.write(updated)
+      return updated
+    })
+
     return Service.of({
       login,
       logout,
       getAuthHeaders,
       isLoggedIn,
+      refreshToken,
     })
   }),
 )

@@ -85,18 +85,47 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       if (envelope.code !== 200) return yield* Effect.fail(`[${response.status}] ${envelope.message || `Business error: code ${envelope.code}`}`)
     })
 
+    /**
+     * 自动刷新 token 包装器。
+     * 执行需要认证的请求，若返回 401/Unauthorized 则自动调用 refreshToken 并重试一次。
+     */
+    const fetchWithRefresh = <A>(fetchFn: (headers: Record<string, string>) => Effect.Effect<A, string>): Effect.Effect<A, string> => {
+      return Effect.gen(function* () {
+        const headers = yield* authSvc.getAuthHeaders()
+        const attempt = fetchFn(headers)
+
+        return yield* attempt.pipe(
+          Effect.catch((error: string) => {
+            if (error.includes("401") || error.includes("Unauthorized")) {
+              return Effect.gen(function* () {
+                yield* authSvc.refreshToken()
+                const newHeaders = yield* authSvc.getAuthHeaders()
+                return yield* fetchFn(newHeaders)
+              })
+            }
+            return Effect.fail(error)
+          }),
+        )
+      })
+    }
+
     /** 分页列出市场扩展 */
     const listPaged = Effect.fn("OmniStudioMarket.listPaged")(function* (type?: ExtensionType, page = 1) {
       const base = yield* getApiBase()
-      const headers = yield* authSvc.getAuthHeaders()
       const entityType = toEntityType(type ?? "skill")
       const url = `${base}/api/v1/packages/${entityType}?page=${page}&size=10&withVersion=true`
-      const response = yield* Effect.tryPromise({
-        try: () => fetch(url, { headers }),
-        catch: (error) => (error instanceof Error ? error.message : String(error)),
-      })
-      const envelope = yield* parseEnvelope(response)
-      yield* checkError(response, envelope)
+
+      const envelope = yield* fetchWithRefresh((headers) =>
+        Effect.gen(function* () {
+          const response = yield* Effect.tryPromise({
+            try: () => fetch(url, { headers }),
+            catch: (error) => (error instanceof Error ? error.message : String(error)),
+          })
+          const envelope = yield* parseEnvelope(response)
+          yield* checkError(response, envelope)
+          return envelope
+        }),
+      )
 
       /** 后端列表返回字段名与 Extension 类型不完全一致，需要做映射 */
       const raw = envelope.data as {
@@ -135,14 +164,20 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
     /** 获取扩展元数据 */
     const getMeta = Effect.fn("OmniStudioMarket.getMeta")(function* (type: ExtensionType, slug: string) {
       const base = yield* getApiBase()
-      const headers = yield* authSvc.getAuthHeaders()
       const entityType = toEntityType(type)
-      const response = yield* Effect.tryPromise({
-        try: () => fetch(`${base}/api/v1/packages/${entityType}/${slug}`, { headers }),
-        catch: (error) => (error instanceof Error ? error.message : String(error)),
-      })
-      const envelope = yield* parseEnvelope(response)
-      yield* checkError(response, envelope)
+      const url = `${base}/api/v1/packages/${entityType}/${slug}`
+
+      const envelope = yield* fetchWithRefresh((headers) =>
+        Effect.gen(function* () {
+          const response = yield* Effect.tryPromise({
+            try: () => fetch(url, { headers }),
+            catch: (error) => (error instanceof Error ? error.message : String(error)),
+          })
+          const envelope = yield* parseEnvelope(response)
+          yield* checkError(response, envelope)
+          return envelope
+        }),
+      )
 
       /** 后端详情返回 { registry, revisions } 嵌套结构，需要映射 */
       const data = envelope.data as {
@@ -168,7 +203,6 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
 
     /** 下载扩展包到指定目录；使用 ReadableStream 逐块读取并写入，支持进度回调 */
     const download = Effect.fn("OmniStudioMarket.download")(function* (ext: Extension, targetDir: string, onProgress?: (downloaded: number, total: number) => void) {
-      const headers = yield* authSvc.getAuthHeaders()
       const base = yield* getApiBase()
       const entityType = toEntityType(ext.type)
 
@@ -177,15 +211,21 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
        * 后端端点：GET /v1/packages/{type}/{slug}/revisions/{version}/download
        */
       const downloadEndpoint = `${base}/api/v1/packages/${entityType}/${ext.slug}/revisions/${ext.version}/download`
-      const urlResponse = yield* Effect.tryPromise({
-        try: () => fetch(downloadEndpoint, { headers }),
-        catch: (error) => (error instanceof Error ? error.message : String(error)),
-      })
-      const envelope = yield* parseEnvelope(urlResponse)
-      if (urlResponse.status === 401) return yield* Effect.fail("Unauthorized")
-      if (urlResponse.status === 404) return yield* Effect.fail("Extension not found")
-      if (!urlResponse.ok) return yield* Effect.fail(envelope.message || `HTTP ${urlResponse.status}`)
-      if (envelope.code !== 200) return yield* Effect.fail(envelope.message || `Business error: code ${envelope.code}`)
+
+      const envelope = yield* fetchWithRefresh((headers) =>
+        Effect.gen(function* () {
+          const urlResponse = yield* Effect.tryPromise({
+            try: () => fetch(downloadEndpoint, { headers }),
+            catch: (error) => (error instanceof Error ? error.message : String(error)),
+          })
+          const envelope = yield* parseEnvelope(urlResponse)
+          if (urlResponse.status === 401) return yield* Effect.fail("Unauthorized")
+          if (urlResponse.status === 404) return yield* Effect.fail("Extension not found")
+          if (!urlResponse.ok) return yield* Effect.fail(envelope.message || `HTTP ${urlResponse.status}`)
+          if (envelope.code !== 200) return yield* Effect.fail(envelope.message || `Business error: code ${envelope.code}`)
+          return envelope
+        }),
+      )
 
       const actualUrl = String((envelope.data as { downloadUrl?: string })?.downloadUrl ?? "")
       if (!actualUrl) return yield* Effect.fail("No download URL returned")

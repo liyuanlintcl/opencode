@@ -415,10 +415,48 @@ store.ts 额外监听：
 **GitHub Action 变更**：
 - workflow 直接上传单文件 `opencode`（rg 已内嵌，不再需要压缩包分发）
 
-## 7. 风险与假设
+## 7. Token 自动刷新机制
+
+### 7.1 背景
+
+accessToken 有有效期，过期后所有认证请求返回 401。如果每次 401 都让用户重新登录，体验很差。
+
+### 7.2 方案
+
+在 `market.ts` 中引入 `fetchWithRefresh` 包装器：
+
+```
+1. 执行认证请求（携带当前 access_token）
+2. 如果请求失败且错误包含 401/Unauthorized：
+   a. 调用 auth.refreshToken()（POST /api/auth/auth/refresh-token）
+   b. 使用新的 access_token 重新获取请求头
+   c. 重试原请求（仅重试一次，避免无限循环）
+3. 如果刷新也失败（refresh_token 过期），返回刷新错误，提示用户重新登录
+4. 非 401 错误直接透传，不重试
+```
+
+**Auth API**：
+```ts
+async function refreshToken(): Promise<OmniStudioConfig>
+// 调用 POST /api/auth/auth/refresh-token
+// Headers: Authorization: Bearer {access_token}, Content-Type: application/json
+// Body: { "accessToken": "..." }
+// 成功后更新本地配置中的 access_token 和 refresh_token，保留 api_base 和用户信息
+```
+
+**受保护的接口**：
+- `listPaged`（列表查询）
+- `getMeta`（扩展详情）
+- `download` 中的获取预签名下载 URL 步骤
+
+**不受保护的接口**：
+- 预签名 URL 的文件下载（不携带认证头）
+
+## 8. 风险与假设
 
 - **假设**：Omni Studio API 返回的扩展包为 zip 格式。如为其他格式需调整解压逻辑。
 - **假设**：Bun compile 的 `with { type: "file" }` 导入在目标平台（linux-x64 / darwin-arm64 / win32-x64 等）上均正常工作。
+- **假设**：`refresh-token` 接口在 access_token 过期后仍可调用（使用 refresh_token 验证）。
 - **风险**：Token 明文存储于本地。缓减措施：设置严格的文件权限（0o600）。
 - **风险**：网络不稳定导致下载中断。缓减措施：支持断点续传或重新下载。
 - **风险**：扩展与本地现有扩展冲突。缓减措施：安装前检查 slug 和 type 是否已存在。

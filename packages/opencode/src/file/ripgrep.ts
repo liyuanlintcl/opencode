@@ -287,6 +287,10 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | ChildPro
 
       const filepath = yield* Effect.cached(
         Effect.gen(function* () {
+          // 优先查找 CLI 打包目录中的 rg（与 opencode 二进制同目录）
+          const bundled = path.join(path.dirname(process.execPath), `rg${process.platform === "win32" ? ".exe" : ""}`)
+          if (yield* fs.isFile(bundled).pipe(Effect.orDie)) return bundled
+
           const system = yield* Effect.sync(() => which(process.platform === "win32" ? "rg.exe" : "rg"))
           if (system && (yield* fs.isFile(system).pipe(Effect.orDie))) return system
 

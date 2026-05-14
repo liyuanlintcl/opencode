@@ -225,6 +225,50 @@ for (const item of targets) {
     },
   })
 
+  // 下载并打包对应平台的 ripgrep 二进制
+  const RG_VERSION = "15.1.0"
+  const rgPlatformMap: Record<string, { platform: string; extension: string }> = {
+    "arm64-linux": { platform: "aarch64-unknown-linux-gnu", extension: "tar.gz" },
+    "x64-linux": { platform: "x86_64-unknown-linux-musl", extension: "tar.gz" },
+    "arm64-darwin": { platform: "aarch64-apple-darwin", extension: "tar.gz" },
+    "x64-darwin": { platform: "x86_64-apple-darwin", extension: "tar.gz" },
+    "arm64-win32": { platform: "aarch64-pc-windows-msvc", extension: "zip" },
+    "x64-win32": { platform: "x86_64-pc-windows-msvc", extension: "zip" },
+  }
+  const platformKey = `${item.arch}-${item.os}`
+  const rgConfig = rgPlatformMap[platformKey]
+  if (rgConfig) {
+    const rgFilename = `ripgrep-${RG_VERSION}-${rgConfig.platform}.${rgConfig.extension}`
+    const rgUrl = `https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/${rgFilename}`
+    const rgArchive = `dist/${name}/bin/${rgFilename}`
+    const rgTarget = `dist/${name}/bin/rg${item.os === "win32" ? ".exe" : ""}`
+    try {
+      console.log(`downloading ripgrep for ${platformKey}: ${rgUrl}`)
+      const response = await fetch(rgUrl)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const buffer = await response.arrayBuffer()
+      fs.writeFileSync(rgArchive, new Uint8Array(buffer))
+
+      if (rgConfig.extension === "tar.gz") {
+        await $`tar -xzf ${rgArchive} -C dist/${name}/bin`
+        await $`mv dist/${name}/bin/ripgrep-${RG_VERSION}-${rgConfig.platform}/rg ${rgTarget}`
+        await $`rm -rf dist/${name}/bin/ripgrep-${RG_VERSION}-${rgConfig.platform} ${rgArchive}`
+      } else if (rgConfig.extension === "zip") {
+        await $`unzip -o ${rgArchive} -d dist/${name}/bin`
+        await $`mv dist/${name}/bin/ripgrep-${RG_VERSION}-${rgConfig.platform}/rg.exe ${rgTarget}`
+        await $`rm -rf dist/${name}/bin/ripgrep-${RG_VERSION}-${rgConfig.platform} ${rgArchive}`
+      }
+
+      if (item.os !== "win32") {
+        await $`chmod +x ${rgTarget}`
+      }
+      console.log(`ripgrep bundled for ${platformKey}: ${rgTarget}`)
+    } catch (e) {
+      console.error(`failed to bundle ripgrep for ${platformKey}:`, e)
+      // 下载失败不中断构建，运行时仍可回退到系统 rg 或网络下载
+    }
+  }
+
   // Smoke test: only run if binary is for current platform
   if (item.os === process.platform && item.arch === process.arch && !item.abi) {
     const binaryPath = `dist/${name}/bin/opencode`

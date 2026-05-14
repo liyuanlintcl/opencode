@@ -1,0 +1,128 @@
+name: Build CLI
+
+on:
+  push:
+    branches: [cli]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-cli-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install project dependencies
+        run: bun install
+
+      - name: Build CLI
+        run: |
+          cd packages/opencode
+          bun run build --single
+
+      - name: Verify build output
+        run: |
+          Get-ChildItem -Path packages/opencode/dist/opencode-windows-x64/bin/ -Recurse
+
+      - name: Stage artifact for upload
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact
+          Copy-Item packages/opencode/dist/opencode-windows-x64/bin/opencode.exe artifact/opencode-windows-x64.exe
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencode-cli-windows
+          path: artifact/opencode-windows-x64.exe
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $release = gh release view cli-latest --repo ${{ github.repository }} 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Creating cli-latest pre-release..."
+            gh release create cli-latest `
+              --title "CLI Nightly" `
+              --notes "CLI 自动构建产物，每次 push 到 cli 分支时更新。" `
+              --prerelease `
+              --target cli `
+              --repo ${{ github.repository }}
+          } else {
+            Write-Host "cli-latest release exists, uploading asset..."
+          }
+          gh release upload cli-latest artifact/opencode-windows-x64.exe `
+            --clobber `
+            --repo ${{ github.repository }}
+          Write-Host "Windows release asset uploaded successfully."
+
+  build-cli-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - name: Install project dependencies
+        run: bun install
+
+      - name: Build CLI
+        run: |
+          cd packages/opencode
+          bun run build --single
+
+      - name: Verify build output
+        run: |
+          ls -la packages/opencode/dist/opencode-linux-x64/bin/
+
+      - name: Stage artifact for upload
+        run: |
+          mkdir -p artifact
+          cp packages/opencode/dist/opencode-linux-x64/bin/opencode artifact/opencode-linux-x64
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencode-cli-linux
+          path: artifact/opencode-linux-x64
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if ! gh release view cli-latest --repo ${{ github.repository }} >/dev/null 2>&1; then
+            echo "Creating cli-latest pre-release..."
+            gh release create cli-latest \
+              --title "CLI Nightly" \
+              --notes "CLI 自动构建产物，每次 push 到 cli 分支时更新。" \
+              --prerelease \
+              --target cli \
+              --repo ${{ github.repository }}
+          else
+            echo "cli-latest release exists, uploading asset..."
+          fi
+          gh release upload cli-latest artifact/opencode-linux-x64 \
+            --clobber \
+            --repo ${{ github.repository }}
+          echo "Linux release asset uploaded successfully."

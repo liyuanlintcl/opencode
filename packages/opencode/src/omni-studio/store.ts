@@ -8,6 +8,7 @@ import { OmniStudioMarket } from "./market"
 import { detectScripts, runScript } from "./executor"
 import type { Extension, ExtensionType, ExtensionEntry, OmniStudioConfig as OmniStudioConfigType } from "./types"
 import NodeFS from "fs/promises"
+import { watch } from "fs"
 import { GlobalBus } from "@/bus/global"
 
 /** 将 ExtensionType 单数映射为目录名复数形式 */
@@ -195,6 +196,47 @@ export const layer = Layer.effect(
       const config = yield* configSvc.read()
       const state = yield* configSvc.readState()
       return { config, extensions: state.extensions }
+    })
+
+    /** 监听扩展目录变化，自动清理 state.json 中已不存在的扩展记录 */
+    const omniStudioDir = path.join(Global.Path.home, ".omni_studio")
+    const extensionDirs = ["skills", "agents", "plugins", "tools"]
+    watch(omniStudioDir, { recursive: true }, async (_eventType, filename) => {
+      if (!filename || typeof filename !== "string") return
+      const parts = filename.split(path.sep)
+      // 只关注 skills/xxx、agents/xxx 等扩展目录级别的变化
+      if (parts.length < 2 || !extensionDirs.includes(parts[0])) return
+
+      const typeDir = parts[0]
+      const slug = parts[1]
+      const type = typeDir.slice(0, -1) as ExtensionType
+
+      // 检查扩展目录是否还存在
+      try {
+        const extDir = path.join(omniStudioDir, typeDir, slug)
+        await NodeFS.access(extDir)
+        return // 目录还在，无需清理
+      } catch {
+        // 目录已不存在，继续清理 state.json
+      }
+
+      try {
+        const statePath = path.join(omniStudioDir, "state.json")
+        const content = await NodeFS.readFile(statePath, "utf-8")
+        const state = JSON.parse(content) as import("./types").OmniStudioState
+
+        const beforeCount = state.extensions.length
+        state.extensions = state.extensions.filter(
+          (e) => !(e.type === type && e.slug === slug),
+        )
+
+        if (state.extensions.length < beforeCount) {
+          await NodeFS.writeFile(statePath, JSON.stringify(state, null, 2), { mode: 0o600 })
+          console.log(`[OmniStudio] 已自动清理删除的扩展记录：${type}/${slug}`)
+        }
+      } catch {
+        // 读取或写入失败时静默忽略，避免 watcher 崩溃
+      }
     })
 
     return Service.of({

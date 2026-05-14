@@ -822,23 +822,7 @@ export const layer = Layer.effect(
       yield* InstanceState.invalidate(state)
     })
 
-    const listener = InstanceState.bind((evt: any) => {
-      if (evt.payload?.type === "omni-studio:extension-changed") {
-        const ctx = Instance.current
-        log.info("omni studio extension changed event received, refreshing config", { directory: ctx.directory })
-        Effect.runPromise(
-          refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-        ).then(() => {
-          log.info("config refresh completed")
-        }).catch((err) => {
-          log.error("config refresh failed", { error: err instanceof Error ? err.message : String(err) })
-        })
-      }
-    })
-    GlobalBus.on("event", listener)
-    yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
-
-    /** 兜底：监听 state.json 文件变化，绕过 GlobalBus 进程隔离问题 */
+    /** 监听 state.json 文件变化，触发 config 刷新 */
     const omniStudioDir = path.join(os.homedir(), ".omni_studio")
     try {
       const watcher = watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {

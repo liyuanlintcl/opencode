@@ -33,7 +33,7 @@ import { Glob } from "@opencode-ai/core/util/glob"
 import path from "path"
 import os from "os"
 import { pathToFileURL } from "url"
-import { GlobalBus } from "@/bus/global"
+
 import { Effect, Layer, Context } from "effect"
 import { FetchHttpClient, HttpClient } from "effect/unstable/http"
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner"
@@ -283,23 +283,7 @@ export const layer: Layer.Layer<
       yield* InstanceState.invalidate(state)
     })
 
-    const listener = InstanceState.bind((evt: any) => {
-      if (evt.payload?.type === "omni-studio:extension-changed") {
-        const ctx = Instance.current
-        log.info("omni studio extension changed event received, refreshing tools", { directory: ctx.directory })
-        Effect.runPromise(
-          refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-        ).then(() => {
-          log.info("tool registry refresh completed")
-        }).catch((err) => {
-          log.error("tool registry refresh failed", { error: err instanceof Error ? err.message : String(err) })
-        })
-      }
-    })
-    GlobalBus.on("event", listener)
-    yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
-
-    /** 兜底：监听 state.json 文件变化，绕过 GlobalBus 进程隔离问题 */
+    /** 监听 state.json 文件变化，触发 tool registry 刷新 */
     const omniStudioDir = path.join(os.homedir(), ".omni_studio")
     try {
       const watcher = fs.watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {

@@ -9,7 +9,7 @@ import { withStatics } from "@/util/schema"
 import { NamedError } from "@opencode-ai/core/util/error"
 import type { Agent } from "@/agent/agent"
 import { Bus } from "@/bus"
-import { GlobalBus } from "@/bus/global"
+
 import { InstanceState } from "@/effect"
 import { InstanceRef } from "@/effect/instance-ref"
 import { Instance } from "@/project/instance"
@@ -290,23 +290,7 @@ export const layer = Layer.effect(
       yield* InstanceState.invalidate(state)
     })
 
-    const listener = InstanceState.bind((evt: any) => {
-      if (evt.payload?.type === "omni-studio:extension-changed") {
-        const ctx = Instance.current
-        log.info("omni studio extension changed event received, refreshing skills", { directory: ctx.directory })
-        Effect.runPromise(
-          refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-        ).then(() => {
-          log.info("skill refresh completed")
-        }).catch((err) => {
-          log.error("skill refresh failed", { error: err instanceof Error ? err.message : String(err) })
-        })
-      }
-    })
-    GlobalBus.on("event", listener)
-    yield* Effect.addFinalizer(() => Effect.sync(() => { GlobalBus.off("event", listener) }))
-
-    /** 兜底：监听 state.json 文件变化，绕过 GlobalBus 进程隔离问题 */
+    /** 监听 state.json 文件变化，触发 skill 刷新 */
     const omniStudioDir = path.join(Global.Path.home, ".omni_studio")
     try {
       const watcher = fs.watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {

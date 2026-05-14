@@ -59,7 +59,11 @@ Task 1: 类型定义 & 配置模块
 | T22 | 生命周期脚本路径调整 | 脚本从扩展根目录移至 lifecycle/ 子目录，cwd 仍为扩展根目录 | 1h | ✅ |
 | T23 | 安装后默认禁用 | install 完成后 enabled 设为 false，需手动 enable 才执行 start 脚本 | 1h | ✅ |
 | T24 | dev 分支合并（2025-05-14）：Effect Schema + HttpApi + import 路径迁移 | 将 cli 的 Omni Studio 代码适配到 dev 的新架构（Zod→Effect Schema、Hono→HttpApi、@/effect→@/effect/instance-state）。**注：dev 为主开发分支，后续需持续跟踪合并。** | 6h | ✅ |
-| T25 | TUI 键盘快捷键导航 | 列表/本地扩展视图支持 ↑/↓ 或 j/k 移动选中、Enter 执行、Tab 切换类型、←/→ 翻页 | 3h | ⏳ |
+| T25 | ripgrep 打包到 CLI：构建时下载 rg，运行时优先查找 CLI 同目录 | build.ts 下载 rg 到 dist/*/bin/，ripgrep.ts 优先查找 path.dirname(process.execPath) 下的 rg | 2h | ✅ |
+| T26 | ripgrep 开发模式修复：增加开发模式检测和调试日志 | process.execPath 指向 bun 时查找 node_modules/.bin/rg，修复 target 变量缺失错误 | 1h | ✅ |
+| T27 | ripgrep 嵌入编译产物：将 rg 二进制嵌入到可执行文件内部 | build.ts 生成 ripgrep-embedded.gen.ts（with { type: "file" } 导入），ripgrep.ts 运行时从 bunfs 解压到 cache | 3h | ✅ |
+| T28 | workflow 恢复单文件上传 | rg 嵌入后不再需要压缩包分发，workflow 直接上传 opencode 单文件 | 1h | ✅ |
+| T29 | TUI 键盘快捷键导航 | 列表/本地扩展视图支持 ↑/↓ 或 j/k 移动选中、Enter 执行、Tab 切换类型、←/→ 翻页 | 3h | ✅ |
 
 ### P2 — 可选增强
 
@@ -117,6 +121,10 @@ Task 1: 类型定义 & 配置模块
 - [x] T22 — 生命周期脚本路径调整（已完成）
 - [x] T23 — 安装后默认禁用（已完成）
 - [x] T24 — dev 分支合并（2025-05-14）Effect Schema + HttpApi + import 路径迁移（已完成，dev 为主开发分支，后续需持续跟踪合并）
+- [x] T25 — ripgrep 打包到 CLI（已完成）
+- [x] T26 — ripgrep 开发模式修复（已完成）
+- [x] T27 — ripgrep 嵌入编译产物（已完成）
+- [x] T28 — workflow 恢复单文件上传（已完成）
 - [ ] T16 — 安装/更新冲突处理（未开始）
 - [ ] T17 — 下载进度条显示（未开始）
 - [ ] T18 — Token 自动刷新（未开始）

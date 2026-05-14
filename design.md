@@ -378,9 +378,44 @@ store.ts 额外监听：
 | 实时同步 | `fs.watch` | 绕过 Bun Web Worker 模块缓存隔离问题，跨进程可靠 |
 | Effect Service | `Effect.gen` + `Layer.effect` | 项目标准模式，支持依赖注入和上下文管理 |
 
+## 6. CLI 构建与分发设计
+
+### 6.1 ripgrep 嵌入方案
+
+**问题**：编译后的 CLI 单文件二进制在运行时可能找不到 `rg`（ripgrep）二进制，导致自动从网络下载失败（用户环境可能无法访问 GitHub releases）。
+
+**方案**：构建时将对应平台的 `rg` 二进制通过 `with { type: "file" }` 导入嵌入到编译产物中，运行时从 bunfs 解压到用户 cache 目录。
+
+```
+构建流程：
+1. build.ts 下载对应平台 rg → dist/{name}/bin/rg
+2. 生成 src/file/ripgrep-embedded.gen.ts
+   import embeddedRg from "../../dist/{name}/bin/rg" with { type: "file" };
+3. Bun.build() 编译时自动将 rg 嵌入到 opencode 二进制内部的 bunfs
+4. 构建完成后恢复默认 ripgrep-embedded.gen.ts（export undefined）
+
+运行流程：
+1. ripgrep.ts 导入 embeddedRg
+2. 如果 embeddedRg 存在（编译后的二进制）：
+   a. 检查 ~/.cache/opencode/bin/rg 是否存在
+   b. 不存在 → 从 bunfs 读取嵌入的 rg 内容 → 写入 cache → chmod 755
+   c. 返回 cache 路径
+3. 如果 embeddedRg 不存在（开发模式 bun run）：
+   a. 回退到原有查找逻辑：CLI 同目录 → node_modules/.bin → PATH → 网络下载
+```
+
+**文件变更**：
+- `script/build.ts`：rg 下载移到 Bun.build 之前，生成/恢复嵌入导入文件
+- `src/file/ripgrep.ts`：优先从 embeddedRg 解压，增加详细诊断日志
+- `src/file/ripgrep-embedded.gen.ts`：默认 export undefined，构建时被覆盖
+
+**GitHub Action 变更**：
+- workflow 直接上传单文件 `opencode`（rg 已内嵌，不再需要压缩包分发）
+
 ## 7. 风险与假设
 
 - **假设**：Omni Studio API 返回的扩展包为 zip 格式。如为其他格式需调整解压逻辑。
+- **假设**：Bun compile 的 `with { type: "file" }` 导入在目标平台（linux-x64 / darwin-arm64 / win32-x64 等）上均正常工作。
 - **风险**：Token 明文存储于本地。缓减措施：设置严格的文件权限（0o600）。
 - **风险**：网络不稳定导致下载中断。缓减措施：支持断点续传或重新下载。
 - **风险**：扩展与本地现有扩展冲突。缓减措施：安装前检查 slug 和 type 是否已存在。

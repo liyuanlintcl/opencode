@@ -171,7 +171,16 @@ if (!skipInstall) {
   await $`bun install --os="*" --cpu="*" @opentui/core@${pkg.dependencies["@opentui/core"]}`
   await $`bun install --os="*" --cpu="*" @parcel/watcher@${pkg.dependencies["@parcel/watcher"]}`
 }
+// ripgrep 嵌入文件配置：构建时生成，开发模式恢复默认值
+const defaultEmbedContent = [
+  `// 此文件由 build.ts 在构建时自动生成，用于将 ripgrep 二进制嵌入编译产物`,
+  `// 开发模式下此文件 export undefined，运行时回退到其他查找方式`,
+  `export const embeddedRg: string | undefined = undefined`,
+].join("\n") + "\n"
+const embedGenPath = path.join(dir, "src/file/ripgrep-embedded.gen.ts")
+
 for (const item of targets) {
+  try {
   const name = [
     pkg.name,
     // changing to win32 flags npm for some reason
@@ -194,38 +203,8 @@ for (const item of targets) {
   const bunfsRoot = item.os === "win32" ? "B:/~BUN/root/" : "/$bunfs/root/"
   const workerRelativePath = path.relative(dir, parserWorker).replaceAll("\\", "/")
 
-  await Bun.build({
-    conditions: ["browser"],
-    tsconfig: "./tsconfig.json",
-    plugins: [plugin],
-    external: ["node-gyp"],
-    format: "esm",
-    minify: true,
-    sourcemap: sourcemapsFlag ? "linked" : "none",
-    splitting: true,
-    compile: {
-      autoloadBunfig: false,
-      autoloadDotenv: false,
-      autoloadTsconfig: true,
-      autoloadPackageJson: true,
-      target: name.replace(pkg.name, "bun") as any,
-      outfile: `dist/${name}/bin/opencode`,
-      execArgv: [`--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
-      windows: {},
-    },
-    files: embeddedFileMap ? { "opencode-web-ui.gen.ts": embeddedFileMap } : {},
-    entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["opencode-web-ui.gen.ts"] : [])],
-    define: {
-      OPENCODE_VERSION: `'${Script.version}'`,
-      OPENCODE_MIGRATIONS: JSON.stringify(migrations),
-      OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
-      OPENCODE_WORKER_PATH: workerPath,
-      OPENCODE_CHANNEL: `'${Script.channel}'`,
-      OPENCODE_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
-    },
-  })
-
-  // 下载并打包对应平台的 ripgrep 二进制
+  // 下载并打包对应平台的 ripgrep 二进制（必须在 Bun.build 之前，以便嵌入到编译产物中）
+  let rgDownloaded = false
   const RG_VERSION = "15.1.0"
   const rgPlatformMap: Record<string, { platform: string; extension: string }> = {
     "arm64-linux": { platform: "aarch64-unknown-linux-gnu", extension: "tar.gz" },
@@ -263,11 +242,56 @@ for (const item of targets) {
         await $`chmod +x ${rgTarget}`
       }
       console.log(`ripgrep bundled for ${platformKey}: ${rgTarget}`)
+      rgDownloaded = true
     } catch (e) {
       console.error(`failed to bundle ripgrep for ${platformKey}:`, e)
       // 下载失败不中断构建，运行时仍可回退到系统 rg 或网络下载
     }
   }
+
+  // 生成 ripgrep 嵌入导入文件，编译时嵌入到二进制中
+  if (rgDownloaded) {
+    const rgEmbedRelPath = `../../dist/${name}/bin/rg${item.os === "win32" ? ".exe" : ""}`
+    const embedGenContent = [
+      `// 此文件由 build.ts 自动生成，用于将 ripgrep 二进制嵌入编译产物`,
+      `// 平台: ${platformKey}`,
+      `import embeddedRg from ${JSON.stringify(rgEmbedRelPath)} with { type: "file" };`,
+      `export { embeddedRg };`,
+    ].join("\n") + "\n"
+    await Bun.write(embedGenPath, embedGenContent)
+    console.log(`ripgrep embedded import generated: ${embedGenPath}`)
+  }
+
+  await Bun.build({
+    conditions: ["browser"],
+    tsconfig: "./tsconfig.json",
+    plugins: [plugin],
+    external: ["node-gyp"],
+    format: "esm",
+    minify: true,
+    sourcemap: sourcemapsFlag ? "linked" : "none",
+    splitting: true,
+    compile: {
+      autoloadBunfig: false,
+      autoloadDotenv: false,
+      autoloadTsconfig: true,
+      autoloadPackageJson: true,
+      target: name.replace(pkg.name, "bun") as any,
+      outfile: `dist/${name}/bin/opencode`,
+      execArgv: [`--user-agent=opencode/${Script.version}`, "--use-system-ca", "--"],
+      windows: {},
+    },
+    files: embeddedFileMap ? { "opencode-web-ui.gen.ts": embeddedFileMap } : {},
+    entrypoints: ["./src/index.ts", parserWorker, workerPath, ...(embeddedFileMap ? ["opencode-web-ui.gen.ts"] : [])],
+    define: {
+      OPENCODE_VERSION: `'${Script.version}'`,
+      OPENCODE_MIGRATIONS: JSON.stringify(migrations),
+      OTUI_TREE_SITTER_WORKER_PATH: bunfsRoot + workerRelativePath,
+      OPENCODE_WORKER_PATH: workerPath,
+      OPENCODE_CHANNEL: `'${Script.channel}'`,
+      OPENCODE_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
+    },
+  })
 
   // Smoke test: only run if binary is for current platform
   if (item.os === process.platform && item.arch === process.arch && !item.abi) {
@@ -295,7 +319,10 @@ for (const item of targets) {
       2,
     ),
   )
-  binaries[name] = Script.version
+    binaries[name] = Script.version
+  } finally {
+    await Bun.write(embedGenPath, defaultEmbedContent)
+  }
 }
 
 if (Script.release) {

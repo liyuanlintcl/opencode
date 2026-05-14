@@ -12,6 +12,7 @@ import * as Log from "@opencode-ai/core/util/log"
 import { sanitizedProcessEnv } from "@opencode-ai/core/util/opencode-process"
 import { which } from "@/util/which"
 import { NonNegativeInt } from "@opencode-ai/core/schema"
+import { embeddedRg } from "./ripgrep-embedded.gen.ts"
 
 const log = Log.create({ service: "ripgrep" })
 const VERSION = "15.1.0"
@@ -288,6 +289,31 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | ChildPro
       const filepath = yield* Effect.cached(
         Effect.gen(function* () {
           const suffix = process.platform === "win32" ? ".exe" : ""
+
+          // 1. 优先从嵌入资源解压 rg（单文件分发模式）
+          if (embeddedRg) {
+            const cachePath = path.join(Global.Path.bin, "rg" + suffix)
+            log.info("ripgrep embedded resource available", { embeddedPath: embeddedRg, cachePath })
+
+            const cacheExists = yield* fs.isFile(cachePath).pipe(Effect.orDie)
+            if (!cacheExists) {
+              log.info("ripgrep extracting embedded binary to cache", { cachePath })
+              const bytes = yield* Effect.tryPromise({
+                try: () => Bun.file(embeddedRg as string).arrayBuffer(),
+                catch: (err) => new Error(`failed to read embedded ripgrep: ${err}`),
+              })
+              yield* fs.ensureDir(Global.Path.bin).pipe(Effect.orDie)
+              yield* fs.writeWithDirs(cachePath, new Uint8Array(bytes))
+              if (process.platform !== "win32") {
+                yield* fs.chmod(cachePath, 0o755)
+              }
+              log.info("ripgrep embedded binary extracted", { cachePath, size: bytes.byteLength })
+            } else {
+              log.info("ripgrep using cached embedded binary", { cachePath })
+            }
+            return cachePath
+          }
+
           const candidates: string[] = []
 
           // 输出关键诊断信息，帮助排查路径问题

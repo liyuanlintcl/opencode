@@ -90,7 +90,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const base = yield* getApiBase()
       const headers = yield* authSvc.getAuthHeaders()
       const entityType = toEntityType(type ?? "skill")
-      const url = `${base}/api/v1/packages/${entityType}?page=${page}&size=10`
+      const url = `${base}/api/v1/packages/${entityType}?page=${page}&size=10&withVersion=true`
       const response = yield* Effect.tryPromise({
         try: () => fetch(url, { headers }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
@@ -107,7 +107,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
         slug: String(r.slug ?? ""),
         name: String(r.displayName ?? r.name ?? r.slug ?? ""),
         description: String(r.description ?? ""),
-        version: String(r.version ?? ""),
+        version: String(r.latestVersion ?? r.version ?? ""),
         type: (r.type as ExtensionType) ?? type ?? "skill",
         author: String(r.author ?? r.ownerId ?? ""),
         download_url: String(r.download_url ?? ""),

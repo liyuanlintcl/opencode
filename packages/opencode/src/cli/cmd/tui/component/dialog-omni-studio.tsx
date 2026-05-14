@@ -145,6 +145,7 @@ function ExtensionRowShell(props: {
   const rowAttrs = () => (props.isSelected() ? TextAttributes.BOLD : undefined)
   const displayName = () => {
     const base = props.name || props.slug
+    if (!props.version) return base
     return `${base}@${props.version}`
   }
   return (

@@ -134,17 +134,23 @@ function PaginationBar(props: {
  * 封装左侧名称和右侧按钮容器的高亮逻辑。
  */
 function ExtensionRowShell(props: {
-  name: string
+  name?: string
+  slug: string
+  version: string
   isSelected: Accessor<boolean>
   children: any
 }) {
   const { theme } = useTheme()
   const rowFg = () => (props.isSelected() ? theme.primary : theme.textMuted)
   const rowAttrs = () => (props.isSelected() ? TextAttributes.BOLD : undefined)
+  const displayName = () => {
+    const base = props.name || props.slug
+    return `${base}@${props.version}`
+  }
   return (
     <box flexDirection="row" justifyContent="space-between">
       <text fg={rowFg()} attributes={rowAttrs()} wrapMode="none" overflow="hidden">
-        {props.name}
+        {displayName()}
       </text>
       <box flexDirection="row" gap={2}>
         <text fg={rowFg()} attributes={rowAttrs()}>|</text>
@@ -566,7 +572,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     }
 
     return (
-      <ExtensionRowShell name={ext.name || ext.slug} isSelected={isRowSelected}>
+      <ExtensionRowShell name={ext.name} slug={ext.slug} version={ext.version} isSelected={isRowSelected}>
         {buttons()}
       </ExtensionRowShell>
     )
@@ -774,8 +780,6 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   /** 渲染单行市场扩展条目，包含名称和行内安装按钮。选中行和聚焦按钮高亮显示。 */
   const MarketExtensionRow = (ext: Extension, index: () => number) => {
     const isRowSelected = () => selectedIndex() === index()
-    const title = () => `${ext.name}${ext.author ? ` - ${ext.author}` : ""}`
-
     const buttons = () => {
       if (installResult()?.slug === ext.slug) {
         return [
@@ -802,7 +806,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     }
 
     return (
-      <ExtensionRowShell name={title()} isSelected={isRowSelected}>
+      <ExtensionRowShell name={ext.name} slug={ext.slug} version={ext.version} isSelected={isRowSelected}>
         {buttons()}
       </ExtensionRowShell>
     )

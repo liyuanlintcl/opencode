@@ -1,6 +1,6 @@
 import path from "path"
 import fs from "fs/promises"
-import { TextAttributes, RGBA, type ScrollBoxRenderable, type TextareaRenderable } from "@opentui/core"
+import { TextAttributes, RGBA, type ScrollBoxRenderable, type InputRenderable, type KeyEvent } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { useTerminalDimensions } from "@opentui/solid"
@@ -50,37 +50,42 @@ type ListResult =
 
 /**
  * 内联搜索输入框组件。
- * 在当前视图内直接渲染 textarea，避免 dialog.replace() 导致组件实例重建、状态丢失。
+ * 使用 input 单行输入，默认不自动 focus，按 / 键获取焦点，Enter 提交后自动 blur。
+ * 样式与 DialogSelect 的搜索框保持一致。
  */
 function InlineSearch(props: {
   initialValue: string
   onConfirm: (keyword: string) => void
 }) {
   const { theme } = useTheme()
-  let textarea: TextareaRenderable | undefined
+  let input: InputRenderable | undefined
 
-  onMount(() => {
-    setTimeout(() => {
-      if (textarea && !textarea.isDestroyed) {
-        textarea.focus()
-      }
-    }, 10)
+  /** 监听 / 键，为搜索框获取焦点 */
+  useKeyboard((evt) => {
+    if (evt.name === "/" && input && !input.isDestroyed && !input.focused) {
+      input.focus()
+      evt.preventDefault()
+    }
   })
 
   return (
     <box flexDirection="row" gap={2} paddingBottom={1}>
-      <text fg={theme.textMuted}>搜索:</text>
-      <textarea
-        onSubmit={() => props.onConfirm(textarea?.plainText ?? "")}
-        height={1}
-        ref={(val: TextareaRenderable) => { textarea = val }}
-        initialValue={props.initialValue}
-        placeholder="输入关键词"
+      <input
+        onSubmit={() => {
+          props.onConfirm(input?.value ?? "")
+          input?.blur()
+        }}
+        ref={(val: InputRenderable) => {
+          input = val
+          input.value = props.initialValue
+        }}
+        placeholder="Search"
         placeholderColor={theme.textMuted}
-        textColor={theme.text}
-        focusedTextColor={theme.text}
-        cursorColor={theme.text}
+        focusedBackgroundColor={theme.backgroundPanel}
+        cursorColor={theme.primary}
+        focusedTextColor={theme.textMuted}
       />
+      <text fg={theme.textMuted}>/ 搜索</text>
     </box>
   )
 }

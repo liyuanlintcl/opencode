@@ -36,7 +36,7 @@
 | F10 | 实时同步：扩展启用/禁用后，skill / config / tool 模块实时刷新，TUI 主界面即时生效 | P0 |
 | F11 | 自动清理：扩展目录被手动删除后，自动从 state.json 中移除对应记录 | P1 |
 | F12 | Token 自动刷新：accessToken 过期时自动调用 refresh-token 接口，更新本地 token 并重试原请求 | P1 |
-| F13 | Spec 扩展支持：安装 spec 类型扩展后，自动扫描已启用的 spec，将其 SPEC.md 内容作为 instructions 注入系统提示 | P0 |
+| F13 | Spec 扩展支持：安装 spec 类型扩展后，自动扫描已启用的 spec，将其 SPEC.md **正文**（去掉 YAML frontmatter）作为 instructions 注入系统提示；自动拼接内嵌扩展（skills/tools/agents/plugins）的说明文件内容；skill/tool/agent/plugin 扫描自动覆盖 `specs/{slug}/` 子目录 | P0 |
 | F14 | Spec 触发：TUI 中提供手动触发 spec 的入口，执行其 SPEC.md 定义的组合流水线 | P0 |
 
 ## 4. 非功能需求
@@ -76,5 +76,5 @@
 - [x] 执行任何生命周期脚本前，如存在 `activate` 脚本，先 source/调用 activate
 - [x] TUI 中启用/禁用扩展后，主界面实时刷新，无需重启
 - [x] 手动删除扩展目录后，state.json 自动清理对应记录
-- [ ] 安装 spec 扩展后，系统自动发现其内部 skill / tool / plugin / agent 并正确加载
-- [ ] TUI 中可手动触发已安装的 spec 扩展
+- [x] 安装 spec 扩展后，系统自动发现其内部 skill / tool / plugin / agent 并正确加载（通过修改各扩展类型的扫描路径实现：skill→`specs/*/skills/`、tool→`specs/*/tools/`、agent→`specs/*/agents/`、plugin→`specs/*/plugins/`）
+- [ ] TUI 中可手动触发已安装的 spec 扩展（F14 未实现）

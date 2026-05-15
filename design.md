@@ -31,7 +31,7 @@ omni-studio.json             {skills,tools,...}/
 | `executor.ts` | 扩展生命周期脚本检测与执行（install/start/stop/uninstall/activate），脚本存放在扩展目录的 `lifecycle/` 子目录中 | `src/omni-studio/executor.ts` |
 | `config.ts` | 配置文件读写 | `src/omni-studio/config.ts` |
 | `types.ts` | 共享类型定义 | `src/omni-studio/types.ts` |
-| `spec-discovery.ts` | Spec 扩展发现机制：扫描 spec 目录下的 SPEC.md，解析 skills.external / skills.internal，将内嵌扩展注册到 state.json | `src/omni-studio/spec-discovery.ts` |
+| `spec-discovery.ts` | Spec 扩展发现机制：扫描 `~/.omni_studio/specs/` 下已启用 spec 的 `SPEC.md`，解析 YAML frontmatter（依赖声明），**只返回正文**（去掉 frontmatter）拼接到 instructions；扫描内嵌扩展（skills/tools/agents/plugins）的说明文件拼接到正文；提供依赖检查和级联管理辅助函数 | `src/omni-studio/spec-discovery.ts` |
 | `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio Extension 菜单（status/local/list/spec/login/logout/setup）。安装/卸载/启用/禁用操作在 list 和 local 视图中以行内按钮提供；spec 视图支持手动触发 | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
 
 ## 3. 数据模型
@@ -306,28 +306,38 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 - spec 扩展是一个组合规格，通过 SPEC.md 声明意图和依赖
 - 发现机制借鉴 opencode.jsonc 的 instructions 字段：系统读取文件内容并注入 system prompt
 - 不同于 skill/tool/plugin/agent，spec 不需要注册到 state.json 作为独立可加载扩展
-- spec 的内容（SPEC.md）直接作为指令被消费，内嵌的 skill/tool/plugin/agent 仅作为资源存在
+- spec 的内容（SPEC.md 正文）直接作为指令被消费，内嵌的 skill/tool/plugin/agent 通过扩展类型自身的扫描机制自动发现
 
 发现时机：
-1. 系统启动时扫描 ~/.omni_studio/specs/ 目录
-2. state.json 变更时（spec 启用/禁用/安装/卸载）
-3. 会话初始化时（类似 instructions 的加载时机）
+1. 会话初始化时（`Instruction.system()` 内部调用 `discoverSpecs()`）
 
 发现流程：
-1. 遍历 ~/.omni_studio/specs/ 下所有已启用的 spec 目录
-2. 对每个 spec 读取其 SPEC.md 文件
-3. 解析 YAML frontmatter（name / version / description / author / skills / tools / plugins / agents）
-4. 将 SPEC.md 的完整内容（frontmatter + markdown 正文）作为一条 instruction 注入
-   格式：Instructions from: spec:{slug}:{path}\n{content}
-5. 内嵌扩展（skills/ 目录下的子目录）不需要单独注册到 state.json
-   - 它们作为 spec 压缩包的一部分存在
-   - 由 spec 的 instruction 内容描述其用途和调用方式
-   - 运行时通过 spec 定义的 composite runtime 加载
+1. 读取 state.json，过滤出 type === "spec" 且 enabled === true 的扩展
+2. 遍历每个已启用 spec 的目录 ~/.omni_studio/specs/{slug}/
+3. 读取 SPEC.md 文件内容
+4. 使用正则提取 YAML frontmatter（`---\n...\n---\n`）和正文
+5. **只将正文部分**作为 instruction 注入，frontmatter 中的元数据（name/version/依赖声明）不注入
+   格式：Instructions from: spec:{slug}:{path}\n{content.trim()}
+6. 扫描内嵌扩展的说明文件并拼接到正文：
+   - skills/ → 扫描 SKILL.md 文件，按 `\n\n--- Skills ---\n\n{content}` 格式拼接
+   - tools/ → 扫描 TOOL.md 或 README.md，按 `\n\n--- Tools ---\n\n{content}` 格式拼接
+   - agents/ → 扫描 AGENT.md，按 `\n\n--- Agents ---\n\n{content}` 格式拼接
+   - plugins/ → 扫描 PLUGIN.md，按 `\n\n--- Plugins ---\n\n{content}` 格式拼接
+7. 内嵌 skill/tool/agent/plugin **不单独注册到 state.json**，而是修改各扩展类型的扫描路径实现自动发现：
+   - skill/index.ts: 增加扫描 `~/.omni_studio/specs/{slug}/skills/**/SKILL.md`
+   - tool/registry.ts: 增加扫描 `~/.omni_studio/specs/{slug}/tools/*.{js,ts}`
+   - config/config.ts: 增加扫描 `~/.omni_studio/specs/{slug}/agents/` → ConfigAgent.load()
+   - config/config.ts: 增加扫描 `~/.omni_studio/specs/{slug}/plugins/` → ConfigPlugin.load()
 
 与 instructions 字段的对比：
 - opencode.jsonc instructions：用户手动指定文件路径，系统读取并注入
-- spec 发现：系统自动扫描 ~/.omni_studio/specs/ 下已启用的 spec，读取 SPEC.md 注入
+- spec 发现：系统自动扫描 ~/.omni_studio/specs/ 下已启用的 spec，读取 SPEC.md 正文注入
 - 两者最终都汇入 Instruction.system() 的输出，作为 system prompt 的一部分
+
+依赖管理：
+- `checkMissingDependencies(specSlug)`：检查 spec 声明的外部依赖中未安装的扩展
+- `checkDisabledDependencies(specSlug)`：检查 spec 声明的外部依赖中已安装但未启用的扩展
+- `findDependentSpecs(depType, depSlug)`：查找依赖指定扩展的已启用 spec（级联禁用用）
 
 幂等设计：
 - 每次会话初始化重新扫描，无持久化状态依赖
@@ -335,9 +345,12 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 - spec 卸载后目录不存在，自然跳过
 ```
 
-### 5.8b Spec 触发流程（TUI）
+### 5.8b Spec 触发流程（TUI）—— 未实现
 
 ```
+【状态：未实现（F14）】
+
+设计草案：
 1. 用户在 Omni Studio 主菜单选择 "Spec"
 2. 调用 Store.getStatus() 过滤出 type === "spec" 的已安装扩展
 3. 构建 spec 列表，每行展示名称和版本
@@ -367,13 +380,19 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 5. 按 esc 返回菜单，再次按 esc 关闭对话框
 6. 列表和本地扩展视图中的 scrollbox 高度根据实际内容量自适应（`min(内容高度, 窗口高度 × 0.4)`），避免空白过多
 7. 列表项使用 `justifyContent="space-between"`，扩展名称居左，操作按钮居右，分界清晰
-8. 键盘快捷键支持：
+8. 搜索框常驻显示（与 DialogSelect 样式一致）：
+   - `InlineSearch` 使用 `<input>` 组件（单行输入），始终显示在列表顶部，默认不获取焦点
+   - 焦点默认在列表上，方向键（↑↓/j/k）可直接导航扩展列表
+   - 按 `/` 键 focus 搜索框（阻止 `/` 字符误输入），右侧提示 `/ 搜索`
+   - 按 Enter 确认搜索，搜索框自动 blur，焦点回到列表，方向键可继续导航
+   - 显示 `[清除]` 按钮清空搜索词；清空搜索时通过 `queueMicrotask` 短暂隐藏再显示组件强制重新创建，清空输入框
+9. 键盘快捷键支持：
    - ↑/↓（或 j/k）：在列表中移动选中行，当前行高亮显示
    - Enter：执行当前行的操作（安装/确认安装/启用/禁用/卸载）
    - Tab：切换 skill/tool/plugin/agent 类型
    - ←/→（或 h/l）：上一页/下一页
    - Esc：返回上一级（子视图 → 主菜单，主菜单 → 关闭对话框）
-9. 脚本执行失败时，通过 DialogAlert 展示完整错误信息（含 stdout/stderr），关闭 Alert 后重新打开当前子视图
+10. 脚本执行失败时，通过 DialogAlert 展示完整错误信息（含 stdout/stderr），关闭 Alert 后重新打开当前子视图
 ```
 
 **设计约束**：
@@ -396,6 +415,36 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
   - 如为 .bat/.ps1，先执行 activate 脚本，再执行目标脚本（同进程环境继承）
   - activate 脚本本身不计入错误回滚条件，仅用于环境准备
 - 所有脚本执行工作目录设为扩展目录本身（cwd = ~/.omni_studio/{type}/{slug}/），脚本路径为相对路径 lifecycle/{name}.{suffix}
+```
+
+### 5.10a Spec 依赖管理流程
+
+```
+背景：
+- spec 通过 SPEC.md 的 YAML frontmatter 声明外部依赖（skills.external / tools.external / plugins.external / agents.external）
+- 依赖管理逻辑集中在 TUI 层（dialog-omni-studio.tsx），避免 store.ts ↔ spec-discovery.ts 循环依赖
+
+安装 spec 时：
+1. 安装完成后，调用 checkMissingDependencies(specSlug)
+2. 如有未安装的依赖：
+   - 自动调用 Store.install() 逐个安装缺失的外部依赖
+   - 行内提示 "已安装，已自动安装 X 个依赖"
+3. 不自动启用（遵循 T23 安装后默认禁用原则）
+
+启用 spec 时：
+1. 调用 checkMissingDependencies(specSlug) 检查未安装依赖
+   - 如有缺失 → 自动安装
+2. 调用 checkDisabledDependencies(specSlug) 检查已安装但未启用的依赖
+   - 如有未启用 → 自动调用 setEnabled(..., true) 启用
+3. 所有依赖就绪后，启用 spec 本身
+
+禁用/卸载其他扩展时：
+1. 调用 findDependentSpecs(depType, depSlug) 查找依赖当前扩展的已启用 spec
+2. 如有依赖者：
+   - 先自动禁用这些已启用 spec（级联禁用）
+   - 再执行用户请求的操作（禁用/卸载当前扩展）
+   - 行内提示 "已禁用 X 个依赖此扩展的 spec"
+3. 移除 DialogConfirm 弹窗确认（避免 dialog.replace() 触发 onClose 导致焦点回到聊天界面）
 ```
 
 ### 5.11 实时同步机制

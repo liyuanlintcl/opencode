@@ -1,6 +1,6 @@
 import path from "path"
 import fs from "fs/promises"
-import { TextAttributes, RGBA, type ScrollBoxRenderable } from "@opentui/core"
+import { TextAttributes, RGBA, type ScrollBoxRenderable, type TextareaRenderable } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { useTerminalDimensions } from "@opentui/solid"
@@ -8,7 +8,7 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
-import { Show, createSignal, createEffect, For, createMemo, type Accessor } from "solid-js"
+import { Show, createSignal, createEffect, For, createMemo, onMount, type Accessor } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { Effect } from "effect"
 import { Global } from "@opencode-ai/core/global"
@@ -46,6 +46,43 @@ type ListResult =
   | { kind: "loading" }
   | { kind: "ok"; data: Extension[]; pageInfo: PagedResult<Extension>["pageInfo"] }
   | { kind: "error"; message: string }
+
+/**
+ * 内联搜索输入框组件。
+ * 在当前视图内直接渲染 textarea，避免 dialog.replace() 导致组件实例重建、状态丢失。
+ */
+function InlineSearch(props: {
+  initialValue: string
+  onConfirm: (keyword: string) => void
+}) {
+  const { theme } = useTheme()
+  let textarea: TextareaRenderable | undefined
+
+  onMount(() => {
+    setTimeout(() => {
+      if (textarea && !textarea.isDestroyed) {
+        textarea.focus()
+      }
+    }, 10)
+  })
+
+  return (
+    <box flexDirection="row" gap={2} paddingBottom={1}>
+      <text fg={theme.textMuted}>搜索:</text>
+      <textarea
+        onSubmit={() => props.onConfirm(textarea?.plainText ?? "")}
+        height={1}
+        ref={(val: TextareaRenderable) => { textarea = val }}
+        initialValue={props.initialValue}
+        placeholder="输入关键词"
+        placeholderColor={theme.textMuted}
+        textColor={theme.text}
+        focusedTextColor={theme.text}
+        cursorColor={theme.text}
+      />
+    </box>
+  )
+}
 
 /**
  * 类型切换条组件。
@@ -361,7 +398,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
   const [searchKeyword, setSearchKeyword] = createSignal("")
-  const [isSearchOpen, setIsSearchOpen] = createSignal(false)
+  const [isSearchMode, setIsSearchMode] = createSignal(false)
   const [pendingAction, setPendingAction] = createSignal<{ type: "enable" | "disable" | "uninstall"; slug: string } | null>(null)
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
   const PAGE_SIZE = 10
@@ -472,6 +509,10 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     canPrev: () => canPrev(),
     canNext: () => canNext(),
     onEsc: () => {
+      if (isSearchMode()) {
+        setIsSearchMode(false)
+        return true
+      }
       if (pendingAction()) {
         setPendingAction(null)
         return true
@@ -502,14 +543,14 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     },
   })
 
-  /** 按 / 键弹出搜索输入框；搜索框已打开时忽略 */
+  /** 按 / 键进入搜索模式 */
   useKeyboard((evt) => {
-    debugLog(`[LocalView] useKeyboard: evt.name=${evt.name}, isSearchOpen=${isSearchOpen()}, pendingAction=${pendingAction()}`)
-    if (evt.name === "/" && !isSearchOpen() && !pendingAction()) {
+    debugLog(`[LocalView] useKeyboard: evt.name=${evt.name}, isSearchMode=${isSearchMode()}, pendingAction=${pendingAction()}`)
+    if (evt.name === "/" && !isSearchMode() && !pendingAction()) {
       evt.preventDefault()
       evt.stopPropagation()
-      debugLog("[LocalView] / key matched, calling handleSearch")
-      void handleSearch()
+      debugLog("[LocalView] / key matched, entering search mode")
+      setIsSearchMode(true)
     }
   })
 
@@ -524,30 +565,14 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   }
 
   /**
-   * 弹出搜索输入框，输入关键词后触发本地过滤。
-   * DialogPrompt.show 内部调用 dialog.replace() 会触发当前视图的 onClose（backToMenu），
-   * 因此需要临时设置 suppressBackToMenu 阻止回到主菜单。
+   * 确认搜索：应用搜索词并关闭搜索模式。
    */
-  const handleSearch = async () => {
-    debugLog("[LocalView] handleSearch enter")
-    setIsSearchOpen(true)
-    suppressBackToMenu = true
-    debugLog(`[LocalView] suppressBackToMenu set to true, stack=${props.dialog.stack.length}`)
-    const keyword = await DialogPrompt.show(props.dialog, "搜索本地扩展", {
-      placeholder: "输入关键词",
-      value: searchKeyword(),
-    })
-    debugLog(`[LocalView] DialogPrompt returned: keyword=${keyword === null ? "null" : keyword}`)
-    suppressBackToMenu = false
-    setIsSearchOpen(false)
-    debugLog(`[LocalView] suppressBackToMenu restored to false`)
-    if (keyword !== null) {
-      setSearchKeyword(keyword.trim())
-      setCurrentPage(1)
-      setSelectedIndex(0)
-    }
-    debugLog("[LocalView] restoring view via dialog.replace")
-    props.dialog.replace(() => <OmniStudioLocalView dialog={props.dialog} onBack={props.onBack} />, props.onBack)
+  const confirmSearch = (keyword: string) => {
+    debugLog(`[LocalView] confirmSearch: keyword=${keyword}`)
+    setIsSearchMode(false)
+    setSearchKeyword(keyword.trim())
+    setCurrentPage(1)
+    setSelectedIndex(0)
   }
 
   /**
@@ -656,7 +681,10 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
         </text>
       </box>
       <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
-      <Show when={searchKeyword()}>
+      <Show when={isSearchMode()}>
+        <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
+      </Show>
+      <Show when={!isSearchMode() && searchKeyword()}>
         <box flexDirection="row" gap={2} paddingBottom={1}>
           <text fg={theme.textMuted}>搜索: {searchKeyword()}</text>
           <text
@@ -706,7 +734,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
   const [searchKeyword, setSearchKeyword] = createSignal("")
-  const [isSearchOpen, setIsSearchOpen] = createSignal(false)
+  const [isSearchMode, setIsSearchMode] = createSignal(false)
   const [pendingSlug, setPendingSlug] = createSignal<string | null>(null)
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
@@ -758,6 +786,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     canPrev: () => canPrev(),
     canNext: () => canNext(),
     onEsc: () => {
+      if (isSearchMode()) {
+        setIsSearchMode(false)
+        return true
+      }
       if (pendingSlug()) {
         setPendingSlug(null)
         return true
@@ -784,14 +816,14 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     },
   })
 
-  /** 按 / 键弹出搜索输入框；搜索框已打开时忽略 */
+  /** 按 / 键进入搜索模式 */
   useKeyboard((evt) => {
-    debugLog(`[ListView] useKeyboard: evt.name=${evt.name}, isSearchOpen=${isSearchOpen()}, pendingSlug=${pendingSlug()}, installingSlug=${installingSlug()}, installResult=${installResult()}`)
-    if (evt.name === "/" && !isSearchOpen() && !pendingSlug() && !installingSlug() && !installResult()) {
+    debugLog(`[ListView] useKeyboard: evt.name=${evt.name}, isSearchMode=${isSearchMode()}, pendingSlug=${pendingSlug()}, installingSlug=${installingSlug()}, installResult=${installResult()}`)
+    if (evt.name === "/" && !isSearchMode() && !pendingSlug() && !installingSlug() && !installResult()) {
       evt.preventDefault()
       evt.stopPropagation()
-      debugLog("[ListView] / key matched, calling handleSearch")
-      void handleSearch()
+      debugLog("[ListView] / key matched, entering search mode")
+      setIsSearchMode(true)
     }
   })
 
@@ -808,30 +840,14 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   }
 
   /**
-   * 弹出搜索输入框，输入关键词后触发远程搜索。
-   * DialogPrompt.show 内部调用 dialog.replace() 会触发当前视图的 onClose（backToMenu），
-   * 因此需要临时设置 suppressBackToMenu 阻止回到主菜单。
+   * 确认搜索：应用搜索词并关闭搜索模式。
    */
-  const handleSearch = async () => {
-    debugLog("[ListView] handleSearch enter")
-    setIsSearchOpen(true)
-    suppressBackToMenu = true
-    debugLog(`[ListView] suppressBackToMenu set to true, stack=${props.dialog.stack.length}`)
-    const keyword = await DialogPrompt.show(props.dialog, "搜索扩展", {
-      placeholder: "输入关键词",
-      value: searchKeyword(),
-    })
-    debugLog(`[ListView] DialogPrompt returned: keyword=${keyword === null ? "null" : keyword}`)
-    suppressBackToMenu = false
-    setIsSearchOpen(false)
-    debugLog(`[ListView] suppressBackToMenu restored to false`)
-    if (keyword !== null) {
-      setSearchKeyword(keyword.trim())
-      setCurrentPage(1)
-      setSelectedIndex(0)
-    }
-    debugLog("[ListView] restoring view via dialog.replace")
-    props.dialog.replace(() => <OmniStudioListView dialog={props.dialog} onBack={props.onBack} />, props.onBack)
+  const confirmSearch = (keyword: string) => {
+    debugLog(`[ListView] confirmSearch: keyword=${keyword}`)
+    setIsSearchMode(false)
+    setSearchKeyword(keyword.trim())
+    setCurrentPage(1)
+    setSelectedIndex(0)
   }
 
   /**
@@ -977,7 +993,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         </text>
       </box>
       <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
-      <Show when={searchKeyword()}>
+      <Show when={isSearchMode()}>
+        <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
+      </Show>
+      <Show when={!isSearchMode() && searchKeyword()}>
         <box flexDirection="row" gap={2} paddingBottom={1}>
           <text fg={theme.textMuted}>搜索: {searchKeyword()}</text>
           <text

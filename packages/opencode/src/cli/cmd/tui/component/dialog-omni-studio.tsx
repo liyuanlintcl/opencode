@@ -399,7 +399,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
   const [searchKeyword, setSearchKeyword] = createSignal("")
-  const [isSearchMode, setIsSearchMode] = createSignal(false)
+  const [showSearchBox, setShowSearchBox] = createSignal(true)
   const [pendingAction, setPendingAction] = createSignal<{ type: "enable" | "disable" | "uninstall"; slug: string } | null>(null)
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent", "spec"]
   const PAGE_SIZE = 10
@@ -580,10 +580,6 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     canPrev: () => canPrev(),
     canNext: () => canNext(),
     onEsc: () => {
-      if (isSearchMode()) {
-        setIsSearchMode(false)
-        return true
-      }
       if (pendingAction()) {
         setPendingAction(null)
         return true
@@ -614,17 +610,6 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     },
   })
 
-  /** 按 / 键进入搜索模式 */
-  useKeyboard((evt) => {
-    debugLog(`[LocalView] useKeyboard: evt.name=${evt.name}, isSearchMode=${isSearchMode()}, pendingAction=${pendingAction()}`)
-    if (evt.name === "/" && !isSearchMode() && !pendingAction()) {
-      evt.preventDefault()
-      evt.stopPropagation()
-      debugLog("[LocalView] / key matched, entering search mode")
-      setIsSearchMode(true)
-    }
-  })
-
   /** 切换类型时重置到第 1 页和选中索引，保留搜索词。 */
   const switchType = (type: ExtensionType) => {
     if (type === selectedType()) {
@@ -636,11 +621,10 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   }
 
   /**
-   * 确认搜索：应用搜索词并关闭搜索模式。
+   * 确认搜索：应用搜索词。
    */
   const confirmSearch = (keyword: string) => {
     debugLog(`[LocalView] confirmSearch: keyword=${keyword}`)
-    setIsSearchMode(false)
     setSearchKeyword(keyword.trim())
     setCurrentPage(1)
     setSelectedIndex(0)
@@ -648,9 +632,12 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
 
   /**
    * 清除当前搜索词，恢复完整列表。
+   * 通过短暂隐藏再显示 InlineSearch 强制重新创建，清空输入框内容。
    */
   const clearSearch = () => {
     setSearchKeyword("")
+    setShowSearchBox(false)
+    queueMicrotask(() => setShowSearchBox(true))
     setCurrentPage(1)
     setSelectedIndex(0)
   }
@@ -752,12 +739,11 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
         </text>
       </box>
       <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
-      <Show when={isSearchMode()}>
-        <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
-      </Show>
-      <Show when={!isSearchMode() && searchKeyword()}>
-        <box flexDirection="row" gap={2} paddingBottom={1}>
-          <text fg={theme.textMuted}>搜索: {searchKeyword()}</text>
+      <box flexDirection="row" gap={2} paddingBottom={1}>
+        <Show when={showSearchBox()}>
+          <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
+        </Show>
+        <Show when={searchKeyword()}>
           <text
             fg={theme.primary}
             selectable={false}
@@ -765,8 +751,8 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
           >
             [清除]
           </text>
-        </box>
-      </Show>
+        </Show>
+      </box>
       <Show when={status().kind === "ok" && filteredExtensions().length > 0}>
         <ScrollableList maxHeight={scrollHeight()} itemCount={pagedExtensions().length} selectedIndex={selectedIndex()}>
           <For each={pagedExtensions()}>{LocalExtensionRow}</For>
@@ -805,7 +791,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
   const [searchKeyword, setSearchKeyword] = createSignal("")
-  const [isSearchMode, setIsSearchMode] = createSignal(false)
+  const [showSearchBox, setShowSearchBox] = createSignal(true)
   const [pendingSlug, setPendingSlug] = createSignal<string | null>(null)
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
@@ -857,10 +843,6 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     canPrev: () => canPrev(),
     canNext: () => canNext(),
     onEsc: () => {
-      if (isSearchMode()) {
-        setIsSearchMode(false)
-        return true
-      }
       if (pendingSlug()) {
         setPendingSlug(null)
         return true
@@ -887,17 +869,6 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     },
   })
 
-  /** 按 / 键进入搜索模式 */
-  useKeyboard((evt) => {
-    debugLog(`[ListView] useKeyboard: evt.name=${evt.name}, isSearchMode=${isSearchMode()}, pendingSlug=${pendingSlug()}, installingSlug=${installingSlug()}, installResult=${installResult()}`)
-    if (evt.name === "/" && !isSearchMode() && !pendingSlug() && !installingSlug() && !installResult()) {
-      evt.preventDefault()
-      evt.stopPropagation()
-      debugLog("[ListView] / key matched, entering search mode")
-      setIsSearchMode(true)
-    }
-  })
-
   /**
    * 切换扩展类型，重置到第 1 页和选中索引，保留搜索词。
    */
@@ -911,11 +882,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   }
 
   /**
-   * 确认搜索：应用搜索词并关闭搜索模式。
+   * 确认搜索：应用搜索词。
    */
   const confirmSearch = (keyword: string) => {
     debugLog(`[ListView] confirmSearch: keyword=${keyword}`)
-    setIsSearchMode(false)
     setSearchKeyword(keyword.trim())
     setCurrentPage(1)
     setSelectedIndex(0)
@@ -923,9 +893,12 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 
   /**
    * 清除当前搜索词，恢复完整列表。
+   * 通过短暂隐藏再显示 InlineSearch 强制重新创建，清空输入框内容。
    */
   const clearSearch = () => {
     setSearchKeyword("")
+    setShowSearchBox(false)
+    queueMicrotask(() => setShowSearchBox(true))
     setCurrentPage(1)
     setSelectedIndex(0)
   }
@@ -1093,12 +1066,11 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         </text>
       </box>
       <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
-      <Show when={isSearchMode()}>
-        <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
-      </Show>
-      <Show when={!isSearchMode() && searchKeyword()}>
-        <box flexDirection="row" gap={2} paddingBottom={1}>
-          <text fg={theme.textMuted}>搜索: {searchKeyword()}</text>
+      <box flexDirection="row" gap={2} paddingBottom={1}>
+        <Show when={showSearchBox()}>
+          <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
+        </Show>
+        <Show when={searchKeyword()}>
           <text
             fg={theme.primary}
             selectable={false}
@@ -1106,8 +1078,8 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           >
             [清除]
           </text>
-        </box>
-      </Show>
+        </Show>
+      </box>
       <Show
         when={marketList().kind === "ok" && (marketList() as Extract<ListResult, { kind: "ok" }>).data.length > 0}
         fallback={

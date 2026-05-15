@@ -236,3 +236,41 @@ export const getEnabledSpecs = Effect.fn("SpecDiscovery.getEnabledSpecs")(functi
     .filter((e) => e.type === "spec" && e.enabled)
     .map((e) => e.slug)
 })
+
+/**
+ * 查找依赖指定扩展的所有已启用 spec。
+ * 用于禁用/卸载扩展时级联禁用依赖它的 spec。
+ */
+export const findDependentSpecs = Effect.fn("SpecDiscovery.findDependentSpecs")(function* (
+  depType: string,
+  depSlug: string,
+) {
+  const fs = yield* AppFileSystem.Service
+  const global = yield* Global.Service
+
+  const statePath = path.join(global.home, ".omni_studio", "state.json")
+  const stateContent = yield* fs.readFileString(statePath).pipe(
+    Effect.catch(() => Effect.succeed("{}")),
+  )
+  const state = JSON.parse(stateContent) as {
+    extensions?: Array<{ type: string; slug: string; enabled: boolean }>
+  }
+  const enabledSpecs = (state.extensions ?? []).filter(
+    (e) => e.type === "spec" && e.enabled,
+  )
+
+  const dependentSpecs: string[] = []
+  for (const spec of enabledSpecs) {
+    const specMdPath = path.join(global.home, ".omni_studio", "specs", spec.slug, "SPEC.md")
+    const content = yield* fs.readFileString(specMdPath).pipe(
+      Effect.catch(() => Effect.succeed("")),
+    )
+    if (!content) continue
+    const deps = parseSpecDependencies(content)
+    if (deps.some((d) => d.type === depType && d.slug === depSlug)) {
+      dependentSpecs.push(spec.slug)
+    }
+  }
+
+  return dependentSpecs
+})

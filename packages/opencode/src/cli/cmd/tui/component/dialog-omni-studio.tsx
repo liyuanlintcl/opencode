@@ -6,7 +6,6 @@ import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { useTerminalDimensions } from "@opentui/solid"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogAlert } from "../ui/dialog-alert"
-import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
 import { Show, createSignal, createEffect, For, createMemo, onMount, type Accessor } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
@@ -16,7 +15,7 @@ import { OmniStudioAuth } from "@/omni-studio/auth"
 import { OmniStudioConfig } from "@/omni-studio/config"
 import { OmniStudioStore } from "@/omni-studio/store"
 import { OmniStudioMarket } from "@/omni-studio/market"
-import { checkMissingDependencies, checkDisabledDependencies } from "@/omni-studio/spec-discovery"
+import { checkMissingDependencies, checkDisabledDependencies, findDependentSpecs } from "@/omni-studio/spec-discovery"
 import { AppFileSystem } from "@opencode-ai/core/filesystem"
 
 import type { ExtensionType, Extension, ExtensionEntry, PagedResult } from "@/omni-studio/types"
@@ -439,8 +438,29 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   /** 启用扩展 */
   const handleEnable = async (ext: { type: ExtensionType; slug: string }) => {
     try {
-      /** spec 启用前检查并提示启用未启用的外部依赖 */
+      /** spec 启用前先安装缺失的外部依赖，再启用未启用的外部依赖 */
       if (ext.type === "spec") {
+        const missing = await Effect.runPromise(
+          checkMissingDependencies(ext.slug).pipe(
+            Effect.provide(AppFileSystem.defaultLayer),
+            Effect.provide(Global.layer),
+          ),
+        )
+        if (missing.length > 0) {
+          for (const dep of missing) {
+            const depMeta = await Effect.runPromise(
+              OmniStudioMarket.Service.use((svc) => svc.getMeta(dep.type, dep.slug)).pipe(
+                Effect.provide(OmniStudioMarket.defaultLayer),
+              ),
+            )
+            await Effect.runPromise(
+              OmniStudioStore.Service.use((svc) => svc.install(depMeta, () => {})).pipe(
+                Effect.provide(OmniStudioStore.defaultLayer),
+              ),
+            )
+          }
+        }
+
         const disabled = await Effect.runPromise(
           checkDisabledDependencies(ext.slug).pipe(
             Effect.provide(AppFileSystem.defaultLayer),
@@ -448,30 +468,12 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
           ),
         )
         if (disabled.length > 0) {
-          const depList = disabled.map((d) => `${d.type}:${d.slug}`).join(", ")
-          suppressBackToMenu = true
-          try {
-            const confirmed = await DialogConfirm.show(
-              props.dialog,
-              "启用依赖",
-              `该 spec 依赖以下未启用扩展：${depList}。是否自动启用？`,
+          for (const dep of disabled) {
+            await Effect.runPromise(
+              OmniStudioStore.Service.use((svc) => svc.setEnabled(dep.type, dep.slug, true)).pipe(
+                Effect.provide(OmniStudioStore.defaultLayer),
+              ),
             )
-            /** DialogConfirm 完成后 stack 为空，需重新渲染当前视图，避免焦点回到聊天界面 */
-            props.dialog.replace(
-              () => <OmniStudioLocalView dialog={props.dialog} onBack={props.onBack} />,
-              props.onBack,
-            )
-            if (confirmed) {
-              for (const dep of disabled) {
-                await Effect.runPromise(
-                  OmniStudioStore.Service.use((svc) => svc.setEnabled(dep.type, dep.slug, true)).pipe(
-                    Effect.provide(OmniStudioStore.defaultLayer),
-                  ),
-                )
-              }
-            }
-          } finally {
-            suppressBackToMenu = false
           }
         }
       }
@@ -498,6 +500,21 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   /** 禁用扩展 */
   const handleDisable = async (ext: { type: ExtensionType; slug: string }) => {
     try {
+      /** 禁用扩展前先禁用依赖它的已启用 spec */
+      const dependentSpecs = await Effect.runPromise(
+        findDependentSpecs(ext.type, ext.slug).pipe(
+          Effect.provide(AppFileSystem.defaultLayer),
+          Effect.provide(Global.layer),
+        ),
+      )
+      for (const specSlug of dependentSpecs) {
+        await Effect.runPromise(
+          OmniStudioStore.Service.use((svc) => svc.setEnabled("spec", specSlug, false)).pipe(
+            Effect.provide(OmniStudioStore.defaultLayer),
+          ),
+        )
+      }
+
       await Effect.runPromise(
         OmniStudioStore.Service.use((svc) => svc.setEnabled(ext.type, ext.slug, false)).pipe(
           Effect.provide(OmniStudioStore.defaultLayer),
@@ -520,6 +537,21 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   /** 卸载扩展 */
   const handleUninstall = async (ext: { type: ExtensionType; slug: string }) => {
     try {
+      /** 卸载扩展前先禁用依赖它的已启用 spec */
+      const dependentSpecs = await Effect.runPromise(
+        findDependentSpecs(ext.type, ext.slug).pipe(
+          Effect.provide(AppFileSystem.defaultLayer),
+          Effect.provide(Global.layer),
+        ),
+      )
+      for (const specSlug of dependentSpecs) {
+        await Effect.runPromise(
+          OmniStudioStore.Service.use((svc) => svc.setEnabled("spec", specSlug, false)).pipe(
+            Effect.provide(OmniStudioStore.defaultLayer),
+          ),
+        )
+      }
+
       await Effect.runPromise(
         OmniStudioStore.Service.use((svc) => svc.uninstall(ext.type, ext.slug)).pipe(
           Effect.provide(OmniStudioStore.defaultLayer),
@@ -920,7 +952,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         ),
       )
 
-      /** spec 安装成功后检查并提示安装缺失的外部依赖 */
+      /** spec 安装成功后自动安装缺失的外部依赖 */
       let depMsg = ""
       if (ext.type === "spec") {
         const missing = await Effect.runPromise(
@@ -930,37 +962,19 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           ),
         )
         if (missing.length > 0) {
-          const depList = missing.map((d) => `${d.type}:${d.slug}`).join(", ")
-          suppressBackToMenu = true
-          try {
-            const confirmed = await DialogConfirm.show(
-              props.dialog,
-              "安装依赖",
-              `该 spec 依赖以下未安装扩展：${depList}。是否自动安装？`,
+          for (const dep of missing) {
+            const depMeta = await Effect.runPromise(
+              OmniStudioMarket.Service.use((svc) => svc.getMeta(dep.type, dep.slug)).pipe(
+                Effect.provide(OmniStudioMarket.defaultLayer),
+              ),
             )
-            /** DialogConfirm 完成后 stack 为空，需重新渲染当前视图，避免焦点回到聊天界面 */
-            props.dialog.replace(
-              () => <OmniStudioListView dialog={props.dialog} onBack={props.onBack} />,
-              props.onBack,
+            await Effect.runPromise(
+              OmniStudioStore.Service.use((svc) => svc.install(depMeta, () => {})).pipe(
+                Effect.provide(OmniStudioStore.defaultLayer),
+              ),
             )
-            if (confirmed) {
-              for (const dep of missing) {
-                const depMeta = await Effect.runPromise(
-                  OmniStudioMarket.Service.use((svc) => svc.getMeta(dep.type, dep.slug)).pipe(
-                    Effect.provide(OmniStudioMarket.defaultLayer),
-                  ),
-                )
-                await Effect.runPromise(
-                  OmniStudioStore.Service.use((svc) => svc.install(depMeta, () => {})).pipe(
-                    Effect.provide(OmniStudioStore.defaultLayer),
-                  ),
-                )
-              }
-              depMsg = `，已自动安装 ${missing.length} 个依赖`
-            }
-          } finally {
-            suppressBackToMenu = false
           }
+          depMsg = `，已自动安装 ${missing.length} 个依赖`
         }
       }
 
@@ -972,10 +986,8 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         next.set(`${ext.type}:${ext.slug}`, ext.version)
         return next
       })
-      if (depMsg) {
-        setInstallResult({ slug: ext.slug, ok: true, msg: `已安装${depMsg}` })
-        setTimeout(() => setInstallResult(null), 3000)
-      }
+      setInstallResult({ slug: ext.slug, ok: true, msg: `已安装${depMsg || ""}` })
+      setTimeout(() => setInstallResult(null), 3000)
     } catch (e) {
       setInstallingSlug(null)
       setInstallProgress(null)

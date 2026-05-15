@@ -62,7 +62,6 @@ export function DialogPrompt(props: DialogPromptProps) {
           onSubmit={() => {
             if (props.busy) return
             props.onConfirm?.(textarea.plainText)
-            dialog.clear()
           }}
           height={3}
           ref={(val: TextareaRenderable) => {

@@ -546,6 +546,8 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       setCurrentPage(1)
       setSelectedIndex(0)
     }
+    debugLog("[LocalView] restoring view via dialog.replace")
+    props.dialog.replace(() => <OmniStudioLocalView dialog={props.dialog} onBack={props.onBack} />, props.onBack)
   }
 
   /**
@@ -828,6 +830,8 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       setCurrentPage(1)
       setSelectedIndex(0)
     }
+    debugLog("[ListView] restoring view via dialog.replace")
+    props.dialog.replace(() => <OmniStudioListView dialog={props.dialog} onBack={props.onBack} />, props.onBack)
   }
 
   /**

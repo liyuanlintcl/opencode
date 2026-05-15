@@ -7,6 +7,7 @@ import { Flag } from "@opencode-ai/core/flag/flag"
 import { AppFileSystem } from "@opencode-ai/core/filesystem"
 import { withTransientReadRetry } from "@/util/effect-http-client"
 import { Global } from "@opencode-ai/core/global"
+import { discoverSpecs } from "@/omni-studio/spec-discovery"
 import type { MessageV2 } from "./message-v2"
 import type { MessageID } from "./schema"
 
@@ -35,8 +36,8 @@ function extract(messages: MessageV2.WithParts[]) {
 
 export interface Interface {
   readonly clear: (messageID: MessageID) => Effect.Effect<void>
-  readonly systemPaths: () => Effect.Effect<Set<string>, AppFileSystem.Error>
-  readonly system: () => Effect.Effect<string[], AppFileSystem.Error>
+  readonly systemPaths: () => Effect.Effect<Set<string>, AppFileSystem.Error, AppFileSystem.Service | Global.Service>
+  readonly system: () => Effect.Effect<string[], AppFileSystem.Error, AppFileSystem.Service | Global.Service>
   readonly find: (dir: string) => Effect.Effect<string | undefined, AppFileSystem.Error>
   readonly resolve: (
     messages: MessageV2.WithParts[],
@@ -155,10 +156,12 @@ export const layer: Layer.Layer<
 
       const files = yield* Effect.forEach(Array.from(paths), read, { concurrency: 8 })
       const remote = yield* Effect.forEach(urls, fetch, { concurrency: 4 })
+      const specs = yield* discoverSpecs()
 
       return [
         ...Array.from(paths).flatMap((item, i) => (files[i] ? [`Instructions from: ${item}\n${files[i]}`] : [])),
         ...urls.flatMap((item, i) => (remote[i] ? [`Instructions from: ${item}\n${remote[i]}`] : [])),
+        ...specs.map((spec: { slug: string; filepath: string; content: string }) => `Instructions from: spec:${spec.slug}:${spec.filepath}\n${spec.content}`),
       ]
     })
 

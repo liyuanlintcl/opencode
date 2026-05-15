@@ -16,6 +16,8 @@ import { OmniStudioAuth } from "@/omni-studio/auth"
 import { OmniStudioConfig } from "@/omni-studio/config"
 import { OmniStudioStore } from "@/omni-studio/store"
 import { OmniStudioMarket } from "@/omni-studio/market"
+import { checkMissingDependencies, checkDisabledDependencies } from "@/omni-studio/spec-discovery"
+import { AppFileSystem } from "@opencode-ai/core/filesystem"
 
 import type { ExtensionType, Extension, ExtensionEntry, PagedResult } from "@/omni-studio/types"
 
@@ -437,6 +439,38 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   /** 启用扩展 */
   const handleEnable = async (ext: { type: ExtensionType; slug: string }) => {
     try {
+      /** spec 启用前检查并提示启用未启用的外部依赖 */
+      if (ext.type === "spec") {
+        const disabled = await Effect.runPromise(
+          checkDisabledDependencies(ext.slug).pipe(
+            Effect.provide(AppFileSystem.defaultLayer),
+            Effect.provide(Global.layer),
+          ),
+        )
+        if (disabled.length > 0) {
+          const depList = disabled.map((d) => `${d.type}:${d.slug}`).join(", ")
+          suppressBackToMenu = true
+          try {
+            const confirmed = await DialogConfirm.show(
+              props.dialog,
+              "启用依赖",
+              `该 spec 依赖以下未启用扩展：${depList}。是否自动启用？`,
+            )
+            if (confirmed) {
+              for (const dep of disabled) {
+                await Effect.runPromise(
+                  OmniStudioStore.Service.use((svc) => svc.setEnabled(dep.type, dep.slug, true)).pipe(
+                    Effect.provide(OmniStudioStore.defaultLayer),
+                  ),
+                )
+              }
+            }
+          } finally {
+            suppressBackToMenu = false
+          }
+        }
+      }
+
       await Effect.runPromise(
         OmniStudioStore.Service.use((svc) => svc.setEnabled(ext.type, ext.slug, true)).pipe(
           Effect.provide(OmniStudioStore.defaultLayer),
@@ -880,6 +914,46 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           Effect.provide(OmniStudioStore.defaultLayer),
         ),
       )
+
+      /** spec 安装成功后检查并提示安装缺失的外部依赖 */
+      let depMsg = ""
+      if (ext.type === "spec") {
+        const missing = await Effect.runPromise(
+          checkMissingDependencies(ext.slug).pipe(
+            Effect.provide(AppFileSystem.defaultLayer),
+            Effect.provide(Global.layer),
+          ),
+        )
+        if (missing.length > 0) {
+          const depList = missing.map((d) => `${d.type}:${d.slug}`).join(", ")
+          suppressBackToMenu = true
+          try {
+            const confirmed = await DialogConfirm.show(
+              props.dialog,
+              "安装依赖",
+              `该 spec 依赖以下未安装扩展：${depList}。是否自动安装？`,
+            )
+            if (confirmed) {
+              for (const dep of missing) {
+                const depMeta = await Effect.runPromise(
+                  OmniStudioMarket.Service.use((svc) => svc.getMeta(dep.type, dep.slug)).pipe(
+                    Effect.provide(OmniStudioMarket.defaultLayer),
+                  ),
+                )
+                await Effect.runPromise(
+                  OmniStudioStore.Service.use((svc) => svc.install(depMeta, () => {})).pipe(
+                    Effect.provide(OmniStudioStore.defaultLayer),
+                  ),
+                )
+              }
+              depMsg = `，已自动安装 ${missing.length} 个依赖`
+            }
+          } finally {
+            suppressBackToMenu = false
+          }
+        }
+      }
+
       setInstallingSlug(null)
       setInstallProgress(null)
       /** 直接更新本地已安装集合，按钮会立即显示灰色 [已安装]，无黄色过渡。 */
@@ -888,6 +962,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         next.set(`${ext.type}:${ext.slug}`, ext.version)
         return next
       })
+      if (depMsg) {
+        setInstallResult({ slug: ext.slug, ok: true, msg: `已安装${depMsg}` })
+        setTimeout(() => setInstallResult(null), 3000)
+      }
     } catch (e) {
       setInstallingSlug(null)
       setInstallProgress(null)

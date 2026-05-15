@@ -23,6 +23,15 @@ import type { ExtensionType, Extension, ExtensionEntry, PagedResult } from "@/om
 let suppressBackToMenu = false
 
 /**
+ * 调试日志辅助函数，追加写入到 ~/.omni_studio/debug-search.log。
+ * 用于定位 T31 搜索功能的键盘事件和 dialog 生命周期问题。
+ */
+function debugLog(msg: string) {
+  const line = `[${new Date().toISOString()}] ${msg}\n`
+  void fs.appendFile(path.join(Global.Path.home, ".omni_studio", "debug-search.log"), line).catch(() => {})
+}
+
+/**
  * 本地扩展状态查询结果。
  */
 type StatusResult =
@@ -352,6 +361,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
   const [searchKeyword, setSearchKeyword] = createSignal("")
+  const [isSearchOpen, setIsSearchOpen] = createSignal(false)
   const [pendingAction, setPendingAction] = createSignal<{ type: "enable" | "disable" | "uninstall"; slug: string } | null>(null)
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
   const PAGE_SIZE = 10
@@ -492,11 +502,13 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     },
   })
 
-  /** 按 / 键弹出搜索输入框 */
+  /** 按 / 键弹出搜索输入框；搜索框已打开时忽略 */
   useKeyboard((evt) => {
-    if (evt.name === "/" && !pendingAction()) {
+    debugLog(`[LocalView] useKeyboard: evt.name=${evt.name}, isSearchOpen=${isSearchOpen()}, pendingAction=${pendingAction()}`)
+    if (evt.name === "/" && !isSearchOpen() && !pendingAction()) {
       evt.preventDefault()
       evt.stopPropagation()
+      debugLog("[LocalView] / key matched, calling handleSearch")
       void handleSearch()
     }
   })
@@ -513,12 +525,22 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
 
   /**
    * 弹出搜索输入框，输入关键词后触发本地过滤。
+   * DialogPrompt.show 内部调用 dialog.replace() 会触发当前视图的 onClose（backToMenu），
+   * 因此需要临时设置 suppressBackToMenu 阻止回到主菜单。
    */
   const handleSearch = async () => {
+    debugLog("[LocalView] handleSearch enter")
+    setIsSearchOpen(true)
+    suppressBackToMenu = true
+    debugLog(`[LocalView] suppressBackToMenu set to true, stack=${props.dialog.stack.length}`)
     const keyword = await DialogPrompt.show(props.dialog, "搜索本地扩展", {
       placeholder: "输入关键词",
       value: searchKeyword(),
     })
+    debugLog(`[LocalView] DialogPrompt returned: keyword=${keyword === null ? "null" : keyword}`)
+    suppressBackToMenu = false
+    setIsSearchOpen(false)
+    debugLog(`[LocalView] suppressBackToMenu restored to false`)
     if (keyword !== null) {
       setSearchKeyword(keyword.trim())
       setCurrentPage(1)
@@ -682,6 +704,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [currentPage, setCurrentPage] = createSignal(1)
   const [selectedType, setSelectedType] = createSignal<ExtensionType>("skill")
   const [searchKeyword, setSearchKeyword] = createSignal("")
+  const [isSearchOpen, setIsSearchOpen] = createSignal(false)
   const [pendingSlug, setPendingSlug] = createSignal<string | null>(null)
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
@@ -759,11 +782,13 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     },
   })
 
-  /** 按 / 键弹出搜索输入框 */
+  /** 按 / 键弹出搜索输入框；搜索框已打开时忽略 */
   useKeyboard((evt) => {
-    if (evt.name === "/" && !pendingSlug() && !installingSlug() && !installResult()) {
+    debugLog(`[ListView] useKeyboard: evt.name=${evt.name}, isSearchOpen=${isSearchOpen()}, pendingSlug=${pendingSlug()}, installingSlug=${installingSlug()}, installResult=${installResult()}`)
+    if (evt.name === "/" && !isSearchOpen() && !pendingSlug() && !installingSlug() && !installResult()) {
       evt.preventDefault()
       evt.stopPropagation()
+      debugLog("[ListView] / key matched, calling handleSearch")
       void handleSearch()
     }
   })
@@ -782,12 +807,22 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 
   /**
    * 弹出搜索输入框，输入关键词后触发远程搜索。
+   * DialogPrompt.show 内部调用 dialog.replace() 会触发当前视图的 onClose（backToMenu），
+   * 因此需要临时设置 suppressBackToMenu 阻止回到主菜单。
    */
   const handleSearch = async () => {
+    debugLog("[ListView] handleSearch enter")
+    setIsSearchOpen(true)
+    suppressBackToMenu = true
+    debugLog(`[ListView] suppressBackToMenu set to true, stack=${props.dialog.stack.length}`)
     const keyword = await DialogPrompt.show(props.dialog, "搜索扩展", {
       placeholder: "输入关键词",
       value: searchKeyword(),
     })
+    debugLog(`[ListView] DialogPrompt returned: keyword=${keyword === null ? "null" : keyword}`)
+    suppressBackToMenu = false
+    setIsSearchOpen(false)
+    debugLog(`[ListView] suppressBackToMenu restored to false`)
     if (keyword !== null) {
       setSearchKeyword(keyword.trim())
       setCurrentPage(1)
@@ -1005,10 +1040,13 @@ export function DialogOmniStudio() {
    * 使用 setTimeout 避免与 dialog 系统的 onClose 回调产生递归。
    */
   const backToMenu = () => {
+    debugLog(`[backToMenu] called, suppressBackToMenu=${suppressBackToMenu}, stack=${dialog.stack.length}`)
     if (suppressBackToMenu) {
+      debugLog("[backToMenu] suppressed, returning")
       return
     }
     setTimeout(() => {
+      debugLog("[backToMenu] setTimeout fired, replacing with DialogOmniStudio")
       dialog.replace(() => <DialogOmniStudio />)
     }, 0)
   }
@@ -1081,6 +1119,7 @@ export function DialogOmniStudio() {
           value: "local",
           description: "查看和管理已安装的扩展",
           onSelect: () => {
+            debugLog("[Menu] entering OmniStudioLocalView")
             dialog.replace(() => <OmniStudioLocalView dialog={dialog} onBack={backToMenu} />, backToMenu)
           },
         },
@@ -1089,6 +1128,7 @@ export function DialogOmniStudio() {
           value: "list",
           description: "浏览市场扩展并安装",
           onSelect: () => {
+            debugLog("[Menu] entering OmniStudioListView")
             dialog.replace(() => <OmniStudioListView dialog={dialog} onBack={backToMenu} />, backToMenu)
           },
         },

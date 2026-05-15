@@ -1,5 +1,5 @@
-/** 扩展类型：skill（技能）、tool（工具）、plugin（插件）、agent（智能体） */
-export type ExtensionType = "skill" | "tool" | "plugin" | "agent"
+/** 扩展类型：skill（技能）、tool（工具）、plugin（插件）、agent（智能体）、spec（组合规格） */
+export type ExtensionType = "skill" | "tool" | "plugin" | "agent" | "spec"
 
 /**
  * 后端分页信息。

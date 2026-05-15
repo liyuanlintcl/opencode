@@ -15,7 +15,7 @@ interface ApiResponse {
 
 /**
  * 将前端 ExtensionType（单数）映射为后端 entity_type（复数）。
- * skill → skills, tool → tools, plugin → plugins, agent → agents
+ * skill → skills, tool → tools, plugin → plugins, agent → agents, spec → specs
  */
 function toEntityType(type: ExtensionType): string {
   return type + "s"

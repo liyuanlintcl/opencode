@@ -93,7 +93,7 @@ function TypeSwitchBar(props: {
   onSwitch: (type: ExtensionType) => void
 }) {
   const { theme } = useTheme()
-  const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
+  const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent", "spec"]
   return (
     <box flexDirection="row" gap={2} paddingTop={1} paddingBottom={1}>
       {typeOptions.map((type) => {
@@ -400,7 +400,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const [searchKeyword, setSearchKeyword] = createSignal("")
   const [isSearchMode, setIsSearchMode] = createSignal(false)
   const [pendingAction, setPendingAction] = createSignal<{ type: "enable" | "disable" | "uninstall"; slug: string } | null>(null)
-  const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
+  const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent", "spec"]
   const PAGE_SIZE = 10
 
   createEffect(() => {
@@ -741,7 +741,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [installProgress, setInstallProgress] = createSignal<{ slug: string; downloaded: number; total: number } | null>(null)
   const [localVersions, setLocalVersions] = createSignal<Map<string, string>>(new Map())
 
-  const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent"]
+  const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent", "spec"]
 
   /**
    * 加载指定 type、页码和搜索词的远程数据，同时刷新本地已安装扩展列表。

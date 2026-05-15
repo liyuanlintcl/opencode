@@ -456,6 +456,11 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
               "启用依赖",
               `该 spec 依赖以下未启用扩展：${depList}。是否自动启用？`,
             )
+            /** DialogConfirm 完成后 stack 为空，需重新渲染当前视图，避免焦点回到聊天界面 */
+            props.dialog.replace(
+              () => <OmniStudioLocalView dialog={props.dialog} onBack={props.onBack} />,
+              props.onBack,
+            )
             if (confirmed) {
               for (const dep of disabled) {
                 await Effect.runPromise(
@@ -932,6 +937,11 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
               props.dialog,
               "安装依赖",
               `该 spec 依赖以下未安装扩展：${depList}。是否自动安装？`,
+            )
+            /** DialogConfirm 完成后 stack 为空，需重新渲染当前视图，避免焦点回到聊天界面 */
+            props.dialog.replace(
+              () => <OmniStudioListView dialog={props.dialog} onBack={props.onBack} />,
+              props.onBack,
             )
             if (confirmed) {
               for (const dep of missing) {

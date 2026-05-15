@@ -241,6 +241,24 @@ export const layer: Layer.Layer<
           }
         }
 
+        /** 扫描已启用 spec 内嵌的 tool */
+        const enabledSpecs = ((omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? [])
+          .filter((e) => e.type === "spec" && e.enabled)
+        for (const spec of enabledSpecs) {
+          const specToolsDir = path.join(omniStudioDir, "specs", spec.slug, "tools")
+          log.info("checking spec internal tools", { spec: spec.slug, dir: specToolsDir })
+          if (!fs.existsSync(specToolsDir)) continue
+          const toolMatches = Glob.scanSync("{tool,tools}/*.{js,ts}", { cwd: specToolsDir, absolute: true, dot: true, symlink: true })
+          log.info("spec internal tool files found", { spec: spec.slug, count: toolMatches.length, files: toolMatches })
+          for (const match of toolMatches) {
+            const namespace = path.basename(match, path.extname(match))
+            const mod = yield* Effect.promise(() => import(pathToFileURL(match).href))
+            for (const [id, def] of Object.entries<ToolDefinition>(mod)) {
+              custom.push(fromPlugin(id === "default" ? namespace : `${namespace}_${id}`, def))
+            }
+          }
+        }
+
         const plugins = yield* plugin.list()
         for (const p of plugins) {
           for (const [id, def] of Object.entries(p.tool ?? {})) {

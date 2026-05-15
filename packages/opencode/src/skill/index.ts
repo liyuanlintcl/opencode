@@ -248,6 +248,21 @@ const discoverSkills = Effect.fnUntraced(function* (
     }
   }
 
+  /** 扫描已启用 spec 内嵌的 skill */
+  const enabledSpecs = ((omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? [])
+    .filter((e) => e.type === "spec" && e.enabled)
+  const omniSpecsDir = path.join(Global.Path.home, ".omni_studio", "specs")
+  for (const spec of enabledSpecs) {
+    const specSkillsDir = path.join(omniSpecsDir, spec.slug, "skills")
+    const dirExists = yield* fsys.isDir(specSkillsDir)
+    log.info("checking spec internal skills", { spec: spec.slug, dir: specSkillsDir, exists: dirExists })
+    if (dirExists) {
+      const beforeMatches = state.matches.size
+      yield* scan(state, specSkillsDir, SKILL_PATTERN)
+      log.info("spec internal skills scanned", { spec: spec.slug, newMatches: state.matches.size - beforeMatches })
+    }
+  }
+
   return {
     matches: Array.from(state.matches),
     dirs: Array.from(state.dirs),

@@ -28,7 +28,7 @@ export interface SpecDependency {
 /**
  * 提取 SPEC.md 的 YAML frontmatter 和正文。
  */
-function extractFrontmatter(content: string): { frontmatter: string; body: string } {
+export function extractFrontmatter(content: string): { frontmatter: string; body: string } {
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
   if (!match) return { frontmatter: "", body: content }
   return { frontmatter: match[1], body: match[2] }
@@ -204,9 +204,35 @@ export const discoverSpecs = Effect.fn("SpecDiscovery.discover")(function* () {
       Effect.catch(() => Effect.succeed("")),
     )
     if (content) {
-      results.push({ slug: spec.slug, filepath: specMdPath, content })
+      const { body } = extractFrontmatter(content)
+      results.push({ slug: spec.slug, filepath: specMdPath, content: body.trim() })
     }
   }
 
   return results
+})
+
+/**
+ * 获取所有已启用的 spec 的 slug 列表。
+ * 供其他扩展类型（skill/tool/agent/plugin）扫描内嵌扩展时使用。
+ */
+export const getEnabledSpecs = Effect.fn("SpecDiscovery.getEnabledSpecs")(function* () {
+  const fs = yield* AppFileSystem.Service
+  const global = yield* Global.Service
+
+  const statePath = path.join(global.home, ".omni_studio", "state.json")
+  const stateExists = yield* fs.existsSafe(statePath)
+  if (!stateExists) return [] as string[]
+
+  const stateContent = yield* fs.readFileString(statePath).pipe(
+    Effect.catch(() => Effect.succeed("{}")),
+  )
+
+  const state = JSON.parse(stateContent) as {
+    extensions?: Array<{ type: string; slug: string; enabled: boolean }>
+  }
+
+  return (state.extensions ?? [])
+    .filter((e) => e.type === "spec" && e.enabled)
+    .map((e) => e.slug)
 })

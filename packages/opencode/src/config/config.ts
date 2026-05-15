@@ -671,6 +671,33 @@ export const layer = Layer.effect(
           }
         }
 
+        /** 扫描已启用 spec 内嵌的 agent 和 plugin */
+        const enabledSpecs = ((omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? [])
+          .filter((e) => e.type === "spec" && e.enabled)
+        for (const spec of enabledSpecs) {
+          const specDir = path.join(omniStudioDir, "specs", spec.slug)
+          const specExists = yield* fs.isDir(specDir).pipe(Effect.orElseSucceed(() => false))
+          if (!specExists) continue
+
+          const agentDir = path.join(specDir, "agents")
+          const agentExists = yield* fs.isDir(agentDir).pipe(Effect.orElseSucceed(() => false))
+          if (agentExists) {
+            log.info("loading spec internal agent", { spec: spec.slug, dir: agentDir })
+            result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.load(agentDir)))
+            result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.loadMode(agentDir)))
+            log.info("spec internal agent loaded", { spec: spec.slug })
+          }
+
+          const pluginDir = path.join(specDir, "plugins")
+          const pluginExists = yield* fs.isDir(pluginDir).pipe(Effect.orElseSucceed(() => false))
+          if (pluginExists) {
+            log.info("loading spec internal plugin", { spec: spec.slug, dir: pluginDir })
+            const list = yield* Effect.promise(() => ConfigPlugin.load(pluginDir))
+            yield* mergePluginOrigins(pluginDir, list, "global")
+            log.info("spec internal plugin loaded", { spec: spec.slug, count: list?.length ?? 0 })
+          }
+        }
+
         if (process.env.OPENCODE_CONFIG_CONTENT) {
           const source = "OPENCODE_CONFIG_CONTENT"
           const next = yield* loadConfig(process.env.OPENCODE_CONFIG_CONTENT, {

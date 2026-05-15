@@ -2,7 +2,8 @@
 
 ## 1. 背景与目标
 
-为 OpenCode CLI 提供 Omni Studio 扩展市场能力，使用户能够通过命令行浏览、安装、管理来自 Omni Studio Marketplace 的扩展（skill / tool / plugin / agent）。
+为 OpenCode CLI 提供 Omni Studio 扩展市场能力，使用户能够通过命令行浏览、安装、管理来自 Omni Studio Marketplace 的扩展（skill / tool / plugin / agent / spec）。
+其中 spec 为组合规格类型，通过 `SPEC.md` 声明依赖的外部/内部扩展集合，支持一键触发执行。
 
 ## 2. 用户故事
 
@@ -13,6 +14,8 @@
 - 作为用户，我希望查看本地扩展的安装状态和登录信息，以便了解当前环境。
 - 作为用户，我希望在 TUI 中启用/禁用扩展后，主界面实时加载/卸载对应功能，无需重启。
 - 作为用户，我希望手动删除扩展目录后，系统自动清理 state.json 中的残留记录，避免加载不存在的扩展。
+- 作为用户，我希望安装 spec 类型扩展后，系统自动发现并加载其内部包含的 skill / tool / plugin / agent，无需逐个手动安装。
+- 作为用户，我希望在 TUI 中手动触发已安装的 spec，以便执行其定义的组合任务流水线。
 
 ## 3. 功能需求
 
@@ -33,6 +36,8 @@
 | F10 | 实时同步：扩展启用/禁用后，skill / config / tool 模块实时刷新，TUI 主界面即时生效 | P0 |
 | F11 | 自动清理：扩展目录被手动删除后，自动从 state.json 中移除对应记录 | P1 |
 | F12 | Token 自动刷新：accessToken 过期时自动调用 refresh-token 接口，更新本地 token 并重试原请求 | P1 |
+| F13 | Spec 扩展支持：安装 spec 类型扩展后，自动扫描已启用的 spec，将其 SPEC.md 内容作为 instructions 注入系统提示 | P0 |
+| F14 | Spec 触发：TUI 中提供手动触发 spec 的入口，执行其 SPEC.md 定义的组合流水线 | P0 |
 
 ## 4. 非功能需求
 
@@ -71,3 +76,5 @@
 - [x] 执行任何生命周期脚本前，如存在 `activate` 脚本，先 source/调用 activate
 - [x] TUI 中启用/禁用扩展后，主界面实时刷新，无需重启
 - [x] 手动删除扩展目录后，state.json 自动清理对应记录
+- [ ] 安装 spec 扩展后，系统自动发现其内部 skill / tool / plugin / agent 并正确加载
+- [ ] TUI 中可手动触发已安装的 spec 扩展

@@ -31,7 +31,8 @@ omni-studio.json             {skills,tools,...}/
 | `executor.ts` | 扩展生命周期脚本检测与执行（install/start/stop/uninstall/activate），脚本存放在扩展目录的 `lifecycle/` 子目录中 | `src/omni-studio/executor.ts` |
 | `config.ts` | 配置文件读写 | `src/omni-studio/config.ts` |
 | `types.ts` | 共享类型定义 | `src/omni-studio/types.ts` |
-| `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio Extension 菜单（status/local/list/login/logout/setup）。安装/卸载/启用/禁用操作在 list 和 local 视图中以行内按钮提供 | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
+| `spec-discovery.ts` | Spec 扩展发现机制：扫描 spec 目录下的 SPEC.md，解析 skills.external / skills.internal，将内嵌扩展注册到 state.json | `src/omni-studio/spec-discovery.ts` |
+| `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio Extension 菜单（status/local/list/spec/login/logout/setup）。安装/卸载/启用/禁用操作在 list 和 local 视图中以行内按钮提供；spec 视图支持手动触发 | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
 
 ## 3. 数据模型
 
@@ -54,7 +55,7 @@ interface OmniStudioConfig {
 ```ts
 interface OmniStudioState {
   extensions: Array<{
-    type: "skill" | "tool" | "plugin" | "agent"
+    type: "skill" | "tool" | "plugin" | "agent" | "spec"
     slug: string
     version: string
     enabled: boolean
@@ -127,7 +128,8 @@ TUI 中的 slash 命令（`/` 触发）通过 `app.tsx` 的 command registry 机
 `DialogOmniStudio` 组件内部使用 `DialogSelect` 展示子菜单：
 - **Status**：调用 `Store.getStatus()`，仅展示登录状态和 API 配置摘要
 - **Local**：调用 `Store.getStatus()`，展示本地扩展列表，每行提供行内 `[启用]`/`[禁用]`/`[卸载]` 按钮（点击后切换为 `[确认启用] [取消]` 等确认模式）
-- **List**：调用 `Market.listPaged()`，展示远程扩展列表，顶部支持 `[skill]`/`[tool]`/`[plugin]`/`[agent]` 类型切换，每行右侧提供 `[安装]` 按钮，点击后弹出确认并安装
+- **List**：调用 `Market.listPaged()`，展示远程扩展列表，顶部支持 `[skill]`/`[tool]`/`[plugin]`/`[agent]`/`[spec]` 类型切换，每行右侧提供 `[安装]` 按钮，点击后弹出确认并安装
+- **Spec**：展示已安装的 spec 列表，每行提供 `[触发]` 按钮，手动执行 spec 定义的组合流水线
 - **Login**：输入 username / password，从配置读取 api_base 完成认证
 - **Logout**：调用 `Auth.logout()`，清除本地 token
 - **Setup**：输入 api_base，持久化到配置文件中
@@ -295,6 +297,58 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
    - 脚本失败仍标记为 disabled，但警告用户
 4. 更新 state.json（enabled: false）
 5. 输出禁用成功信息
+```
+
+### 5.8a Spec 发现流程
+
+```
+背景：
+- spec 扩展是一个组合规格，通过 SPEC.md 声明意图和依赖
+- 发现机制借鉴 opencode.jsonc 的 instructions 字段：系统读取文件内容并注入 system prompt
+- 不同于 skill/tool/plugin/agent，spec 不需要注册到 state.json 作为独立可加载扩展
+- spec 的内容（SPEC.md）直接作为指令被消费，内嵌的 skill/tool/plugin/agent 仅作为资源存在
+
+发现时机：
+1. 系统启动时扫描 ~/.omni_studio/specs/ 目录
+2. state.json 变更时（spec 启用/禁用/安装/卸载）
+3. 会话初始化时（类似 instructions 的加载时机）
+
+发现流程：
+1. 遍历 ~/.omni_studio/specs/ 下所有已启用的 spec 目录
+2. 对每个 spec 读取其 SPEC.md 文件
+3. 解析 YAML frontmatter（name / version / description / author / skills / tools / plugins / agents）
+4. 将 SPEC.md 的完整内容（frontmatter + markdown 正文）作为一条 instruction 注入
+   格式：Instructions from: spec:{slug}:{path}\n{content}
+5. 内嵌扩展（skills/ 目录下的子目录）不需要单独注册到 state.json
+   - 它们作为 spec 压缩包的一部分存在
+   - 由 spec 的 instruction 内容描述其用途和调用方式
+   - 运行时通过 spec 定义的 composite runtime 加载
+
+与 instructions 字段的对比：
+- opencode.jsonc instructions：用户手动指定文件路径，系统读取并注入
+- spec 发现：系统自动扫描 ~/.omni_studio/specs/ 下已启用的 spec，读取 SPEC.md 注入
+- 两者最终都汇入 Instruction.system() 的输出，作为 system prompt 的一部分
+
+幂等设计：
+- 每次会话初始化重新扫描，无持久化状态依赖
+- spec 禁用后其 SPEC.md 内容不再注入
+- spec 卸载后目录不存在，自然跳过
+```
+
+### 5.8b Spec 触发流程（TUI）
+
+```
+1. 用户在 Omni Studio 主菜单选择 "Spec"
+2. 调用 Store.getStatus() 过滤出 type === "spec" 的已安装扩展
+3. 构建 spec 列表，每行展示名称和版本
+4. 用户选中 spec 按 Enter：
+   a. 读取 spec 目录下的 SPEC.md
+   b. 解析依赖列表（外部 + 内部）
+   c. 检查所有依赖扩展是否已启用
+   d. 有未启用的依赖 → 提示用户先启用（提供一键启用选项）
+   e. 所有依赖就绪 → 执行 spec 定义的组合流水线
+5. 执行结果通过 DialogAlert 展示
+6. 按 esc 返回 spec 列表
 ```
 
 ### 5.9 TUI Slash 命令流程

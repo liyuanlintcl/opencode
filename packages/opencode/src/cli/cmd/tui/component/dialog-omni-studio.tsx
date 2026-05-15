@@ -1,13 +1,13 @@
 import path from "path"
 import fs from "fs/promises"
-import { TextAttributes, RGBA, type ScrollBoxRenderable, type InputRenderable, type KeyEvent } from "@opentui/core"
+import { TextAttributes, RGBA, type ScrollBoxRenderable, type TextareaRenderable } from "@opentui/core"
 import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { useTerminalDimensions } from "@opentui/solid"
 import { DialogSelect } from "@tui/ui/dialog-select"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogPrompt } from "../ui/dialog-prompt"
-import { Show, createSignal, createEffect, For, createMemo, onMount, type Accessor } from "solid-js"
+import { Show, createSignal, createEffect, For, createMemo, onMount, onCleanup, type Accessor } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
 import { Effect } from "effect"
 import { Global } from "@opencode-ai/core/global"
@@ -50,42 +50,56 @@ type ListResult =
 
 /**
  * 内联搜索输入框组件。
- * 使用 input 单行输入，默认不自动 focus，按 / 键获取焦点，Enter 提交后自动 blur。
- * 样式与 DialogSelect 的搜索框保持一致。
+ * 使用 textarea 单行输入，默认不自动 focus，按 / 键获取焦点，Enter 提交后自动 blur。
+ * / 搜索提示在 focus 时隐藏，避免干扰输入。
  */
 function InlineSearch(props: {
   initialValue: string
   onConfirm: (keyword: string) => void
 }) {
   const { theme } = useTheme()
-  let input: InputRenderable | undefined
+  let textarea: TextareaRenderable | undefined
+  const [isFocused, setIsFocused] = createSignal(false)
 
   /** 监听 / 键，为搜索框获取焦点 */
   useKeyboard((evt) => {
-    if (evt.name === "/" && input && !input.isDestroyed && !input.focused) {
-      input.focus()
+    if (evt.name === "/" && textarea && !textarea.isDestroyed && !textarea.focused) {
+      textarea.focus()
       evt.preventDefault()
     }
   })
 
+  onMount(() => {
+    if (!textarea) return
+    const handleFocus = () => setIsFocused(true)
+    const handleBlur = () => setIsFocused(false)
+    textarea.on("focused", handleFocus)
+    textarea.on("blurred", handleBlur)
+    onCleanup(() => {
+      textarea?.off("focused", handleFocus)
+      textarea?.off("blurred", handleBlur)
+    })
+  })
+
   return (
     <box flexDirection="row" gap={2} paddingBottom={1}>
-      <input
+      <textarea
         onSubmit={() => {
-          props.onConfirm(input?.value ?? "")
-          input?.blur()
+          props.onConfirm(textarea?.plainText ?? "")
+          textarea?.blur()
         }}
-        ref={(val: InputRenderable) => {
-          input = val
-          input.value = props.initialValue
-        }}
+        height={1}
+        ref={(val: TextareaRenderable) => { textarea = val }}
+        initialValue={props.initialValue}
         placeholder="Search"
         placeholderColor={theme.textMuted}
-        focusedBackgroundColor={theme.backgroundPanel}
-        cursorColor={theme.primary}
-        focusedTextColor={theme.textMuted}
+        textColor={theme.text}
+        focusedTextColor={theme.text}
+        cursorColor={theme.text}
       />
-      <text fg={theme.textMuted}>/ 搜索</text>
+      <Show when={!isFocused()}>
+        <text fg={theme.textMuted}>/ 搜索</text>
+      </Show>
     </box>
   )
 }

@@ -17,6 +17,7 @@ import { ConfigMarkdown } from "@/config/markdown"
 import { Glob } from "@opencode-ai/core/util/glob"
 import * as Log from "@opencode-ai/core/util/log"
 import { Discovery } from "./discovery"
+import { parseSpecDependencies } from "@/omni-studio/spec-discovery"
 import CUSTOMIZE_OPENCODE_SKILL_BODY from "./prompt/customize-opencode.md" with { type: "text" }
 import { isRecord } from "@/util/record"
 
@@ -260,6 +261,30 @@ const discoverSkills = Effect.fnUntraced(function* (
       const beforeMatches = state.matches.size
       yield* scan(state, specSkillsDir, SKILL_PATTERN)
       log.info("spec internal skills scanned", { spec: spec.slug, newMatches: state.matches.size - beforeMatches })
+    }
+  }
+
+  /** 扫描已启用 spec 声明的外部 skill 依赖 */
+  for (const spec of enabledSpecs) {
+    const specMdPath = path.join(omniSpecsDir, spec.slug, "SPEC.md")
+    if (!(yield* fsys.existsSafe(specMdPath))) continue
+
+    const content = yield* fsys.readFileString(specMdPath).pipe(
+      Effect.catch(() => Effect.succeed("")),
+    )
+    if (!content) continue
+
+    const deps = parseSpecDependencies(content)
+    for (const dep of deps) {
+      if (dep.type !== "skill") continue
+      const skillDir = path.join(Global.Path.home, ".omni_studio", "skills", dep.slug)
+      const dirExists = yield* fsys.isDir(skillDir)
+      log.info("checking spec external skill", { spec: spec.slug, skill: dep.slug, dir: skillDir, exists: dirExists })
+      if (dirExists) {
+        const beforeMatches = state.matches.size
+        yield* scan(state, skillDir, SKILL_PATTERN)
+        log.info("spec external skill scanned", { spec: spec.slug, skill: dep.slug, newMatches: state.matches.size - beforeMatches })
+      }
     }
   }
 

@@ -36,8 +36,8 @@ function extract(messages: MessageV2.WithParts[]) {
 
 export interface Interface {
   readonly clear: (messageID: MessageID) => Effect.Effect<void>
-  readonly systemPaths: () => Effect.Effect<Set<string>, AppFileSystem.Error, AppFileSystem.Service | Global.Service>
-  readonly system: () => Effect.Effect<string[], AppFileSystem.Error, AppFileSystem.Service | Global.Service>
+  readonly systemPaths: () => Effect.Effect<Set<string>, AppFileSystem.Error>
+  readonly system: () => Effect.Effect<string[], AppFileSystem.Error>
   readonly find: (dir: string) => Effect.Effect<string | undefined, AppFileSystem.Error>
   readonly resolve: (
     messages: MessageV2.WithParts[],

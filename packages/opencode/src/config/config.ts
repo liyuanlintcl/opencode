@@ -12,7 +12,7 @@ import { Env } from "../env"
 import { applyEdits, modify } from "jsonc-parser"
 import { type InstanceContext } from "../project/instance"
 import { InstallationLocal, InstallationVersion } from "@opencode-ai/core/installation/version"
-import { existsSync, watch } from "fs"
+import { existsSync, watchFile, unwatchFile } from "fs"
 import { InstanceRef } from "@/effect/instance-ref"
 import { Instance } from "../project/instance"
 import { Account } from "@/account/account"
@@ -890,29 +890,26 @@ export const layer = Layer.effect(
     })
 
     /** 监听 state.json 文件变化，触发 config 刷新 */
-    const omniStudioDir = path.join(Global.Path.home, ".omni_studio")
+    const statePath = path.join(Global.Path.home, ".omni_studio", "state.json")
     try {
-      const watcher = watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {
-        const name = filename ? (typeof filename === "string" ? filename : filename.toString()) : null
-        if (name === "state.json" || name === null) {
-          log.info("state.json changed, refreshing config")
-          try {
-            const ctx = Instance.current
-            Effect.runPromise(
-              refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-            ).then(() => {
-              log.info("config refresh completed (fs.watch)")
-            }).catch((err) => {
-              log.error("config refresh failed (fs.watch)", { error: err instanceof Error ? err.message : String(err) })
-            })
-          } catch (err) {
-            log.warn("fs.watch callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
-          }
+      watchFile(statePath, { interval: 1000 }, InstanceState.bind(() => {
+        log.info("state.json changed (watchFile), refreshing config")
+        try {
+          const ctx = Instance.current
+          Effect.runPromise(
+            refresh().pipe(Effect.provideService(InstanceRef, ctx)),
+          ).then(() => {
+            log.info("config refresh completed (watchFile)")
+          }).catch((err) => {
+            log.error("config refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
+          })
+        } catch (err) {
+          log.warn("watchFile callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
         }
       }))
-      yield* Effect.addFinalizer(() => Effect.sync(() => { watcher.close() }))
+      yield* Effect.addFinalizer(() => Effect.sync(() => { unwatchFile(statePath) }))
     } catch (err) {
-      log.warn("failed to watch omni studio directory", { dir: omniStudioDir, error: err instanceof Error ? err.message : String(err) })
+      log.warn("failed to watchFile state.json", { path: statePath, error: err instanceof Error ? err.message : String(err) })
     }
 
     return Service.of({

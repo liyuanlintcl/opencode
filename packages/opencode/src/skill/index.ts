@@ -395,29 +395,26 @@ export const layer = Layer.effect(
     })
 
     /** 监听 state.json 文件变化，触发 skill 刷新 */
-    const omniStudioDir = path.join(global.home, ".omni_studio")
+    const statePath = path.join(global.home, ".omni_studio", "state.json")
     try {
-      const watcher = fs.watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {
-        const name = filename ? (typeof filename === "string" ? filename : filename.toString()) : null
-        if (name === "state.json" || name === null) {
-          log.info("state.json changed, refreshing skills")
-          try {
-            const ctx = Instance.current
-            Effect.runPromise(
-              refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-            ).then(() => {
-              log.info("skill refresh completed (fs.watch)")
-            }).catch((err) => {
-              log.error("skill refresh failed (fs.watch)", { error: err instanceof Error ? err.message : String(err) })
-            })
-          } catch (err) {
-            log.warn("fs.watch callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
-          }
+      fs.watchFile(statePath, { interval: 1000 }, InstanceState.bind(() => {
+        log.info("state.json changed (watchFile), refreshing skills")
+        try {
+          const ctx = Instance.current
+          Effect.runPromise(
+            refresh().pipe(Effect.provideService(InstanceRef, ctx)),
+          ).then(() => {
+            log.info("skill refresh completed (watchFile)")
+          }).catch((err) => {
+            log.error("skill refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
+          })
+        } catch (err) {
+          log.warn("watchFile callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
         }
       }))
-      yield* Effect.addFinalizer(() => Effect.sync(() => { watcher.close() }))
+      yield* Effect.addFinalizer(() => Effect.sync(() => { fs.unwatchFile(statePath) }))
     } catch (err) {
-      log.warn("failed to watch omni studio directory", { dir: omniStudioDir, error: err instanceof Error ? err.message : String(err) })
+      log.warn("failed to watchFile state.json", { path: statePath, error: err instanceof Error ? err.message : String(err) })
     }
 
     return Service.of({ get, all, dirs, available, refresh })
@@ -433,29 +430,25 @@ export const defaultLayer = layer.pipe(
 )
 
 export function fmt(list: Info[], opts: { verbose: boolean }) {
-  const described = list.filter((skill) => skill.description !== undefined)
-  if (described.length === 0) return "No skills are currently available."
+  if (list.length === 0) return "No skills are currently available."
+  const sorted = list.toSorted((a, b) => a.name.localeCompare(b.name))
   if (opts.verbose) {
     return [
       "<available_skills>",
-      ...described
-        .toSorted((a, b) => a.name.localeCompare(b.name))
-        .flatMap((skill) => [
-          "  <skill>",
-          `    <name>${skill.name}</name>`,
-          `    <description>${skill.description}</description>`,
-          `    <location>${pathToFileURL(skill.location).href}</location>`,
-          "  </skill>",
-        ]),
+      ...sorted.flatMap((skill) => [
+        "  <skill>",
+        `    <name>${skill.name}</name>`,
+        ...(skill.description ? [`    <description>${skill.description}</description>`] : []),
+        `    <location>${pathToFileURL(skill.location).href}</location>`,
+        "  </skill>",
+      ]),
       "</available_skills>",
     ].join("\n")
   }
 
   return [
     "## Available Skills",
-    ...described
-      .toSorted((a, b) => a.name.localeCompare(b.name))
-      .map((skill) => `- **${skill.name}**: ${skill.description}`),
+    ...sorted.map((skill) => `- **${skill.name}**: ${skill.description ?? ""}`),
   ].join("\n")
 }
 

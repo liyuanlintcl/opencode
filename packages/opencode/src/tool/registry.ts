@@ -331,29 +331,26 @@ export const layer: Layer.Layer<
     })
 
     /** 监听 state.json 文件变化，触发 tool registry 刷新 */
-    const omniStudioDir = path.join(Global.Path.home, ".omni_studio")
+    const statePath = path.join(Global.Path.home, ".omni_studio", "state.json")
     try {
-      const watcher = fs.watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {
-        const name = filename ? (typeof filename === "string" ? filename : filename.toString()) : null
-        if (name === "state.json" || name === null) {
-          log.info("state.json changed, refreshing tools")
-          try {
-            const ctx = Instance.current
-            Effect.runPromise(
-              refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-            ).then(() => {
-              log.info("tool registry refresh completed (fs.watch)")
-            }).catch((err) => {
-              log.error("tool registry refresh failed (fs.watch)", { error: err instanceof Error ? err.message : String(err) })
-            })
-          } catch (err) {
-            log.warn("fs.watch callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
-          }
+      fs.watchFile(statePath, { interval: 1000 }, InstanceState.bind(() => {
+        log.info("state.json changed (watchFile), refreshing tools")
+        try {
+          const ctx = Instance.current
+          Effect.runPromise(
+            refresh().pipe(Effect.provideService(InstanceRef, ctx)),
+          ).then(() => {
+            log.info("tool registry refresh completed (watchFile)")
+          }).catch((err) => {
+            log.error("tool registry refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
+          })
+        } catch (err) {
+          log.warn("watchFile callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
         }
       }))
-      yield* Effect.addFinalizer(() => Effect.sync(() => { watcher.close() }))
+      yield* Effect.addFinalizer(() => Effect.sync(() => { fs.unwatchFile(statePath) }))
     } catch (err) {
-      log.warn("failed to watch omni studio directory", { dir: omniStudioDir, error: err instanceof Error ? err.message : String(err) })
+      log.warn("failed to watchFile state.json", { path: statePath, error: err instanceof Error ? err.message : String(err) })
     }
 
     const ids: Interface["ids"] = Effect.fn("ToolRegistry.ids")(function* () {

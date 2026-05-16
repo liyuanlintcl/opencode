@@ -114,6 +114,7 @@ export const layer: Layer.Layer<
     const skill = yield* Skill.Service
     const truncate = yield* Truncate.Service
     const flags = yield* RuntimeFlags.Service
+    const fsys = yield* AppFileSystem.Service
 
     const invalid = yield* InvalidTool
     const task = yield* TaskTool
@@ -210,16 +211,19 @@ export const layer: Layer.Layer<
         const omniStudioDir = path.join(os.homedir(), ".omni_studio")
         log.info("scanning omni studio tools", { omniStudioDir })
 
-        const omniState = yield* Effect.tryPromise({
-          try: () => Bun.file(path.join(omniStudioDir, "state.json")).json().catch(() => ({ extensions: [] })),
-          catch: () => ({ extensions: [] }),
-        }).pipe(Effect.orElseSucceed(() => ({ extensions: [] })))
+        const stateContent = yield* fsys.readFileString(path.join(omniStudioDir, "state.json")).pipe(
+          Effect.catch(() => Effect.succeed("{}")),
+        )
+        let omniState: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
+        try {
+          omniState = JSON.parse(stateContent)
+        } catch {
+          omniState = { extensions: [] }
+        }
 
         log.info("omni studio state loaded", {
           omniStudioDir,
-          resultType: typeof omniState,
-          hasExtensions: "extensions" in (omniState as any),
-          extensionsCount: (omniState as any).extensions?.length ?? 0,
+          extensionsCount: omniState.extensions?.length ?? 0,
         })
 
         for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {

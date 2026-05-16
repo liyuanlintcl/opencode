@@ -220,19 +220,22 @@ const discoverSkills = Effect.fnUntraced(function* (
   }
 
   /** 扫描 Omni Studio 安装的已启用 skill 扩展 */
-  const omniStudioStatePath = path.join(Global.Path.home, ".omni_studio", "state.json")
+  const omniStudioStatePath = path.join(global.home, ".omni_studio", "state.json")
   log.info("scanning omni studio skills", { statePath: omniStudioStatePath })
 
-  const omniState = yield* Effect.tryPromise({
-    try: () => Bun.file(omniStudioStatePath).json().catch(() => ({ extensions: [] })),
-    catch: () => ({ extensions: [] }),
-  }).pipe(Effect.orElseSucceed(() => ({ extensions: [] })))
+  const stateContent = yield* fsys.readFileString(omniStudioStatePath).pipe(
+    Effect.catch(() => Effect.succeed("{}")),
+  )
+  let omniState: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
+  try {
+    omniState = JSON.parse(stateContent)
+  } catch {
+    omniState = { extensions: [] }
+  }
 
   log.info("omni studio state loaded", {
     statePath: omniStudioStatePath,
-    resultType: typeof omniState,
-    hasExtensions: "extensions" in (omniState as any),
-    extensionsCount: (omniState as any).extensions?.length ?? 0,
+    extensionsCount: omniState.extensions?.length ?? 0,
   })
 
   for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {

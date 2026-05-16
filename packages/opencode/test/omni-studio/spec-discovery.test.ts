@@ -16,45 +16,63 @@ const write = (filepath: string, content: string) =>
   })
 
 describe("discoverSpecs", () => {
-  it.instance("无参数调用 discoverSpecs", () =>
+  it.instance("传入 fs 和 global 调用 discoverSpecs", () =>
     Effect.gen(function* () {
       const { directory: dir } = yield* TestInstance
-      yield* write(path.join(dir, ".omni_studio", "state.json"), JSON.stringify({
-        extensions: [
-          { type: "spec", slug: "test-spec", version: "1.0.0", enabled: true },
-        ],
-      }))
-      yield* write(path.join(dir, ".omni_studio", "specs", "test-spec", "SPEC.md"), "---\ndependencies:\n  skills:\n    external:\n      - my-skill\n---\n\nTest spec content.")
-
-      const global = { home: dir, config: dir }
-      const layer = Layer.mergeAll(
-        AppFileSystem.defaultLayer,
-        Global.layerWith(global),
+      yield* write(
+        path.join(dir, ".omni_studio", "state.json"),
+        JSON.stringify({
+          extensions: [
+            { type: "spec", slug: "test-spec", version: "1.0.0", enabled: true },
+          ],
+        }),
+      )
+      yield* write(
+        path.join(dir, ".omni_studio", "specs", "test-spec", "SPEC.md"),
+        "---\ndependencies:\n  skills:\n    external:\n      - my-skill\n---\n\nTest spec content.",
       )
 
-      const result = yield* discoverSpecs().pipe(Effect.provide(layer))
+      const layer = Layer.mergeAll(
+        AppFileSystem.defaultLayer,
+        Global.layerWith({ home: dir, config: dir }),
+      )
+
+      const result = yield* Effect.gen(function* () {
+        const fs = yield* AppFileSystem.Service
+        const global = yield* Global.Service
+        return yield* discoverSpecs(fs, global)
+      }).pipe(Effect.provide(layer))
+
       expect(result.length).toBe(1)
       expect(result[0].slug).toBe("test-spec")
       expect(result[0].content).toBe("Test spec content.")
     }).pipe(Effect.provide(NodeFileSystem.layer)),
   )
 
-  it.instance("传入 fs 和 global 调用 discoverSpecs", () =>
+  it.instance("spec 未启用时不返回", () =>
     Effect.gen(function* () {
       const { directory: dir } = yield* TestInstance
-      yield* write(path.join(dir, ".omni_studio", "state.json"), JSON.stringify({
-        extensions: [
-          { type: "spec", slug: "test-spec2", version: "1.0.0", enabled: true },
-        ],
-      }))
-      yield* write(path.join(dir, ".omni_studio", "specs", "test-spec2", "SPEC.md"), "Test spec content 2.")
+      yield* write(
+        path.join(dir, ".omni_studio", "state.json"),
+        JSON.stringify({
+          extensions: [
+            { type: "spec", slug: "disabled-spec", version: "1.0.0", enabled: false },
+          ],
+        }),
+      )
 
-      const fs = yield* AppFileSystem.Service
-      const global = yield* Global.Service
+      const layer = Layer.mergeAll(
+        AppFileSystem.defaultLayer,
+        Global.layerWith({ home: dir, config: dir }),
+      )
 
-      const result = yield* discoverSpecs(fs, global)
-      expect(result.length).toBe(1)
-      expect(result[0].slug).toBe("test-spec2")
+      const result = yield* Effect.gen(function* () {
+        const fs = yield* AppFileSystem.Service
+        const global = yield* Global.Service
+        return yield* discoverSpecs(fs, global)
+      }).pipe(Effect.provide(layer))
+
+      expect(result.length).toBe(0)
     }).pipe(Effect.provide(NodeFileSystem.layer)),
   )
 })

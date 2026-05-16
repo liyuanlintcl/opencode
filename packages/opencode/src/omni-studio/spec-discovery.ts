@@ -180,15 +180,15 @@ export const checkDisabledDependencies = Effect.fn("SpecDiscovery.checkDisabledD
  * 内嵌的 skill/tool/plugin/agent 不单独注册到 state.json，仅作为 spec 资源存在。
  */
 export const discoverSpecs = Effect.fn("SpecDiscovery.discover")(function* (
-  fs?: AppFileSystem.Interface,
-  global?: Global.Interface,
+  fs: AppFileSystem.Interface,
+  global: Global.Interface,
 ) {
   const debugLog = (msg: string) => {
     try { require("fs").appendFileSync("/tmp/opencode-debug.log", `[${new Date().toISOString()}] [discoverSpecs] ${msg}\n`) } catch {}
   }
   debugLog("start")
-  const fsSvc = fs ?? (yield* AppFileSystem.Service)
-  const globalSvc = global ?? (yield* Global.Service)
+  const fsSvc = fs
+  const globalSvc = global
   debugLog(`global.home=${globalSvc.home}`)
 
   const specsDir = path.join(globalSvc.home, ".omni_studio", "specs")

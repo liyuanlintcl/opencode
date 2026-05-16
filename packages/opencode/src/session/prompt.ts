@@ -1601,13 +1601,16 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
     const prompt: (input: PromptInput) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.prompt")(
       function* (input: PromptInput) {
-        console.log("[DEBUG] SessionPrompt.prompt start, sessionID=", input.sessionID)
+        const debugLog = (msg: string) => {
+          try { require("fs").appendFileSync("/tmp/opencode-debug.log", `[${new Date().toISOString()}] ${msg}\n`) } catch {}
+        }
+        debugLog(`SessionPrompt.prompt start, sessionID=${input.sessionID}`)
         const session = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
-        console.log("[DEBUG] session loaded")
+        debugLog("session loaded")
         yield* revert.cleanup(session)
-        console.log("[DEBUG] revert.cleanup done")
+        debugLog("revert.cleanup done")
         const message = yield* createUserMessage(input)
-        console.log("[DEBUG] createUserMessage done, messageID=", message.info.id)
+        debugLog(`createUserMessage done, messageID=${message.info.id}`)
         yield* sessions.touch(input.sessionID)
 
         const permissions: Permission.Ruleset = []
@@ -1620,7 +1623,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         }
 
         if (input.noReply === true) return message
-        console.log("[DEBUG] entering loop")
+        debugLog("entering loop")
         return yield* loop({ sessionID: input.sessionID })
       },
     )
@@ -1635,13 +1638,16 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
     const runLoop: (sessionID: SessionID) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.run")(
       function* (sessionID: SessionID) {
-        console.log("[DEBUG] runLoop start, sessionID=", sessionID)
+        const debugLog = (msg: string) => {
+          try { require("fs").appendFileSync("/tmp/opencode-debug.log", `[${new Date().toISOString()}] ${msg}\n`) } catch {}
+        }
+        debugLog(`runLoop start, sessionID=${sessionID}`)
         const ctx = yield* InstanceState.context
         const slog = elog.with({ sessionID })
         let structured: unknown
         let step = 0
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
-        console.log("[DEBUG] runLoop session loaded, agent=", session.agent)
+        debugLog(`runLoop session loaded, agent=${session.agent}`)
 
         while (true) {
           yield* status.set(sessionID, { type: "busy" })
@@ -1803,23 +1809,25 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
             yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
 
-            console.log("[DEBUG] runLoop step", step, "building system prompt...")
-            console.log("[DEBUG] calling sys.skills...")
+            const debugLog = (msg: string) => {
+              try { require("fs").appendFileSync("/tmp/opencode-debug.log", `[${new Date().toISOString()}] ${msg}\n`) } catch {}
+            }
+            debugLog(`runLoop step ${step} building system prompt...`)
+            debugLog("calling sys.skills...")
             const skills = yield* sys.skills(agent).pipe(Effect.orDie)
-            console.log("[DEBUG] sys.skills done")
-            console.log("[DEBUG] calling sys.environment...")
+            debugLog("sys.skills done")
+            debugLog("calling sys.environment...")
             const env = yield* sys.environment(model).pipe(Effect.orDie)
-            console.log("[DEBUG] sys.environment done")
-            console.log("[DEBUG] calling instruction.system...")
+            debugLog("sys.environment done")
+            debugLog("calling instruction.system...")
             const instructions = yield* instruction.system().pipe(Effect.orDie)
-            console.log("[DEBUG] instruction.system done, count=", instructions.length)
-            console.log("[DEBUG] calling toModelMessagesEffect...")
+            debugLog(`instruction.system done, count=${instructions.length}`)
+            debugLog("calling toModelMessagesEffect...")
             const modelMsgs = yield* MessageV2.toModelMessagesEffect(msgs, model).pipe(Effect.orDie)
-            console.log("[DEBUG] toModelMessagesEffect done")
+            debugLog("toModelMessagesEffect done")
             const system = [...env, ...instructions, ...(skills ? [skills] : [])]
             try {
-              const fs = require("fs")
-              fs.writeFileSync("/tmp/opencode-system-prompt.txt", system.join("\n\n==========\n\n"))
+              require("fs").writeFileSync("/tmp/opencode-system-prompt.txt", system.join("\n\n==========\n\n"))
             } catch { /* 忽略写入错误 */ }
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)

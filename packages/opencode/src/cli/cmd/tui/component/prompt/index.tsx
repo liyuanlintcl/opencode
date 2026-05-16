@@ -1197,7 +1197,7 @@ export function Prompt(props: PromptProps) {
           ],
         })
         .catch((error) => {
-          console.error("[DEBUG] sdk.client.session.prompt failed:", error)
+          try { require("fs").appendFileSync("/tmp/opencode-debug.log", `[${new Date().toISOString()}] sdk.client.session.prompt failed: ${JSON.stringify(error)}\n`) } catch {}
         })
       if (editorParts.length > 0) editor.markSelectionSent()
     }

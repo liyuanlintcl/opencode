@@ -7,7 +7,6 @@ import type { Agent } from "@/agent/agent"
 import { Bus } from "@/bus"
 import { InstanceState } from "@/effect/instance-state"
 import { InstanceRef } from "@/effect/instance-ref"
-import { Instance } from "@/project/instance"
 import { Flag } from "@opencode-ai/core/flag/flag"
 import { Global } from "@opencode-ai/core/global"
 import { Permission } from "@/permission"
@@ -198,7 +197,7 @@ const discoverSkills = Effect.fnUntraced(function* (
     externalDirs.push(AGENTS_EXTERNAL_DIR)
 
     for (const dir of externalDirs) {
-      const root = path.join(global.home, dir)
+      const root = path.join(Global.Path.home, dir)
       if (!(yield* fsys.isDir(root))) continue
       yield* scan(state, root, EXTERNAL_SKILL_PATTERN, { dot: true, scope: "global" })
     }
@@ -219,7 +218,7 @@ const discoverSkills = Effect.fnUntraced(function* (
 
   const cfg = yield* config.get()
   for (const item of cfg.skills?.paths ?? []) {
-    const expanded = item.startsWith("~/") ? path.join(global.home, item.slice(2)) : item
+    const expanded = item.startsWith("~/") ? path.join(Global.Path.home, item.slice(2)) : item
     const dir = path.isAbsolute(expanded) ? expanded : path.join(directory, expanded)
     if (!(yield* fsys.isDir(dir))) {
       log.warn("skill path not found", { path: dir })
@@ -237,7 +236,7 @@ const discoverSkills = Effect.fnUntraced(function* (
   }
 
   /** 扫描 Omni Studio 安装的已启用 skill 扩展 */
-  const omniStudioStatePath = path.join(global.home, ".omni_studio", "state.json")
+  const omniStudioStatePath = path.join(Global.Path.home, ".omni_studio", "state.json")
   log.info("scanning omni studio skills", { statePath: omniStudioStatePath })
 
   const stateContent = yield* fsys.readFileString(omniStudioStatePath).pipe(
@@ -266,7 +265,7 @@ const discoverSkills = Effect.fnUntraced(function* (
   for (const ext of omniState.extensions ?? []) {
     log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
     if (ext.type === "skill" && ext.enabled) {
-      const extDir = path.join(global.home, ".omni_studio", "skills", ext.slug)
+      const extDir = path.join(Global.Path.home, ".omni_studio", "skills", ext.slug)
       const dirExists = yield* fsys.isDir(extDir)
       log.info("omni studio skill directory check", { slug: ext.slug, extDir, exists: dirExists })
       if (dirExists) {
@@ -285,7 +284,7 @@ const discoverSkills = Effect.fnUntraced(function* (
   /** 扫描已启用 spec 内嵌的 skill */
   const enabledSpecs = ((omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? [])
     .filter((e) => e.type === "spec" && e.enabled)
-  const omniSpecsDir = path.join(global.home, ".omni_studio", "specs")
+  const omniSpecsDir = path.join(Global.Path.home, ".omni_studio", "specs")
   for (const spec of enabledSpecs) {
     const specSkillsDir = path.join(omniSpecsDir, spec.slug, "skills")
     const dirExists = yield* fsys.isDir(specSkillsDir)
@@ -310,7 +309,7 @@ const discoverSkills = Effect.fnUntraced(function* (
     const deps = parseSpecDependencies(content)
     for (const dep of deps) {
       if (dep.type !== "skill") continue
-      const skillDir = path.join(global.home, ".omni_studio", "skills", dep.slug)
+      const skillDir = path.join(Global.Path.home, ".omni_studio", "skills", dep.slug)
       const dirExists = yield* fsys.isDir(skillDir)
       log.info("checking spec external skill", { spec: spec.slug, skill: dep.slug, dir: skillDir, exists: dirExists })
       if (dirExists) {
@@ -395,22 +394,15 @@ export const layer = Layer.effect(
     })
 
     /** 监听 state.json 文件变化，触发 skill 刷新 */
-    const statePath = path.join(global.home, ".omni_studio", "state.json")
+    const statePath = path.join(Global.Path.home, ".omni_studio", "state.json")
     try {
       fs.watchFile(statePath, { interval: 1000 }, InstanceState.bind(() => {
         log.info("state.json changed (watchFile), refreshing skills")
-        try {
-          const ctx = Instance.current
-          Effect.runPromise(
-            refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-          ).then(() => {
-            log.info("skill refresh completed (watchFile)")
-          }).catch((err) => {
-            log.error("skill refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
-          })
-        } catch (err) {
-          log.warn("watchFile callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
-        }
+        Effect.runPromise(refresh()).then(() => {
+          log.info("skill refresh completed (watchFile)")
+        }).catch((err) => {
+          log.error("skill refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
+        })
       }))
       yield* Effect.addFinalizer(() => Effect.sync(() => { fs.unwatchFile(statePath) }))
     } catch (err) {

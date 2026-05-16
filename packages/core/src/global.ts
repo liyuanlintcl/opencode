@@ -57,7 +57,7 @@ export interface Interface {
 
 export function make(input: Partial<Interface> = {}): Interface {
   return {
-    home: Path.home,
+    get home() { return Path.home },
     data: Path.data,
     cache: Path.cache,
     config: Flag.OPENCODE_CONFIG_DIR ?? Path.config,

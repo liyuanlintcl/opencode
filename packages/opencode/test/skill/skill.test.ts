@@ -6,6 +6,7 @@ import { provideInstance, provideTmpdirInstance, tmpdir } from "../fixture/fixtu
 import { testEffect } from "../lib/effect"
 import path from "path"
 import fs from "fs/promises"
+import { Global } from "@opencode-ai/core/global"
 
 const node = CrossSpawnSpawner.defaultLayer
 
@@ -417,6 +418,55 @@ description: A skill in the .opencode/skills directory.
           expect((yield* skill.dirs()).length).toBe(4)
         }),
       { git: true },
+    ),
+  )
+
+  it.live("refresh 使缓存失效并重新读取 state.json", () =>
+    provideTmpdirInstance((dir) =>
+      Effect.gen(function* () {
+        const svc = yield* Skill.Service
+        // discoverSkills 使用 Global.Path.home，测试文件必须创建到同一目录
+        const omniDir = path.join(Global.Path.home, ".omni_studio")
+        const skillsDir = path.join(omniDir, "skills", "refresh-test-skill")
+
+        // 先创建 enabled skill 的 state.json
+        yield* Effect.promise(() => fs.mkdir(skillsDir, { recursive: true }))
+        yield* Effect.promise(() =>
+          fs.writeFile(
+            path.join(skillsDir, "SKILL.md"),
+            "---\nname: refresh-test-skill\ndescription: test\n---\n",
+          ),
+        )
+        yield* Effect.promise(() =>
+          fs.writeFile(
+            path.join(omniDir, "state.json"),
+            JSON.stringify({
+              extensions: [
+                { type: "skill", slug: "refresh-test-skill", name: "refresh-test-skill", enabled: true },
+              ],
+            }),
+          ),
+        )
+
+        // 第一次调用：skill 应该存在
+        const list1 = yield* svc.available()
+        expect(list1.some((s) => s.name === "refresh-test-skill")).toBe(true)
+
+        // 禁用 skill 并刷新
+        yield* Effect.promise(() =>
+          fs.writeFile(
+            path.join(omniDir, "state.json"),
+            JSON.stringify({
+              extensions: [
+                { type: "skill", slug: "refresh-test-skill", name: "refresh-test-skill", enabled: false },
+              ],
+            }),
+          ),
+        )
+        yield* svc.refresh()
+        const list2 = yield* svc.available()
+        expect(list2.some((s) => s.name === "refresh-test-skill")).toBe(false)
+      }),
     ),
   )
 })

@@ -13,8 +13,8 @@ import { applyEdits, modify } from "jsonc-parser"
 import { type InstanceContext } from "../project/instance"
 import { InstallationLocal, InstallationVersion } from "@opencode-ai/core/installation/version"
 import { existsSync, watchFile, unwatchFile } from "fs"
-import { InstanceRef } from "@/effect/instance-ref"
-import { Instance } from "../project/instance"
+
+
 import { Account } from "@/account/account"
 import { isRecord } from "@/util/record"
 import type { ConsoleState } from "./console-state"
@@ -894,18 +894,11 @@ export const layer = Layer.effect(
     try {
       watchFile(statePath, { interval: 1000 }, InstanceState.bind(() => {
         log.info("state.json changed (watchFile), refreshing config")
-        try {
-          const ctx = Instance.current
-          Effect.runPromise(
-            refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-          ).then(() => {
-            log.info("config refresh completed (watchFile)")
-          }).catch((err) => {
-            log.error("config refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
-          })
-        } catch (err) {
-          log.warn("watchFile callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
-        }
+        Effect.runPromise(refresh()).then(() => {
+          log.info("config refresh completed (watchFile)")
+        }).catch((err) => {
+          log.error("config refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
+        })
       }))
       yield* Effect.addFinalizer(() => Effect.sync(() => { unwatchFile(statePath) }))
     } catch (err) {

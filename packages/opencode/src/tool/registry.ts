@@ -40,8 +40,8 @@ import { CrossSpawnSpawner } from "@opencode-ai/core/cross-spawn-spawner"
 import { Ripgrep } from "../file/ripgrep"
 import { Format } from "../format"
 import { InstanceState } from "@/effect/instance-state"
-import { InstanceRef } from "@/effect/instance-ref"
-import { Instance } from "@/project/instance"
+
+
 import { Question } from "../question"
 import { Todo } from "../session/todo"
 import { LSP } from "@/lsp/lsp"
@@ -335,18 +335,11 @@ export const layer: Layer.Layer<
     try {
       fs.watchFile(statePath, { interval: 1000 }, InstanceState.bind(() => {
         log.info("state.json changed (watchFile), refreshing tools")
-        try {
-          const ctx = Instance.current
-          Effect.runPromise(
-            refresh().pipe(Effect.provideService(InstanceRef, ctx)),
-          ).then(() => {
-            log.info("tool registry refresh completed (watchFile)")
-          }).catch((err) => {
-            log.error("tool registry refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
-          })
-        } catch (err) {
-          log.warn("watchFile callback failed: InstanceContext not available", { error: err instanceof Error ? err.message : String(err) })
-        }
+        Effect.runPromise(refresh()).then(() => {
+          log.info("tool registry refresh completed (watchFile)")
+        }).catch((err) => {
+          log.error("tool registry refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
+        })
       }))
       yield* Effect.addFinalizer(() => Effect.sync(() => { fs.unwatchFile(statePath) }))
     } catch (err) {

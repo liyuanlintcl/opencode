@@ -161,7 +161,7 @@ export const layer: Layer.Layer<
       return [
         ...Array.from(paths).flatMap((item, i) => (files[i] ? [`Instructions from: ${item}\n${files[i]}`] : [])),
         ...urls.flatMap((item, i) => (remote[i] ? [`Instructions from: ${item}\n${remote[i]}`] : [])),
-        ...specs.map((spec: { slug: string; filepath: string; content: string }) => `Instructions from: spec:${spec.slug}:${spec.filepath}\n${spec.content}`),
+        ...specs.map((spec: { slug: string; filepath: string; content: string }) => `[spec:${spec.slug}] 工作规范（请严格遵循执行）：\n\n${spec.content}`),
       ]
     })
 

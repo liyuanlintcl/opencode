@@ -77,4 +77,4 @@
 - [x] TUI 中启用/禁用扩展后，主界面实时刷新，无需重启
 - [x] 手动删除扩展目录后，state.json 自动清理对应记录
 - [x] 安装 spec 扩展后，系统自动发现其内部 skill / tool / plugin / agent 并正确加载（通过修改各扩展类型的扫描路径实现：skill→`specs/*/skills/`、tool→`specs/*/tools/`、agent→`specs/*/agents/`、plugin→`specs/*/plugins/`）
-- [ ] TUI 中可手动触发已安装的 spec 扩展（F14 未实现）
+- [x] TUI 中可手动触发已安装的 spec 扩展（F14）

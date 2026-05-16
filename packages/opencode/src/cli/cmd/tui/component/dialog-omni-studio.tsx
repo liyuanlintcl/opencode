@@ -5,6 +5,8 @@ import { useTheme } from "../context/theme"
 import { useDialog, type DialogContext } from "@tui/ui/dialog"
 import { useTerminalDimensions } from "@opentui/solid"
 import { DialogSelect } from "@tui/ui/dialog-select"
+import { useSDK } from "@tui/context/sdk"
+import { useRoute } from "@tui/context/route"
 import { DialogAlert } from "../ui/dialog-alert"
 import { DialogPrompt } from "../ui/dialog-prompt"
 import { Show, createSignal, createEffect, For, createMemo, onMount, onCleanup, type Accessor } from "solid-js"
@@ -1155,6 +1157,218 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 }
 
 /**
+ * Omni Studio Spec 触发视图。
+ * 展示已安装且已启用的 spec 列表，支持搜索和一键触发。
+ * 触发时将 spec 名称作为用户消息发送到当前 session，让 AI 执行对应组合流水线。
+ */
+function OmniStudioSpecTriggerView(props: { dialog: DialogContext; onBack: () => void }) {
+  const { theme } = useTheme()
+  const sdk = useSDK()
+  const route = useRoute()
+  const [status, setStatus] = createSignal<StatusResult>({ kind: "loading" })
+  const [searchKeyword, setSearchKeyword] = createSignal("")
+  const [showSearchBox, setShowSearchBox] = createSignal(true)
+  const [triggeringSlug, setTriggeringSlug] = createSignal<string | null>(null)
+  const [triggerResult, setTriggerResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
+
+  createEffect(() => {
+    void (async () => {
+      setStatus({ kind: "loading" })
+      try {
+        const result = await Effect.runPromise(
+          OmniStudioStore.Service.use((svc) => svc.getStatus()).pipe(
+            Effect.provide(OmniStudioStore.defaultLayer),
+          ),
+        )
+        setStatus({ kind: "ok", config: result.config, extensions: result.extensions })
+      } catch (e) {
+        setStatus({ kind: "error", message: String(e) })
+      }
+    })()
+  })
+
+  const specs = () => {
+    const s = status()
+    if (s.kind !== "ok") return []
+    const keyword = searchKeyword().toLowerCase()
+    return s.extensions.filter((e) => {
+      if (e.type !== "spec") return false
+      if (!e.enabled) return false
+      if (!keyword) return true
+      return e.slug.toLowerCase().includes(keyword) || (e.name?.toLowerCase().includes(keyword) ?? false)
+    })
+  }
+
+  const [selectedIndex, setSelectedIndex] = createSignal(0)
+
+  useKeyboard((evt) => {
+    const items = specs()
+    const maxIdx = items.length - 1
+    if (maxIdx < 0) return
+
+    if (evt.name === "up" || evt.name === "k") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setSelectedIndex((i) => (i <= 0 ? maxIdx : i - 1))
+    } else if (evt.name === "down" || evt.name === "j") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setSelectedIndex((i) => (i >= maxIdx ? 0 : i + 1))
+    } else if (evt.name === "return") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const ext = items[selectedIndex()]
+      if (!ext) return
+      if (triggeringSlug() === ext.slug || triggerResult()?.slug === ext.slug) return
+      void handleTrigger(ext)
+    } else if (evt.name === "escape") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      props.onBack()
+    } else if (evt.name === "backspace") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      setSearchKeyword("")
+      setShowSearchBox(false)
+      queueMicrotask(() => setShowSearchBox(true))
+      setSelectedIndex(0)
+    }
+  })
+
+  const confirmSearch = (keyword: string) => {
+    setSearchKeyword(keyword.trim())
+    setSelectedIndex(0)
+  }
+
+  const clearSearch = () => {
+    setSearchKeyword("")
+    setShowSearchBox(false)
+    queueMicrotask(() => setShowSearchBox(true))
+    setSelectedIndex(0)
+  }
+
+  const handleTrigger = async (ext: { slug: string; name?: string; version: string }) => {
+    if (route.data.type !== "session") {
+      suppressBackToMenu = true
+      try {
+        await DialogAlert.show(props.dialog, "无法触发", "请先进入一个会话后再触发 spec")
+      } finally {
+        suppressBackToMenu = false
+      }
+      return
+    }
+
+    setTriggeringSlug(ext.slug)
+    try {
+      const sessionID = route.data.sessionID
+      const message = `请按 spec "${ext.name || ext.slug}" 的规范执行。`
+      await sdk.client.session.prompt({
+        sessionID,
+        parts: [{ type: "text", text: message }],
+      })
+      setTriggeringSlug(null)
+      setTriggerResult({ slug: ext.slug, ok: true, msg: "已触发" })
+      setTimeout(() => {
+        setTriggerResult(null)
+        props.dialog.clear()
+      }, 1200)
+    } catch (e) {
+      setTriggeringSlug(null)
+      suppressBackToMenu = true
+      try {
+        await DialogAlert.show(props.dialog, "触发失败", String(e))
+      } finally {
+        suppressBackToMenu = false
+      }
+    }
+  }
+
+  const dimensions = useTerminalDimensions()
+  const scrollHeight = createMemo(() => {
+    const itemCount = specs().length
+    const contentHeight = Math.max(itemCount * 2 + 1, 3)
+    const maxH = Math.max(3, Math.floor(dimensions().height * 0.4))
+    const adjustedMaxH = Math.floor((maxH - 1) / 2) * 2 + 1
+    return Math.min(contentHeight, adjustedMaxH)
+  })
+
+  const SpecRow = (ext: { slug: string; name?: string; version: string }, index: () => number) => {
+    const isRowSelected = () => selectedIndex() === index()
+    const buttons = () => {
+      if (triggerResult()?.slug === ext.slug) {
+        return [<text fg={theme.primary}>{triggerResult()!.msg}</text>]
+      }
+      if (triggeringSlug() === ext.slug) {
+        return [<text fg={theme.textMuted}>触发中...</text>]
+      }
+      return [
+        <ActionButton
+          defaultFg={theme.primary}
+          position={0}
+          onClick={() => handleTrigger(ext)}
+          isRowSelected={isRowSelected}
+          selectedButtonIndex={() => 0}
+        >
+          [触发]
+        </ActionButton>,
+      ]
+    }
+    return (
+      <ExtensionRowShell name={ext.name} slug={ext.slug} version={ext.version} isSelected={isRowSelected}>
+        {buttons()}
+      </ExtensionRowShell>
+    )
+  }
+
+  return (
+    <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          触发 Spec 流水线
+        </text>
+        <text fg={theme.textMuted} selectable={false} onMouseUp={() => props.onBack()}>
+          esc
+        </text>
+      </box>
+      <box flexDirection="row" gap={2} paddingBottom={1}>
+        <Show when={showSearchBox()}>
+          <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
+        </Show>
+        <Show when={searchKeyword()}>
+          <text fg={theme.primary} selectable={false} onMouseUp={clearSearch}>
+            [清除]
+          </text>
+        </Show>
+      </box>
+      <Show when={status().kind === "ok" && specs().length > 0}>
+        <ScrollableList maxHeight={scrollHeight()} itemCount={specs().length} selectedIndex={selectedIndex()}>
+          <For each={specs()}>{SpecRow}</For>
+        </ScrollableList>
+      </Show>
+      <Show when={status().kind === "ok" && specs().length === 0}>
+        <box paddingBottom={1}>
+          <text fg={theme.textMuted}>
+            {searchKeyword()
+              ? `未找到匹配 "${searchKeyword()}" 的 spec`
+              : "没有已启用的 spec 扩展"}
+          </text>
+        </box>
+      </Show>
+      <Show when={status().kind === "error"}>
+        <box paddingBottom={1}>
+          <text fg={theme.error}>错误: {(status() as Extract<StatusResult, { kind: "error" }>).message}</text>
+        </box>
+      </Show>
+      <Show when={status().kind === "loading"}>
+        <box paddingBottom={1}>
+          <text fg={theme.textMuted}>加载中...</text>
+        </box>
+      </Show>
+    </box>
+  )
+}
+
+/**
  * Omni Studio TUI 对话框。
  * 在终端界面中提供扩展市场管理功能，
  * 支持查看状态、管理本地扩展、浏览市场列表、配置 API 地址、登录和登出。
@@ -1268,6 +1482,14 @@ export function DialogOmniStudio() {
           onSelect: () => {
             debugLog("[Menu] entering OmniStudioListView")
             dialog.replace(() => <OmniStudioListView dialog={dialog} onBack={backToMenu} />, backToMenu)
+          },
+        },
+        {
+          title: "触发 Spec",
+          value: "spec-trigger",
+          description: "选择已启用的 spec 并触发其组合流水线",
+          onSelect: () => {
+            dialog.replace(() => <OmniStudioSpecTriggerView dialog={dialog} onBack={backToMenu} />, backToMenu)
           },
         },
         {

@@ -1803,6 +1803,10 @@ NOTE: At any point in time through this workflow you should feel free to ask the
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
             const system = [...env, ...instructions, ...(skills ? [skills] : [])]
+            try {
+              const fs = require("fs")
+              fs.writeFileSync("/tmp/opencode-system-prompt.txt", system.join("\n\n==========\n\n"))
+            } catch { /* 忽略写入错误 */ }
             const format = lastUser.format ?? { type: "text" as const }
             if (format.type === "json_schema") system.push(STRUCTURED_OUTPUT_SYSTEM_PROMPT)
             const result = yield* handle.process({

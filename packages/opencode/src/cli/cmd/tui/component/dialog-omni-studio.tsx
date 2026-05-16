@@ -1159,7 +1159,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 /**
  * Omni Studio Spec 触发视图。
  * 展示已安装且已启用的 spec 列表，支持搜索和一键触发。
- * 触发时将 spec 名称作为用户消息发送到当前 session，让 AI 执行对应组合流水线。
+ * 触发时将 spec 名称作为用户消息发送到当前 session，让 AI 按对应规范执行。
  */
 function OmniStudioSpecTriggerView(props: { dialog: DialogContext; onBack: () => void }) {
   const { theme } = useTheme()
@@ -1324,13 +1324,13 @@ function OmniStudioSpecTriggerView(props: { dialog: DialogContext; onBack: () =>
     <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
       <box flexDirection="row" justifyContent="space-between">
         <text fg={theme.text} attributes={TextAttributes.BOLD}>
-          触发 Spec 流水线
+          触发 Spec
         </text>
         <text fg={theme.textMuted} selectable={false} onMouseUp={() => props.onBack()}>
           esc
         </text>
       </box>
-      <box flexDirection="row" gap={2} paddingBottom={1}>
+      <box flexDirection="row" gap={2}>
         <Show when={showSearchBox()}>
           <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
         </Show>
@@ -1487,7 +1487,7 @@ export function DialogOmniStudio() {
         {
           title: "触发 Spec",
           value: "spec-trigger",
-          description: "选择已启用的 spec 并触发其组合流水线",
+          description: "选择已启用的 spec 并触发其规范",
           onSelect: () => {
             dialog.replace(() => <OmniStudioSpecTriggerView dialog={dialog} onBack={backToMenu} />, backToMenu)
           },

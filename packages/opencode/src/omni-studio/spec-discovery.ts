@@ -122,8 +122,11 @@ export const checkMissingDependencies = Effect.fn("SpecDiscovery.checkMissingDep
   const stateContent = yield* fs.readFileString(statePath).pipe(
     Effect.catch(() => Effect.succeed("{}")),
   )
-  const state = JSON.parse(stateContent) as {
-    extensions?: Array<{ type: string; slug: string; enabled: boolean }>
+  let state: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
+  try {
+    state = JSON.parse(stateContent)
+  } catch {
+    state = { extensions: [] }
   }
   const installed = new Set((state.extensions ?? []).map((e) => `${e.type}:${e.slug}`))
 
@@ -155,8 +158,11 @@ export const checkDisabledDependencies = Effect.fn("SpecDiscovery.checkDisabledD
   const stateContent = yield* fs.readFileString(statePath).pipe(
     Effect.catch(() => Effect.succeed("{}")),
   )
-  const state = JSON.parse(stateContent) as {
-    extensions?: Array<{ type: string; slug: string; enabled: boolean }>
+  let state: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
+  try {
+    state = JSON.parse(stateContent)
+  } catch {
+    state = { extensions: [] }
   }
   const installed = new Map(
     (state.extensions ?? []).map((e) => [`${e.type}:${e.slug}`, e.enabled]),
@@ -187,8 +193,11 @@ export const discoverSpecs = Effect.fn("SpecDiscovery.discover")(function* () {
     Effect.catch(() => Effect.succeed("{}")),
   )
 
-  const state = JSON.parse(stateContent) as {
-    extensions?: Array<{ type: string; slug: string; enabled: boolean }>
+  let state: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
+  try {
+    state = JSON.parse(stateContent)
+  } catch {
+    state = { extensions: [] }
   }
   const enabledSpecs = (state.extensions ?? []).filter(
     (e) => e.type === "spec" && e.enabled,
@@ -228,8 +237,11 @@ export const getEnabledSpecs = Effect.fn("SpecDiscovery.getEnabledSpecs")(functi
     Effect.catch(() => Effect.succeed("{}")),
   )
 
-  const state = JSON.parse(stateContent) as {
-    extensions?: Array<{ type: string; slug: string; enabled: boolean }>
+  let state: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
+  try {
+    state = JSON.parse(stateContent)
+  } catch {
+    state = { extensions: [] }
   }
 
   return (state.extensions ?? [])
@@ -252,8 +264,11 @@ export const findDependentSpecs = Effect.fn("SpecDiscovery.findDependentSpecs")(
   const stateContent = yield* fs.readFileString(statePath).pipe(
     Effect.catch(() => Effect.succeed("{}")),
   )
-  const state = JSON.parse(stateContent) as {
-    extensions?: Array<{ type: string; slug: string; enabled: boolean }>
+  let state: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
+  try {
+    state = JSON.parse(stateContent)
+  } catch {
+    state = { extensions: [] }
   }
   const enabledSpecs = (state.extensions ?? []).filter(
     (e) => e.type === "spec" && e.enabled,

@@ -180,18 +180,27 @@ export const checkDisabledDependencies = Effect.fn("SpecDiscovery.checkDisabledD
  * 内嵌的 skill/tool/plugin/agent 不单独注册到 state.json，仅作为 spec 资源存在。
  */
 export const discoverSpecs = Effect.fn("SpecDiscovery.discover")(function* () {
+  const debugLog = (msg: string) => {
+    try { require("fs").appendFileSync("/tmp/opencode-debug.log", `[${new Date().toISOString()}] [discoverSpecs] ${msg}\n`) } catch {}
+  }
+  debugLog("start")
   const fs = yield* AppFileSystem.Service
   const global = yield* Global.Service
+  debugLog(`global.home=${global.home}`)
 
   const specsDir = path.join(global.home, ".omni_studio", "specs")
   const statePath = path.join(global.home, ".omni_studio", "state.json")
+  debugLog(`statePath=${statePath}`)
 
   const stateExists = yield* fs.existsSafe(statePath)
+  debugLog(`stateExists=${stateExists}`)
   if (!stateExists) return [] as SpecEntry[]
 
+  debugLog("reading state.json...")
   const stateContent = yield* fs.readFileString(statePath).pipe(
     Effect.catch(() => Effect.succeed("{}")),
   )
+  debugLog(`stateContent length=${stateContent.length}`)
 
   let state: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
   try {
@@ -202,22 +211,33 @@ export const discoverSpecs = Effect.fn("SpecDiscovery.discover")(function* () {
   const enabledSpecs = (state.extensions ?? []).filter(
     (e) => e.type === "spec" && e.enabled,
   )
+  debugLog(`enabledSpecs count=${enabledSpecs.length}`)
 
   const results: SpecEntry[] = []
   for (const spec of enabledSpecs) {
+    debugLog(`processing spec slug=${spec.slug}`)
+    if (!spec.slug) {
+      debugLog("skip: slug is empty")
+      continue
+    }
     const specMdPath = path.join(specsDir, spec.slug, "SPEC.md")
+    debugLog(`specMdPath=${specMdPath}`)
     const exists = yield* fs.existsSafe(specMdPath)
+    debugLog(`exists=${exists}`)
     if (!exists) continue
 
+    debugLog("reading SPEC.md...")
     const content = yield* fs.readFileString(specMdPath).pipe(
       Effect.catch(() => Effect.succeed("")),
     )
+    debugLog(`content length=${content.length}`)
     if (content) {
       const { body } = extractFrontmatter(content)
       results.push({ slug: spec.slug, filepath: specMdPath, content: body.trim() })
     }
   }
 
+  debugLog(`done, results count=${results.length}`)
   return results
 })
 

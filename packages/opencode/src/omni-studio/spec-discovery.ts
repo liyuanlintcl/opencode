@@ -179,25 +179,28 @@ export const checkDisabledDependencies = Effect.fn("SpecDiscovery.checkDisabledD
  * 发现机制借鉴 opencode.jsonc 的 instructions 字段：系统读取文件内容并注入 system prompt。
  * 内嵌的 skill/tool/plugin/agent 不单独注册到 state.json，仅作为 spec 资源存在。
  */
-export const discoverSpecs = Effect.fn("SpecDiscovery.discover")(function* () {
+export const discoverSpecs = Effect.fn("SpecDiscovery.discover")(function* (
+  fs?: AppFileSystem.Interface,
+  global?: Global.Interface,
+) {
   const debugLog = (msg: string) => {
     try { require("fs").appendFileSync("/tmp/opencode-debug.log", `[${new Date().toISOString()}] [discoverSpecs] ${msg}\n`) } catch {}
   }
   debugLog("start")
-  const fs = yield* AppFileSystem.Service
-  const global = yield* Global.Service
-  debugLog(`global.home=${global.home}`)
+  const fsSvc = fs ?? (yield* AppFileSystem.Service)
+  const globalSvc = global ?? (yield* Global.Service)
+  debugLog(`global.home=${globalSvc.home}`)
 
-  const specsDir = path.join(global.home, ".omni_studio", "specs")
-  const statePath = path.join(global.home, ".omni_studio", "state.json")
+  const specsDir = path.join(globalSvc.home, ".omni_studio", "specs")
+  const statePath = path.join(globalSvc.home, ".omni_studio", "state.json")
   debugLog(`statePath=${statePath}`)
 
-  const stateExists = yield* fs.existsSafe(statePath)
+  const stateExists = yield* fsSvc.existsSafe(statePath)
   debugLog(`stateExists=${stateExists}`)
   if (!stateExists) return [] as SpecEntry[]
 
   debugLog("reading state.json...")
-  const stateContent = yield* fs.readFileString(statePath).pipe(
+  const stateContent = yield* fsSvc.readFileString(statePath).pipe(
     Effect.catch(() => Effect.succeed("{}")),
   )
   debugLog(`stateContent length=${stateContent.length}`)
@@ -222,12 +225,12 @@ export const discoverSpecs = Effect.fn("SpecDiscovery.discover")(function* () {
     }
     const specMdPath = path.join(specsDir, spec.slug, "SPEC.md")
     debugLog(`specMdPath=${specMdPath}`)
-    const exists = yield* fs.existsSafe(specMdPath)
+    const exists = yield* fsSvc.existsSafe(specMdPath)
     debugLog(`exists=${exists}`)
     if (!exists) continue
 
     debugLog("reading SPEC.md...")
-    const content = yield* fs.readFileString(specMdPath).pipe(
+    const content = yield* fsSvc.readFileString(specMdPath).pipe(
       Effect.catch(() => Effect.succeed("")),
     )
     debugLog(`content length=${content.length}`)

@@ -168,7 +168,9 @@ export const layer: Layer.Layer<
       const remote = yield* Effect.forEach(urls, fetch, { concurrency: 4 })
       debugLog("remote fetch done")
       debugLog("calling discoverSpecs...")
-      const specs = yield* discoverSpecs()
+      const specs = yield* discoverSpecs(fs, global).pipe(
+        Effect.catch(() => Effect.succeed([])),
+      )
       debugLog(`discoverSpecs done, count=${specs.length}`)
 
       return [

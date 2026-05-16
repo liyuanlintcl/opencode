@@ -777,7 +777,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
         </text>
       </box>
       <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
-      <box flexDirection="row" gap={2} paddingBottom={1}>
+      <box flexDirection="row" gap={2}>
         <Show when={showSearchBox()}>
           <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
         </Show>
@@ -1111,7 +1111,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         </text>
       </box>
       <TypeSwitchBar selectedType={selectedType} onSwitch={switchType} />
-      <box flexDirection="row" gap={2} paddingBottom={1}>
+      <box flexDirection="row" gap={2}>
         <Show when={showSearchBox()}>
           <InlineSearch initialValue={searchKeyword()} onConfirm={confirmSearch} />
         </Show>

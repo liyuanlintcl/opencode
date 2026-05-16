@@ -1196,7 +1196,9 @@ export function Prompt(props: PromptProps) {
             ...nonTextParts.map(assign),
           ],
         })
-        .catch(() => {})
+        .catch((error) => {
+          console.error("[DEBUG] sdk.client.session.prompt failed:", error)
+        })
       if (editorParts.length > 0) editor.markSelectionSent()
     }
     history.append({

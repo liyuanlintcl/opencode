@@ -1601,9 +1601,13 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
     const prompt: (input: PromptInput) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.prompt")(
       function* (input: PromptInput) {
+        console.log("[DEBUG] SessionPrompt.prompt start, sessionID=", input.sessionID)
         const session = yield* sessions.get(input.sessionID).pipe(Effect.orDie)
+        console.log("[DEBUG] session loaded")
         yield* revert.cleanup(session)
+        console.log("[DEBUG] revert.cleanup done")
         const message = yield* createUserMessage(input)
+        console.log("[DEBUG] createUserMessage done, messageID=", message.info.id)
         yield* sessions.touch(input.sessionID)
 
         const permissions: Permission.Ruleset = []
@@ -1616,6 +1620,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
         }
 
         if (input.noReply === true) return message
+        console.log("[DEBUG] entering loop")
         return yield* loop({ sessionID: input.sessionID })
       },
     )
@@ -1630,11 +1635,13 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
     const runLoop: (sessionID: SessionID) => Effect.Effect<MessageV2.WithParts> = Effect.fn("SessionPrompt.run")(
       function* (sessionID: SessionID) {
+        console.log("[DEBUG] runLoop start, sessionID=", sessionID)
         const ctx = yield* InstanceState.context
         const slog = elog.with({ sessionID })
         let structured: unknown
         let step = 0
         const session = yield* sessions.get(sessionID).pipe(Effect.orDie)
+        console.log("[DEBUG] runLoop session loaded, agent=", session.agent)
 
         while (true) {
           yield* status.set(sessionID, { type: "busy" })
@@ -1796,12 +1803,14 @@ NOTE: At any point in time through this workflow you should feel free to ask the
 
             yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
 
+            console.log("[DEBUG] runLoop step", step, "building system prompt...")
             const [skills, env, instructions, modelMsgs] = yield* Effect.all([
               sys.skills(agent),
               sys.environment(model),
               instruction.system().pipe(Effect.orDie),
               MessageV2.toModelMessagesEffect(msgs, model),
             ])
+            console.log("[DEBUG] system prompt built, instructions count=", instructions.length)
             const system = [...env, ...instructions, ...(skills ? [skills] : [])]
             try {
               const fs = require("fs")

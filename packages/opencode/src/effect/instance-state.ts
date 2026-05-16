@@ -80,4 +80,8 @@ export const invalidate = <A, E, R>(self: InstanceState<A, E, R>) =>
     return yield* ScopedCache.invalidate(self.cache, yield* directory)
   })
 
+/** 清空当前缓存的所有条目，不依赖 InstanceRef */
+export const invalidateAll = <A, E, R>(self: InstanceState<A, E, R>) =>
+  ScopedCache.invalidateAll(self.cache)
+
 export * as InstanceState from "./instance-state"

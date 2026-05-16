@@ -333,14 +333,14 @@ export const layer: Layer.Layer<
     /** 监听 state.json 文件变化，触发 tool registry 刷新 */
     const statePath = path.join(Global.Path.home, ".omni_studio", "state.json")
     try {
-      fs.watchFile(statePath, { interval: 1000 }, InstanceState.bind(() => {
+      fs.watchFile(statePath, { interval: 1000 }, () => {
         log.info("state.json changed (watchFile), refreshing tools")
-        Effect.runPromise(refresh()).then(() => {
+        Effect.runPromise(InstanceState.invalidateAll(state)).then(() => {
           log.info("tool registry refresh completed (watchFile)")
         }).catch((err) => {
           log.error("tool registry refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
         })
-      }))
+      })
       yield* Effect.addFinalizer(() => Effect.sync(() => { fs.unwatchFile(statePath) }))
     } catch (err) {
       log.warn("failed to watchFile state.json", { path: statePath, error: err instanceof Error ? err.message : String(err) })

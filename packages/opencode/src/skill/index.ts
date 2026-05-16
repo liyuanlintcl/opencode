@@ -396,14 +396,19 @@ export const layer = Layer.effect(
     /** 监听 state.json 文件变化，触发 skill 刷新 */
     const statePath = path.join(Global.Path.home, ".omni_studio", "state.json")
     try {
-      fs.watchFile(statePath, { interval: 1000 }, InstanceState.bind(() => {
+      fs.watchFile(statePath, { interval: 1000 }, () => {
         log.info("state.json changed (watchFile), refreshing skills")
-        Effect.runPromise(refresh()).then(() => {
+        Effect.runPromise(
+          Effect.gen(function* () {
+            yield* InstanceState.invalidateAll(discovered)
+            yield* InstanceState.invalidateAll(state)
+          }),
+        ).then(() => {
           log.info("skill refresh completed (watchFile)")
         }).catch((err) => {
           log.error("skill refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
         })
-      }))
+      })
       yield* Effect.addFinalizer(() => Effect.sync(() => { fs.unwatchFile(statePath) }))
     } catch (err) {
       log.warn("failed to watchFile state.json", { path: statePath, error: err instanceof Error ? err.message : String(err) })

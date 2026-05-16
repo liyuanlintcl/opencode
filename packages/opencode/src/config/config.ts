@@ -892,14 +892,14 @@ export const layer = Layer.effect(
     /** 监听 state.json 文件变化，触发 config 刷新 */
     const statePath = path.join(Global.Path.home, ".omni_studio", "state.json")
     try {
-      watchFile(statePath, { interval: 1000 }, InstanceState.bind(() => {
+      watchFile(statePath, { interval: 1000 }, () => {
         log.info("state.json changed (watchFile), refreshing config")
-        Effect.runPromise(refresh()).then(() => {
+        Effect.runPromise(InstanceState.invalidateAll(state)).then(() => {
           log.info("config refresh completed (watchFile)")
         }).catch((err) => {
           log.error("config refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
         })
-      }))
+      })
       yield* Effect.addFinalizer(() => Effect.sync(() => { unwatchFile(statePath) }))
     } catch (err) {
       log.warn("failed to watchFile state.json", { path: statePath, error: err instanceof Error ? err.message : String(err) })

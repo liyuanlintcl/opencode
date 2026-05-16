@@ -1804,13 +1804,18 @@ NOTE: At any point in time through this workflow you should feel free to ask the
             yield* plugin.trigger("experimental.chat.messages.transform", {}, { messages: msgs })
 
             console.log("[DEBUG] runLoop step", step, "building system prompt...")
-            const [skills, env, instructions, modelMsgs] = yield* Effect.all([
-              sys.skills(agent),
-              sys.environment(model),
-              instruction.system().pipe(Effect.orDie),
-              MessageV2.toModelMessagesEffect(msgs, model),
-            ])
-            console.log("[DEBUG] system prompt built, instructions count=", instructions.length)
+            console.log("[DEBUG] calling sys.skills...")
+            const skills = yield* sys.skills(agent).pipe(Effect.orDie)
+            console.log("[DEBUG] sys.skills done")
+            console.log("[DEBUG] calling sys.environment...")
+            const env = yield* sys.environment(model).pipe(Effect.orDie)
+            console.log("[DEBUG] sys.environment done")
+            console.log("[DEBUG] calling instruction.system...")
+            const instructions = yield* instruction.system().pipe(Effect.orDie)
+            console.log("[DEBUG] instruction.system done, count=", instructions.length)
+            console.log("[DEBUG] calling toModelMessagesEffect...")
+            const modelMsgs = yield* MessageV2.toModelMessagesEffect(msgs, model).pipe(Effect.orDie)
+            console.log("[DEBUG] toModelMessagesEffect done")
             const system = [...env, ...instructions, ...(skills ? [skills] : [])]
             try {
               const fs = require("fs")

@@ -270,6 +270,7 @@ function useExtensionKeyboard(props: {
   canNext: () => boolean
   onEnter: (item: any, buttonIndex: number) => void
   onEsc?: () => boolean
+  onBackspace?: () => void
 }) {
   const [selectedIndex, setSelectedIndex] = createSignal(0)
   const [selectedButtonIndex, setSelectedButtonIndex] = createSignal(0)
@@ -296,6 +297,15 @@ function useExtensionKeyboard(props: {
       props.setSelectedType(nextType)
       props.setCurrentPage(() => 1)
       setSelectedIndex(() => 0)
+      return
+    }
+
+    if (evt.name === "backspace") {
+      if (props.onBackspace) {
+        evt.preventDefault()
+        evt.stopPropagation()
+        props.onBackspace()
+      }
       return
     }
 
@@ -605,6 +615,13 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
       }
       return false
     },
+    onBackspace: () => {
+      setSearchKeyword("")
+      setShowSearchBox(false)
+      queueMicrotask(() => setShowSearchBox(true))
+      setCurrentPage(1)
+      setSelectedIndex(0)
+    },
     onEnter: (ext, btnIdx) => {
       const pending = pendingAction()
       if (pending && pending.slug === ext.slug) {
@@ -871,6 +888,13 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         return true
       }
       return false
+    },
+    onBackspace: () => {
+      setSearchKeyword("")
+      setShowSearchBox(false)
+      queueMicrotask(() => setShowSearchBox(true))
+      setCurrentPage(1)
+      setSelectedIndex(0)
     },
     onEnter: (ext, btnIdx) => {
       if (pendingSlug() === ext.slug) {

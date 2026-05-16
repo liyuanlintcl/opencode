@@ -70,7 +70,7 @@ Task 1: 类型定义 & 配置模块
 | # | 任务 | 验收标准 | 预估 | 状态 |
 |---|---|---|---|---|
 | T30 | 扩展版本管理：多版本共存 / 安装指定版本 / 版本回退 | 需后端支持指定版本下载接口；当前已实现版本检测与覆盖更新（T16） | 4h | ⏳ |
-| T31 | 扩展搜索（TUI 常驻搜索框，按 `/` 获取焦点） | 市场列表：market.ts `listPaged` 支持 `search` 参数调用后端 `&keyword=` 过滤；本地扩展：前端按 `name`/`slug` 关键词过滤。搜索框常驻显示，默认焦点在列表（方向键可导航），按 `/` 键 focus 搜索框，Enter 确认后自动 blur 回到列表；样式与 DialogSelect 一致；切换类型保留搜索词 | 2h | ✅ |
+| T31 | 扩展搜索（TUI 常驻搜索框，按 `/` 获取焦点，Backspace 清除搜索） | 市场列表：market.ts `listPaged` 支持 `search` 参数调用后端 `&keyword=` 过滤；本地扩展：前端按 `name`/`slug` 关键词过滤。搜索框常驻显示，默认焦点在列表（方向键可导航），按 `/` 键 focus 搜索框，Enter 确认后自动 blur 回到列表；焦点在列表时按 Backspace 一键清空搜索词；切换类型保留搜索词 | 2h | ✅ |
 | T32 | 批量安装（`install` 支持从配置文件读取列表） | 可从 `omni-studio.packages.json` 批量安装 | 3h | ⏳ |
 | T33 | Spec 扩展类型支持：类型定义、Market API、Store 安装/卸载 | `ExtensionType` 增加 `"spec"`，market.ts `toEntityType` 映射 specs，store.ts `toPlural` 映射 spec→specs，安装解压到 `~/.omni_studio/specs/`，TUI `typeOptions` 增加 spec 类型 | 3h | ✅ |
 | T34 | Spec 发现机制：扫描已启用 spec 的 SPEC.md 并注入 instructions，含依赖管理、内嵌扩展自动发现、搜索框常驻 | `spec-discovery.ts` 扫描已启用 spec 的 `SPEC.md`，解析 YAML frontmatter，**只注入正文**（去掉 frontmatter）；扫描内嵌扩展说明文件拼接到正文；`session/instruction.ts` 集成发现结果；skill/tool/agent/plugin 扫描增加 `specs/{slug}/` 子目录路径；TUI 搜索框常驻显示，按 `/` 获取焦点，Enter 确认后自动 blur | 4h | ✅ |

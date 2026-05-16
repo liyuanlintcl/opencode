@@ -148,15 +148,25 @@ export const layer: Layer.Layer<
     })
 
     const system = Effect.fn("Instruction.system")(function* () {
+      console.log("[DEBUG] instruction.system start")
       const config = yield* cfg.get()
+      console.log("[DEBUG] cfg.get done")
       const paths = yield* systemPaths()
+      console.log("[DEBUG] systemPaths done, count=", paths.size)
       const urls = (config.instructions ?? []).filter(
         (item) => item.startsWith("https://") || item.startsWith("http://"),
       )
+      console.log("[DEBUG] urls count=", urls.length)
 
+      console.log("[DEBUG] reading instruction files...")
       const files = yield* Effect.forEach(Array.from(paths), read, { concurrency: 8 })
+      console.log("[DEBUG] files read done")
+      console.log("[DEBUG] fetching remote instructions...")
       const remote = yield* Effect.forEach(urls, fetch, { concurrency: 4 })
+      console.log("[DEBUG] remote fetch done")
+      console.log("[DEBUG] calling discoverSpecs...")
       const specs = yield* discoverSpecs()
+      console.log("[DEBUG] discoverSpecs done, count=", specs.length)
 
       return [
         ...Array.from(paths).flatMap((item, i) => (files[i] ? [`Instructions from: ${item}\n${files[i]}`] : [])),

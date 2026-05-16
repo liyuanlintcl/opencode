@@ -629,7 +629,7 @@ export const layer = Layer.effect(
         }
 
         /** 加载 Omni Studio 安装的已启用扩展 */
-        const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+        const omniStudioDir = path.join(Global.Path.home, ".omni_studio")
         log.info("loading omni studio extensions", { omniStudioDir })
 
         const stateContent = yield* fs.readFileString(path.join(omniStudioDir, "state.json")).pipe(
@@ -890,7 +890,7 @@ export const layer = Layer.effect(
     })
 
     /** 监听 state.json 文件变化，触发 config 刷新 */
-    const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+    const omniStudioDir = path.join(Global.Path.home, ".omni_studio")
     try {
       const watcher = watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {
         const name = filename ? (typeof filename === "string" ? filename : filename.toString()) : null

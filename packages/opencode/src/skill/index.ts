@@ -78,14 +78,18 @@ type State = {
   dirs: Set<string>
 }
 
+type SkillFallback = { name: string; description?: string }
+
 type DiscoveryState = {
   matches: string[]
   dirs: string[]
+  fallbacks: Record<string, SkillFallback>
 }
 
 type ScanState = {
   matches: Set<string>
   dirs: Set<string>
+  fallbacks: Record<string, SkillFallback>
 }
 
 export interface Interface {
@@ -96,7 +100,7 @@ export interface Interface {
   readonly refresh: () => Effect.Effect<void>
 }
 
-const add = Effect.fnUntraced(function* (state: State, match: string, bus: Bus.Interface) {
+const add = Effect.fnUntraced(function* (state: State, match: string, bus: Bus.Interface, fallback?: SkillFallback) {
   const md = yield* Effect.tryPromise({
     try: () => ConfigMarkdown.parse(match),
     catch: (err) => err,
@@ -116,20 +120,33 @@ const add = Effect.fnUntraced(function* (state: State, match: string, bus: Bus.I
 
   if (!md) return
 
-  if (!isSkillFrontmatter(md.data)) return
+  let name: string | undefined
+  let description: string | undefined
 
-  if (state.skills[md.data.name]) {
+  if (isSkillFrontmatter(md.data)) {
+    name = md.data.name
+    description = md.data.description
+  } else if (fallback) {
+    name = fallback.name
+    description = fallback.description
+  } else {
+    return
+  }
+
+  if (!name) return
+
+  if (state.skills[name]) {
     log.warn("duplicate skill name", {
-      name: md.data.name,
-      existing: state.skills[md.data.name].location,
+      name,
+      existing: state.skills[name].location,
       duplicate: match,
     })
   }
 
   state.dirs.add(path.dirname(match))
-  state.skills[md.data.name] = {
-    name: md.data.name,
-    description: md.data.description,
+  state.skills[name] = {
+    name,
+    description,
     location: match,
     content: md.content,
   }
@@ -173,7 +190,7 @@ const discoverSkills = Effect.fnUntraced(function* (
   directory: string,
   worktree: string,
 ) {
-  const state: ScanState = { matches: new Set(), dirs: new Set() }
+  const state: ScanState = { matches: new Set(), dirs: new Set(), fallbacks: {} }
 
   const externalDirs: string[] = []
   if (!Flag.OPENCODE_DISABLE_EXTERNAL_SKILLS) {
@@ -226,7 +243,15 @@ const discoverSkills = Effect.fnUntraced(function* (
   const stateContent = yield* fsys.readFileString(omniStudioStatePath).pipe(
     Effect.catch(() => Effect.succeed("{}")),
   )
-  let omniState: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
+  let omniState: {
+    extensions?: Array<{
+      type: string
+      slug: string
+      name?: string
+      description?: string
+      enabled: boolean
+    }>
+  }
   try {
     omniState = JSON.parse(stateContent)
   } catch {
@@ -238,15 +263,20 @@ const discoverSkills = Effect.fnUntraced(function* (
     extensionsCount: omniState.extensions?.length ?? 0,
   })
 
-  for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {
+  for (const ext of omniState.extensions ?? []) {
     log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
     if (ext.type === "skill" && ext.enabled) {
-      const extDir = path.join(Global.Path.home, ".omni_studio", "skills", ext.slug)
+      const extDir = path.join(global.home, ".omni_studio", "skills", ext.slug)
       const dirExists = yield* fsys.isDir(extDir)
       log.info("omni studio skill directory check", { slug: ext.slug, extDir, exists: dirExists })
       if (dirExists) {
         const beforeMatches = state.matches.size
         yield* scan(state, extDir, SKILL_PATTERN)
+        for (const match of state.matches) {
+          if (match.startsWith(extDir) && ext.name) {
+            state.fallbacks[match] = { name: ext.name, description: ext.description }
+          }
+        }
         log.info("omni studio skill scanned", { slug: ext.slug, newMatches: state.matches.size - beforeMatches })
       }
     }
@@ -255,7 +285,7 @@ const discoverSkills = Effect.fnUntraced(function* (
   /** 扫描已启用 spec 内嵌的 skill */
   const enabledSpecs = ((omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? [])
     .filter((e) => e.type === "spec" && e.enabled)
-  const omniSpecsDir = path.join(Global.Path.home, ".omni_studio", "specs")
+  const omniSpecsDir = path.join(global.home, ".omni_studio", "specs")
   for (const spec of enabledSpecs) {
     const specSkillsDir = path.join(omniSpecsDir, spec.slug, "skills")
     const dirExists = yield* fsys.isDir(specSkillsDir)
@@ -280,7 +310,7 @@ const discoverSkills = Effect.fnUntraced(function* (
     const deps = parseSpecDependencies(content)
     for (const dep of deps) {
       if (dep.type !== "skill") continue
-      const skillDir = path.join(Global.Path.home, ".omni_studio", "skills", dep.slug)
+      const skillDir = path.join(global.home, ".omni_studio", "skills", dep.slug)
       const dirExists = yield* fsys.isDir(skillDir)
       log.info("checking spec external skill", { spec: spec.slug, skill: dep.slug, dir: skillDir, exists: dirExists })
       if (dirExists) {
@@ -294,11 +324,12 @@ const discoverSkills = Effect.fnUntraced(function* (
   return {
     matches: Array.from(state.matches),
     dirs: Array.from(state.dirs),
+    fallbacks: state.fallbacks,
   }
 })
 
 const loadSkills = Effect.fnUntraced(function* (state: State, discovered: DiscoveryState, bus: Bus.Interface) {
-  yield* Effect.forEach(discovered.matches, (match) => add(state, match, bus), {
+  yield* Effect.forEach(discovered.matches, (match) => add(state, match, bus, discovered.fallbacks[match]), {
     concurrency: "unbounded",
     discard: true,
   })
@@ -364,7 +395,7 @@ export const layer = Layer.effect(
     })
 
     /** 监听 state.json 文件变化，触发 skill 刷新 */
-    const omniStudioDir = path.join(Global.Path.home, ".omni_studio")
+    const omniStudioDir = path.join(global.home, ".omni_studio")
     try {
       const watcher = fs.watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {
         const name = filename ? (typeof filename === "string" ? filename : filename.toString()) : null

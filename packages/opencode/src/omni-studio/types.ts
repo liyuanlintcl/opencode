@@ -98,6 +98,8 @@ export interface ExtensionEntry {
   slug: string
   /** 扩展显示名称，用于本地扩展列表展示；旧数据可能缺失 */
   name?: string
+  /** 扩展功能描述；旧数据可能缺失 */
+  description?: string
   /** 已安装版本号 */
   version: string
   /** 是否启用 */

@@ -111,6 +111,7 @@ export const layer = Layer.effect(
           type: ext.type,
           slug: ext.slug,
           name: ext.name,
+          description: ext.description,
           version: ext.version,
           enabled: existing?.enabled ?? false,
           installed_at: new Date().toISOString(),

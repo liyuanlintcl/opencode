@@ -31,7 +31,6 @@ import * as Truncate from "./truncate"
 import { ApplyPatchTool } from "./apply_patch"
 import { Glob } from "@opencode-ai/core/util/glob"
 import path from "path"
-import os from "os"
 import { pathToFileURL } from "url"
 
 import { Effect, Layer, Context } from "effect"
@@ -48,6 +47,7 @@ import { Todo } from "../session/todo"
 import { LSP } from "@/lsp/lsp"
 import { Instruction } from "../session/instruction"
 import { AppFileSystem } from "@opencode-ai/core/filesystem"
+import { Global } from "@opencode-ai/core/global"
 import { Bus } from "../bus"
 import { Agent } from "../agent/agent"
 import { Git } from "@/git"
@@ -208,7 +208,7 @@ export const layer: Layer.Layer<
         }
 
         /** 扫描 Omni Studio 安装的已启用 tool 扩展 */
-        const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+        const omniStudioDir = path.join(Global.Path.home, ".omni_studio")
         log.info("scanning omni studio tools", { omniStudioDir })
 
         const stateContent = yield* fsys.readFileString(path.join(omniStudioDir, "state.json")).pipe(
@@ -331,7 +331,7 @@ export const layer: Layer.Layer<
     })
 
     /** 监听 state.json 文件变化，触发 tool registry 刷新 */
-    const omniStudioDir = path.join(os.homedir(), ".omni_studio")
+    const omniStudioDir = path.join(Global.Path.home, ".omni_studio")
     try {
       const watcher = fs.watch(omniStudioDir, InstanceState.bind((eventType: string, filename: string | Buffer | null) => {
         const name = filename ? (typeof filename === "string" ? filename : filename.toString()) : null

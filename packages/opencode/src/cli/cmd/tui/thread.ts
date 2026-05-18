@@ -223,9 +223,10 @@ export const TuiThreadCommand = cmd({
         return
       }
 
-      setTimeout(() => {
-        client.call("checkUpgrade", { directory: cwd }).catch(() => {})
-      }, 1000).unref?.()
+      // 默认关闭自动更新，避免覆盖本地修改
+      // setTimeout(() => {
+      //   client.call("checkUpgrade", { directory: cwd }).catch(() => {})
+      // }, 1000).unref?.()
 
       try {
         const { tui } = await import("./app")

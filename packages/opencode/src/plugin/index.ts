@@ -20,6 +20,9 @@ import { CloudflareAIGatewayAuthPlugin, CloudflareWorkersAuthPlugin } from "./cl
 import { AzureAuthPlugin } from "./azure"
 import { DigitalOceanAuthPlugin } from "./digitalocean"
 import { Effect, Layer, Context, Stream } from "effect"
+import fs from "fs"
+import path from "path"
+import { Global } from "@opencode-ai/core/global"
 import { EffectBridge } from "@/effect/bridge"
 import { InstanceState } from "@/effect/instance-state"
 import { errorMessage } from "@/util/error"
@@ -281,6 +284,22 @@ export const layer = Layer.effect(
     const init = Effect.fn("Plugin.init")(function* () {
       yield* InstanceState.get(state)
     })
+
+    /** 监听 state.json 文件变化，触发 plugin 刷新 */
+    const statePath = path.join(Global.Path.home, ".omni_studio", "state.json")
+    try {
+      fs.watchFile(statePath, { interval: 1000 }, () => {
+        log.info("state.json changed (watchFile), refreshing plugins")
+        Effect.runPromise(InstanceState.invalidateAll(state)).then(() => {
+          log.info("plugin refresh completed (watchFile)")
+        }).catch((err) => {
+          log.error("plugin refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
+        })
+      })
+      yield* Effect.addFinalizer(() => Effect.sync(() => { fs.unwatchFile(statePath) }))
+    } catch (err) {
+      log.warn("failed to watchFile state.json", { path: statePath, error: err instanceof Error ? err.message : String(err) })
+    }
 
     return Service.of({ trigger, list, init })
   }),

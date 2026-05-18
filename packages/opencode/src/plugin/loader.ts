@@ -10,6 +10,9 @@ import {
 } from "./shared"
 import { ConfigPlugin } from "@/config/plugin"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
+import * as Log from "@opencode-ai/core/util/log"
+
+const log = Log.create({ service: "plugin-loader" })
 
 export namespace PluginLoader {
   // A normalized plugin declaration derived from config before any filesystem or npm work happens.
@@ -115,17 +118,38 @@ export namespace PluginLoader {
     return { ok: true, value: { ...plan, source: base.source, target: base.target, entry: base.entry, pkg: base.pkg } }
   }
 
+  /**
+   * Bun issue #21346: 对 file:// URL 动态 import 时，query string 变化不会触发重新加载，
+   * Bun 仍会返回缓存中的旧模块。在 POSIX 系统（Linux/macOS）上，将 file:// URL 转换为
+   * 绝对路径 + query string 可绕过此缓存问题；Windows 上绝对路径 + query string 会报错，
+   * 暂时保持 file:// URL 格式等待 Bun 修复。
+   */
+  function cacheBustEntry(entry: string): string {
+    const timestamp = Date.now()
+    if (entry.startsWith("file://") && process.platform !== "win32") {
+      const url = new URL(entry)
+      const sep = url.search ? "&" : "?"
+      return url.pathname + url.search + `${sep}invalidate=${timestamp}`
+    }
+    return `${entry}?invalidate=${timestamp}`
+  }
+
   // Import the resolved module only after all earlier validation has succeeded.
   export async function load(row: Resolved): Promise<{ ok: true; value: Loaded } | { ok: false; error: unknown }> {
     let mod
     try {
-      // file plugin 和 npm plugin 都添加时间戳绕过 Bun ESM 缓存，支持热重载
-      const entry = `${row.entry}?invalidate=${Date.now()}`
+      const entry = cacheBustEntry(row.entry)
+      log.info("plugin load: import", { spec: row.spec, source: row.source, original: row.entry, transformed: entry })
       mod = await import(entry)
     } catch (error) {
+      log.error("plugin load: import failed", { spec: row.spec, source: row.source, entry: row.entry, error: error instanceof Error ? error.message : String(error) })
       return { ok: false, error }
     }
-    if (!mod) return { ok: false, error: new Error(`Plugin ${row.spec} module is empty`) }
+    if (!mod) {
+      log.error("plugin load: module is empty", { spec: row.spec, entry: row.entry })
+      return { ok: false, error: new Error(`Plugin ${row.spec} module is empty`) }
+    }
+    log.info("plugin load: success", { spec: row.spec, source: row.source, keys: Object.keys(mod) })
     return { ok: true, value: { ...row, mod } }
   }
 

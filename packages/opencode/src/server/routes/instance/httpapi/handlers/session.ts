@@ -108,6 +108,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       params: { sessionID: SessionID }
       query: typeof MessagesQuery.Type
     }) {
+      yield* Effect.logInfo("v1 messages handler 开始").pipe(Effect.annotateLogs("sessionID", ctx.params.sessionID))
       if (ctx.query.before && ctx.query.limit === undefined) return yield* new HttpApiError.BadRequest({})
       if (ctx.query.before) {
         const before = ctx.query.before
@@ -118,9 +119,16 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
       }
       yield* requireSession(ctx.params.sessionID)
       if (ctx.query.limit === undefined || ctx.query.limit === 0) {
-        return yield* SessionError.mapStorageNotFound(session.messages({ sessionID: ctx.params.sessionID }))
+        yield* Effect.logInfo("v1 messages handler 调用 service（无 limit）").pipe(Effect.annotateLogs("sessionID", ctx.params.sessionID))
+        const result = yield* SessionError.mapStorageNotFound(session.messages({ sessionID: ctx.params.sessionID }))
+        yield* Effect.logInfo("v1 messages handler service 返回").pipe(Effect.annotateLogs("count", result.length))
+        return result
       }
 
+      yield* Effect.logInfo("v1 messages handler 调用 MessageV2.page").pipe(
+        Effect.annotateLogs("sessionID", ctx.params.sessionID),
+        Effect.annotateLogs("limit", ctx.query.limit),
+      )
       const page = yield* SessionError.mapStorageNotFound(
         MessageV2.page({
           sessionID: ctx.params.sessionID,
@@ -128,6 +136,7 @@ export const sessionHandlers = HttpApiBuilder.group(InstanceHttpApi, "session", 
           before: ctx.query.before,
         }),
       )
+      yield* Effect.logInfo("v1 messages handler page 返回").pipe(Effect.annotateLogs("count", page.items.length))
       if (!page.cursor) return page.items
 
       const request = yield* HttpServerRequest.HttpServerRequest

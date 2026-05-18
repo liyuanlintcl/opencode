@@ -34,18 +34,26 @@ export const messageHandlers = HttpApiBuilder.group(InstanceHttpApi, "v2.message
     return handlers.handle(
       "messages",
       Effect.fn(function* (ctx) {
+        yield* Effect.logInfo("v2 messages handler 开始").pipe(
+          Effect.annotateLogs("sessionID", ctx.params.sessionID),
+          Effect.annotateLogs("limit", ctx.query.limit),
+          Effect.annotateLogs("order", ctx.query.order),
+          Effect.annotateLogs("cursor", ctx.query.cursor),
+        )
         if (ctx.query.cursor && ctx.query.order !== undefined) return yield* new HttpApiError.BadRequest({})
         const decoded = yield* Effect.try({
           try: () => (ctx.query.cursor ? cursor.decode(ctx.query.cursor) : undefined),
           catch: () => new HttpApiError.BadRequest({}),
         })
         const order = decoded?.order ?? ctx.query.order ?? "desc"
+        yield* Effect.logInfo("v2 messages handler 调用 service").pipe(Effect.annotateLogs("order", order))
         const messages = yield* session.messages({
           sessionID: ctx.params.sessionID,
           limit: ctx.query.limit ?? DefaultMessagesLimit,
           order,
           cursor: decoded ? { id: decoded.id, time: decoded.time, direction: decoded.direction } : undefined,
         })
+        yield* Effect.logInfo("v2 messages handler service 返回").pipe(Effect.annotateLogs("count", messages.length))
         const first = messages[0]
         const last = messages.at(-1)
         return {

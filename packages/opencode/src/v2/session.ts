@@ -214,6 +214,12 @@ export const layer = Layer.effect(
         return (direction === "previous" ? rows.toReversed() : rows).map((row) => fromRow(row))
       }),
       messages: Effect.fn("V2Session.messages")(function* (input) {
+        yield* Effect.logInfo("V2Session.messages 开始查询").pipe(
+          Effect.annotateLogs("sessionID", input.sessionID),
+          Effect.annotateLogs("limit", input.limit),
+          Effect.annotateLogs("order", input.order),
+          Effect.annotateLogs("cursor", input.cursor),
+        )
         const direction = input.cursor?.direction ?? "next"
         let order = input.order ?? "desc"
         // Query the adjacent rows in reverse, then flip them back into the requested order below.
@@ -240,6 +246,7 @@ export const layer = Layer.effect(
           ? and(eq(SessionMessageTable.session_id, input.sessionID), boundary)
           : eq(SessionMessageTable.session_id, input.sessionID)
 
+        yield* Effect.logInfo("V2Session.messages 执行数据库查询")
         const rows = Database.use((db) => {
           const query = db
             .select()
@@ -252,6 +259,7 @@ export const layer = Layer.effect(
           const rows = input.limit === undefined ? query.all() : query.limit(input.limit).all()
           return direction === "previous" ? rows.toReversed() : rows
         })
+        yield* Effect.logInfo("V2Session.messages 数据库查询完成").pipe(Effect.annotateLogs("count", rows.length))
         return rows.map((row) => decode(row))
       }),
       context: Effect.fn("V2Session.context")(function* (sessionID) {

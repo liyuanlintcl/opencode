@@ -763,15 +763,20 @@ export const layer: Layer.Layer<
     })
 
     const messages: Interface["messages"] = Effect.fn("Session.messages")(function* (input) {
+      yield* Effect.logInfo("Session.messages 开始查询").pipe(Effect.annotateLogs("sessionID", input.sessionID), Effect.annotateLogs("limit", input.limit))
       if (input.limit) {
-        return (yield* MessageV2.page({ sessionID: input.sessionID, limit: input.limit })).items
+        const page = yield* MessageV2.page({ sessionID: input.sessionID, limit: input.limit })
+        yield* Effect.logInfo("Session.messages 返回（有 limit）").pipe(Effect.annotateLogs("count", page.items.length))
+        return page.items
       }
 
       const size = 50
       const result = [] as MessageV2.WithParts[]
       let before: string | undefined
       while (true) {
+        yield* Effect.logInfo("Session.messages 分页查询").pipe(Effect.annotateLogs("before", before))
         const page = yield* MessageV2.page({ sessionID: input.sessionID, limit: size, before })
+        yield* Effect.logInfo("Session.messages 分页返回").pipe(Effect.annotateLogs("count", page.items.length), Effect.annotateLogs("more", page.more))
         if (page.items.length === 0) break
         for (let i = page.items.length - 1; i >= 0; i--) {
           const item = page.items[i]
@@ -780,6 +785,7 @@ export const layer: Layer.Layer<
         if (!page.more || !page.cursor) break
         before = page.cursor
       }
+      yield* Effect.logInfo("Session.messages 返回总数").pipe(Effect.annotateLogs("total", result.length))
       return result.reverse()
     })
 

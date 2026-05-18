@@ -119,8 +119,8 @@ export namespace PluginLoader {
   export async function load(row: Resolved): Promise<{ ok: true; value: Loaded } | { ok: false; error: unknown }> {
     let mod
     try {
-      // 本地 file plugin 添加时间戳绕过 Bun ESM 缓存，支持热重载
-      const entry = row.source === "file" ? `${row.entry}?invalidate=${Date.now()}` : row.entry
+      // file plugin 和 npm plugin 都添加时间戳绕过 Bun ESM 缓存，支持热重载
+      const entry = `${row.entry}?invalidate=${Date.now()}`
       mod = await import(entry)
     } catch (error) {
       return { ok: false, error }

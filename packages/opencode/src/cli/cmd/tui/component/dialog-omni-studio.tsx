@@ -998,14 +998,12 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 
       setInstallingSlug(null)
       setInstallProgress(null)
-      /** 直接更新本地已安装集合，按钮会立即显示灰色 [已安装]，无黄色过渡。 */
+      // 安装成功后直接更新本地版本集合，UI 立即显示灰色 [已安装]，无高亮过渡
       setLocalVersions((prev) => {
         const next = new Map(prev)
         next.set(`${ext.type}:${ext.slug}`, ext.version)
         return next
       })
-      setInstallResult({ slug: ext.slug, ok: true, msg: `已安装${depMsg || ""}` })
-      setTimeout(() => setInstallResult(null), 3000)
     } catch (e) {
       setInstallingSlug(null)
       setInstallProgress(null)

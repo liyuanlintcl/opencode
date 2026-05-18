@@ -287,18 +287,33 @@ export const layer = Layer.effect(
 
     /** 监听 state.json 文件变化，触发 plugin 刷新 */
     const statePath = path.join(Global.Path.home, ".omni_studio", "state.json")
+    log.info("plugin hot-reload: 准备监听 state.json", { statePath, exists: fs.existsSync(statePath) })
     try {
-      fs.watchFile(statePath, { interval: 1000 }, () => {
-        log.info("state.json changed (watchFile), refreshing plugins")
+      fs.watchFile(statePath, { interval: 1000 }, (curr, prev) => {
+        log.info("plugin hot-reload: state.json watchFile 回调触发", {
+          statePath,
+          currMtime: curr.mtime.getTime(),
+          prevMtime: prev.mtime.getTime(),
+          changed: curr.mtime.getTime() !== prev.mtime.getTime(),
+        })
+        if (curr.mtime.getTime() === prev.mtime.getTime()) {
+          log.info("plugin hot-reload: mtime 未变化，跳过刷新")
+          return
+        }
+        log.info("plugin hot-reload: state.json 确实变化，开始刷新 plugins")
         Effect.runPromise(InstanceState.invalidateAll(state)).then(() => {
-          log.info("plugin refresh completed (watchFile)")
+          log.info("plugin hot-reload: plugin refresh completed (watchFile)")
         }).catch((err) => {
-          log.error("plugin refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
+          log.error("plugin hot-reload: plugin refresh failed (watchFile)", { error: err instanceof Error ? err.message : String(err) })
         })
       })
-      yield* Effect.addFinalizer(() => Effect.sync(() => { fs.unwatchFile(statePath) }))
+      log.info("plugin hot-reload: fs.watchFile 已注册", { statePath })
+      yield* Effect.addFinalizer(() => Effect.sync(() => {
+        log.info("plugin hot-reload: 取消监听 state.json")
+        fs.unwatchFile(statePath)
+      }))
     } catch (err) {
-      log.warn("failed to watchFile state.json", { path: statePath, error: err instanceof Error ? err.message : String(err) })
+      log.warn("plugin hot-reload: failed to watchFile state.json", { path: statePath, error: err instanceof Error ? err.message : String(err) })
     }
 
     return Service.of({ trigger, list, init })

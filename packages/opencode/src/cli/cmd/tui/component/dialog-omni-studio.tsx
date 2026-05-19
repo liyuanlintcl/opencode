@@ -8,6 +8,7 @@ import { DialogSelect } from "@tui/ui/dialog-select"
 import { useSDK } from "@tui/context/sdk"
 import { useRoute } from "@tui/context/route"
 import { DialogAlert } from "../ui/dialog-alert"
+import { DialogConfirm } from "../ui/dialog-confirm"
 import { DialogPrompt } from "../ui/dialog-prompt"
 import { Show, createSignal, createEffect, For, createMemo, onMount, onCleanup, type Accessor } from "solid-js"
 import { useKeyboard } from "@opentui/solid"
@@ -1414,8 +1415,30 @@ export function DialogOmniStudio() {
 
   /**
    * 处理登录操作。
+   * 先检测是否已有登录配置，若已登录则询问是否重新登录。
    */
   const handleLogin = async () => {
+    const loggedIn = await Effect.runPromise(
+      OmniStudioAuth.Service.use((svc) => svc.isLoggedIn()).pipe(
+        Effect.provide(OmniStudioAuth.defaultLayer),
+      ),
+    )
+
+    if (loggedIn) {
+      const config = await Effect.runPromise(
+        OmniStudioConfig.Service.use((svc) => svc.read()).pipe(
+          Effect.provide(OmniStudioConfig.defaultLayer),
+        ),
+      )
+      const username = config?.user?.username ?? "未知用户"
+      const confirmed = await DialogConfirm.show(
+        dialog,
+        "已登录",
+        `您已以 ${username} 身份登录，是否重新登录？`,
+      )
+      if (!confirmed) return
+    }
+
     const username = await DialogPrompt.show(dialog, "用户名", { placeholder: "admin" })
     if (!username) return
     const password = await DialogPrompt.show(dialog, "密码（输入内容可见）", { placeholder: "输入密码" })

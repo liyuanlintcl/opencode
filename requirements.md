@@ -21,19 +21,18 @@
 
 | ID | 需求 | 优先级 |
 |---|---|---|
-| F1 | 登录：`omni extension login`，仅输入用户名和密码；认证地址和 API 地址通过 `setup` 预先配置 | P0 |
-| F1a | 服务地址配置：`omni extension setup`，设置 api_base | P0 |
-| F2 | 登出：`omni extension logout` | P0 |
-| F3 | 交互式列出市场扩展：`omni extension list [type]`，显示本地安装状态并支持选中直接安装 | P0 |
-| F4 | 安装扩展：`omni extension install <type> <slug> [version]`；`version` 参数支持指定版本号，缺省时安装最新版；TUI 中安装成功后自动启用扩展，启用失败时行内提示 | P0 |
+| F1 | 登录：TUI 中输入用户名和密码完成认证；认证地址和 API 地址通过 `setup` 预先配置 | P0 |
+| F1a | 服务地址配置：TUI 中输入 api_base 并保存 | P0 |
+| F2 | 登出：TUI 中调用登出并清除本地 token | P0 |
+| F3 | 交互式列出市场扩展：TUI 中展示远程扩展列表，显示本地安装状态并支持选中直接安装 | P0 |
+| F4 | 安装扩展：TUI 中选择扩展并安装，`version` 参数支持指定版本号，缺省时安装最新版；安装成功后自动启用扩展，启用失败时行内提示 | P0 |
 | F4a | 更新检测：TUI 市场列表自动比对本地版本与远程版本，版本不一致时展示 `[更新]` 按钮 | P0 |
-| F4c | ~~常驻版本下拉框~~（已取消）：TUI 市场列表每行右侧直接展示版本选择下拉框 | P0 |
 | F4b | 下载进度显示：扩展包下载时展示实时进度百分比 | P1 |
-| F5 | 卸载扩展：`omni extension uninstall <type> <slug>` | P0 |
-| F6 | 启用扩展：`omni extension enable <type> <slug>` | P0 |
-| F7 | 禁用扩展：`omni extension disable <type> <slug>` | P0 |
-| F8 | 交互式查看本地扩展状态：`omni extension status`，支持选中扩展进行启用/禁用/卸载操作 | P0 |
-| F9 | TUI slash 命令：`/omni-studio` 在终端界面中显示 Omni Studio 管理菜单，支持 status / local / list / login / logout | P0 |
+| F5 | 卸载扩展：TUI 中选择已安装扩展并卸载 | P0 |
+| F6 | 启用扩展：TUI 中选择已禁用扩展并启用 | P0 |
+| F7 | 禁用扩展：TUI 中选择已启用扩展并禁用 | P0 |
+| F8 | 交互式查看本地扩展状态：TUI 中展示本地已安装扩展列表，支持选中进行启用/禁用/卸载操作 | P0 |
+| F9 | TUI slash 命令：`/omni-extensions`（别名 `/ext`）在终端界面中显示 Omni Extensions 管理菜单，支持 status / local / list / spec / login / logout / setup | P0 |
 | F10 | 实时同步：扩展启用/禁用后，skill / config / tool 模块实时刷新，TUI 主界面即时生效 | P0 |
 | F11 | 自动清理：扩展目录被手动删除后，自动从 state.json 中移除对应记录 | P1 |
 | F12 | Token 自动刷新：accessToken 过期时自动调用 refresh-token 接口，更新本地 token 并重试原请求 | P1 |
@@ -84,7 +83,6 @@
 - [x] TUI 中可手动触发已安装的 spec 扩展（F14）
 - [x] Omni Studio 扩展更新后，已加载的 plugin 代码自动热重载，无需重启 Omni Studio CLI（POSIX 系统通过绝对路径 + query string 绕过 Bun ESM 缓存；WSL2 已验证通过）
 - [x] Plugin 热重载过程包含完整调试日志，便于定位问题（state.json watchFile 触发、InstanceState invalidate、import 路径转换、加载结果）
-- [ ] ~~TUI 市场列表常驻版本下拉框~~（需求已取消）
 - [x] CLI `install` 命令的 `version` 参数生效，传入时下载并安装指定版本（F4）
 - [x] 安装指定版本后覆盖本地旧版本（旧版本文件删除，不保留多版本共存）
 - [x] TUI 安装成功后自动启用扩展，启用失败时行内提示红色错误信息（F4）

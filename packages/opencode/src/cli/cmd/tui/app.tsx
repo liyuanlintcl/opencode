@@ -648,10 +648,10 @@ function App(props: { onSnapshot?: () => Promise<string[]> }) {
         category: "System",
       },
       {
-        name: "omni-studio",
-        title: "Omni Studio",
-        slashName: "omni-studio",
-        slashAliases: ["omni"],
+        name: "omni-extensions",
+        title: "Omni Extensions",
+        slashName: "omni-extensions",
+        slashAliases: ["ext"],
         run: () => {
           dialog.replace(() => <DialogOmniStudio />)
         },

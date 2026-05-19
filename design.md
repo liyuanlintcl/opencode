@@ -4,8 +4,8 @@
 
 ```
 ┌─────────────────────────────────────────┐
-│      omni extension 命令                │
-│  (CLI command router & argument parser) │
+│      omni-extensions (TUI slash)        │
+│  (TUI slash command & dialog manager)   │
 └─────────────────────────────────────────┘
                    │
     ┌──────────────┼──────────────┐
@@ -24,7 +24,7 @@ omni-studio.json             {skills,tools,...}/
 
 | 模块 | 职责 | 文件 |
 |---|---|---|
-| `cli.ts` | 命令解析与路由：注册 `omni extension <subcmd>` 子命令 | `src/omni-studio/cli.ts` |
+| `cli.ts` | 预留扩展市场命令路由模块 | `src/omni-studio/cli.ts` |
 | `auth.ts` | 登录/登出/Token 管理 | `src/omni-studio/auth.ts` |
 | `market.ts` | HTTP 市场 API 调用 | `src/omni-studio/market.ts` |
 | `store.ts` | 本地扩展安装/卸载/状态，含 fs.watch 自动清理 | `src/omni-studio/store.ts` |
@@ -94,35 +94,18 @@ interface ExtensionScripts {
 
 ## 4. 接口设计
 
-### 4.1 CLI 命令接口
-
-通过 `omni extension <subcmd>` 调用：
-
-```ts
-type Command =
-  | { cmd: "login" }                                 // 仅输入 username / password，api_base 由 setup 预先配置
-  | { cmd: "logout" }
-  | { cmd: "setup" }                                 // 设置 api_base
-  | { cmd: "list"; type?: ExtensionType }          // 交互式：展示远程列表 + 本地安装状态，支持选中安装
-  | { cmd: "install"; type: ExtensionType; slug: string; version?: string }
-  | { cmd: "uninstall"; type: ExtensionType; slug: string }
-  | { cmd: "enable"; type: ExtensionType; slug: string }
-  | { cmd: "disable"; type: ExtensionType; slug: string }
-  | { cmd: "status" }                               // 交互式：展示本地扩展，支持选中启用/禁用/卸载
-```
-
-### 4.1a TUI Slash 命令接口
+### 4.1 TUI Slash 命令接口
 
 TUI 中的 slash 命令（`/` 触发）通过 `app.tsx` 的 command registry 机制注入。
 
 ```ts
 // app.tsx 中注册的 slash 命令示例（dev 分支新结构）
 {
-  name: "omni-studio",
-  title: "Omni Studio",
+  name: "omni-extensions",
+  title: "Omni Extensions",
   category: "System",
-  slashName: "omni-studio",
-  slashAliases: ["omni"],
+  slashName: "omni-extensions",
+  slashAliases: ["ext"],
   run: () => dialog.replace(() => <DialogOmniStudio />),
 }
 ```
@@ -136,7 +119,7 @@ TUI 中的 slash 命令（`/` 触发）通过 `app.tsx` 的 command registry 机
 - **Logout**：调用 `Auth.logout()`，清除本地 token
 - **Setup**：输入 api_base，持久化到配置文件中
 
-slash 命令的数据流与 CLI 命令共享同一套 Effect Service（`OmniStudioAuth`、`OmniStudioMarket`、`OmniStudioStore`），通过 `Effect.provide(defaultLayer)` 注入依赖。
+slash 命令的数据流通过 `Effect.provide(defaultLayer)` 注入 `OmniStudioAuth`、`OmniStudioMarket`、`OmniStudioStore` 三个 Effect Service 完成操作。
 
 ### 4.2 Auth API
 
@@ -243,7 +226,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 ```
 
 **指定版本安装补充说明**：
-- CLI 命令 `install <type> <slug> [version]` 的 `version` 参数为可选，缺省时默认安装最新版
+- `version` 参数为可选，缺省时默认安装最新版
 - TUI 中用户可通过版本下拉框选择特定版本，下拉框数据由 `getRevisions(type, slug)` 提供
 - 指定版本时，下载 URL 需携带版本参数（由后端 `revisions` 接口返回的下载信息或 `downloadExtension` 内部拼接）
 - 安装指定版本后仍覆盖本地旧版本（不保留多版本共存），旧版本文件被 rm -rf 删除
@@ -632,11 +615,10 @@ async function refreshToken(): Promise<OmniStudioConfig>
 
 ## 9. 品牌统一设计（F15）
 
-### 9.1 CLI 命令名
+### 9.1 命令与入口
 
-- **主命令**：`opencode` → `omni`
-- **扩展市场子命令**：`omni extension <subcmd>`（原规划中 `opencode omni-studio <subcmd>`）
-- **示例**：`omni extension login`、`omni extension list`、`omni extension install skill math-tool`
+- **CLI 主命令**：`opencode` → `omni`
+- **扩展市场入口**：TUI slash 命令 `/omni-extensions`（别名 `/ext`）
 
 ### 9.2 配置文件与路径
 

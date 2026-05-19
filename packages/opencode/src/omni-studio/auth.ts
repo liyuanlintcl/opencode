@@ -49,7 +49,7 @@ export const layer = Layer.effect(
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(credentials),
-            signal: AbortSignal.timeout(10_000),
+            signal: AbortSignal.timeout(5_000),
           }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
@@ -99,17 +99,17 @@ export const layer = Layer.effect(
       yield* configSvc.remove()
     })
 
-    /** 获取认证请求头；未登录时返回失败 */
+    /** 获取认证请求头；未登录或 token 为空时返回失败 */
     const getAuthHeaders = Effect.fn("OmniStudioAuth.getAuthHeaders")(function* () {
       const config = yield* configSvc.read()
-      if (!config) return yield* Effect.fail("Not logged in")
+      if (!config || !config.access_token) return yield* Effect.fail("Not logged in")
       return { Authorization: `Bearer ${config.access_token}` }
     })
 
-    /** 检查当前是否已登录 */
+    /** 检查当前是否已登录；配置文件存在且 access_token 非空才算已登录 */
     const isLoggedIn = Effect.fn("OmniStudioAuth.isLoggedIn")(function* () {
       const config = yield* configSvc.read()
-      return config !== null
+      return config !== null && config.access_token !== ""
     })
 
     /** 使用 refresh_token 刷新 access_token；刷新成功后更新本地配置 */

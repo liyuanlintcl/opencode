@@ -21,7 +21,7 @@ import { OmniStudioMarket } from "@/omni-studio/market"
 import { checkMissingDependencies, checkDisabledDependencies, findDependentSpecs } from "@/omni-studio/spec-discovery"
 import { AppFileSystem } from "@opencode-ai/core/filesystem"
 
-import type { ExtensionType, Extension, ExtensionEntry, PagedResult, Revision } from "@/omni-studio/types"
+import type { ExtensionType, Extension, ExtensionEntry, PagedResult, Revision, OmniStudioConfig as OmniStudioConfigType } from "@/omni-studio/types"
 
 /** 当子视图中弹出 DialogAlert 时，阻止 backToMenu 被 dialog.replace 触发，避免 Alert 闪退。 */
 let suppressBackToMenu = false
@@ -40,7 +40,7 @@ function debugLog(msg: string) {
  */
 type StatusResult =
   | { kind: "loading" }
-  | { kind: "ok"; config: { api_base: string; user: { username: string } } | null; extensions: Array<{ type: ExtensionType; slug: string; name?: string; version: string; enabled: boolean }> }
+  | { kind: "ok"; config: OmniStudioConfigType | null; extensions: Array<{ type: ExtensionType; slug: string; name?: string; version: string; enabled: boolean }> }
   | { kind: "error"; message: string }
 
 /**
@@ -395,10 +395,11 @@ function OmniStudioStatusView(props: { dialog: DialogContext; onBack: () => void
     const s = status()
     if (s.kind === "loading") return "加载中..."
     if (s.kind === "error") return `错误: ${s.message}`
+    const isLoggedIn = !!s.config && !!s.config.access_token
     const lines = [
-      `登录状态: ${s.config ? "已登录" : "未登录"}`,
+      `登录状态: ${isLoggedIn ? "已登录" : "未登录"}`,
       s.config ? `API 地址: ${s.config.api_base}` : "",
-      s.config ? `用户名: ${s.config.user.username}` : "",
+      isLoggedIn && s.config ? `用户名: ${s.config.user.username}` : "",
       `扩展数量: ${s.extensions.length}`,
     ]
     return lines.filter(Boolean).join("\n")

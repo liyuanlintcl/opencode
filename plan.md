@@ -75,6 +75,9 @@ Task 1: 类型定义 & 配置模块
 | T33 | Spec 扩展类型支持：类型定义、Market API、Store 安装/卸载 | `ExtensionType` 增加 `"spec"`，market.ts `toEntityType` 映射 specs，store.ts `toPlural` 映射 spec→specs，安装解压到 `~/.omni_studio/specs/`，TUI `typeOptions` 增加 spec 类型 | 3h | ✅ |
 | T34 | Spec 发现机制：扫描已启用 spec 的 SPEC.md 并注入 instructions，含依赖管理、内嵌扩展自动发现、搜索框常驻 | `spec-discovery.ts` 扫描已启用 spec 的 `SPEC.md`，解析 YAML frontmatter，**只注入正文**（去掉 frontmatter）；扫描内嵌扩展说明文件拼接到正文；`session/instruction.ts` 集成发现结果；skill/tool/agent/plugin 扫描增加 `specs/{slug}/` 子目录路径；TUI 搜索框常驻显示，按 `/` 获取焦点，Enter 确认后自动 blur | 4h | ✅ |
 | T35 | Spec TUI 手动触发：新增 Spec 菜单和触发视图 | DialogOmniStudio 主菜单增加 "触发 Spec" 选项，展示已安装且已启用的 spec 列表，支持搜索和 `[触发]` 按钮；触发时检查当前是否在 session 中，发送简短消息 `请按 spec "xxx" 的规范执行。` 到当前 session | 3h | ✅ |
+| T36 | Plugin 热重载：Bun ESM 缓存绕过与调试日志 | Omni Studio 扩展更新后 plugin 代码未热重载；根因是 Bun issue #21346（`file://` URL + query string 不会触发重新加载）。修复：POSIX 系统上将 `file://` URL 转为绝对路径 + `?invalidate=...` 再 import；Windows 暂保持原样。在 `plugin/index.ts` 和 `plugin/loader.ts` 中添加详细调试日志辅助定位 | 2h | ✅ |
+| T37 | session-memory-plugin API 适配与响应解析修复 | plugin 中 v1 messages 调用需传 `path.id` 替换 URL 占位符；v2 调用需使用 `client._client.get()`；Anthropic 返回 content 数组含 thinking + text block，需过滤 `type === "text"` 后拼接；OpenAI 兼容格式也可能返回数组，统一处理 | 2h | ✅ |
+| T38 | Omni Studio TUI 安装成功 UI 优化 | 安装成功后移除 3 秒高亮 `setTimeout` 过渡，直接更新 `localVersions` Map 使按钮立即显示灰色 `[已安装]`，避免闪烁 | 1h | ✅ |
 
 ## Task 交付规范
 
@@ -138,3 +141,6 @@ Task 1: 类型定义 & 配置模块
 - [x] T33 — Spec 扩展类型支持（类型定义、Market API、Store 安装/卸载）
 - [x] T34 — Spec 发现机制（扫描已启用 spec 的 SPEC.md 并注入 instructions）
 - [x] T35 — Spec TUI 手动触发（新增 Spec 菜单和触发视图）
+- [x] T36 — Plugin 热重载：Bun ESM 缓存绕过与调试日志
+- [x] T37 — session-memory-plugin API 适配与响应解析修复
+- [x] T38 — Omni Studio TUI 安装成功 UI 优化

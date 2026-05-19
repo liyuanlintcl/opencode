@@ -473,6 +473,37 @@ store.ts 额外监听：
 - 幂等设计：即使多次触发或 uninstall API 已清理过，都不会重复写入
 ```
 
+### 5.12 Plugin 热重载机制
+
+```
+背景：
+- Omni Studio 扩展更新后，plugin 代码需要重新加载，但 Bun 的 ESM 缓存导致旧代码仍然生效
+- Bun issue #21346：对 file:// URL 动态 import 时，即使 query string 变化也不会触发重新加载
+
+初始方案（已废弃）：
+- 在 plugin/loader.ts 的 load() 中给所有 plugin（file 和 npm source）统一添加 ?invalidate=${Date.now()}
+- 实际测试证明对 file:// URL 无效，Omni Studio 扩展更新后 plugin 版本号仍为旧版本
+
+最终方案：
+- POSIX 系统（Linux/macOS/WSL2）：将 file:// URL 转换为绝对路径 + ?invalidate=... 再 import
+  - 例：file:///home/lyl/.omni_studio/plugins/session-memory-plugin/plugin.ts
+    → /home/lyl/.omni_studio/plugins/session-memory-plugin/plugin.ts?invalidate=123456
+  - Bun 将绝对路径视为不同的模块 specifier，从而绕过 ESM 缓存
+- Windows 系统：暂时保持 file:// URL 格式（绝对路径 + query string 在 Windows 上会报错）
+  - 等待 Bun 官方修复 issue #21346
+- 调试日志：在 plugin/index.ts 中记录 fs.watchFile 的注册、触发、完成状态
+  - 在 plugin/loader.ts 中记录 import 路径转换（original → transformed）和加载结果
+
+触发链路：
+1. Omni Studio 扩展更新 → store.ts 写入 state.json
+2. plugin/index.ts 的 fs.watchFile 检测到 state.json mtime 变化
+3. 调用 InstanceState.invalidateAll(state) 清除 ScopedCache
+4. 下次 Plugin.trigger / Plugin.list / Plugin.init 调用时，InstanceState.get 重新执行 init
+5. init 中 PluginLoader.loadExternal 重新 resolve + load 所有 plugin
+6. load() 中 cacheBustEntry() 转换路径，import() 加载新代码
+7. 新 plugin hooks 注册到 state.hooks，后续事件触发执行新逻辑
+```
+
 ## 6. 技术选型
 
 | 层面 | 选型 | 理由 |
@@ -570,3 +601,4 @@ async function refreshToken(): Promise<OmniStudioConfig>
   - stop/uninstall 失败时继续操作但输出警告
   - 所有脚本超时时间为 5 分钟，超时时强制终止
 - **风险**：activate 脚本未正确设置环境变量导致后续脚本失败。缓减措施：在合并命令中导出环境变量，或在同一会话中顺序执行。
+- **风险**：Bun ESM 缓存导致 plugin 热重载在 Windows 上无法生效。缓减措施：POSIX 系统已使用绝对路径 + query string 绕过缓存；Windows 暂保持 file:// URL 格式，等待 Bun 修复 issue #21346。如 Windows 需紧急支持，可降级为临时目录复制方案（将 plugin 目录复制到 %TEMP% 后 import）。

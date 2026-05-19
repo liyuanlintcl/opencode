@@ -78,3 +78,5 @@
 - [x] 手动删除扩展目录后，state.json 自动清理对应记录
 - [x] 安装 spec 扩展后，系统自动发现其内部 skill / tool / plugin / agent 并正确加载（通过修改各扩展类型的扫描路径实现：skill→`specs/*/skills/`、tool→`specs/*/tools/`、agent→`specs/*/agents/`、plugin→`specs/*/plugins/`）
 - [x] TUI 中可手动触发已安装的 spec 扩展（F14）
+- [x] Omni Studio 扩展更新后，已加载的 plugin 代码自动热重载，无需重启 opencode（POSIX 系统通过绝对路径 + query string 绕过 Bun ESM 缓存；WSL2 已验证通过）
+- [x] Plugin 热重载过程包含完整调试日志，便于定位问题（state.json watchFile 触发、InstanceState invalidate、import 路径转换、加载结果）

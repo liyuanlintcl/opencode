@@ -925,6 +925,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     setSelectedType(type)
     setCurrentPage(1)
     setSelectedIndex(0)
+    setInstallResult(null)
   }
 
   /**
@@ -935,6 +936,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     setSearchKeyword(keyword.trim())
     setCurrentPage(1)
     setSelectedIndex(0)
+    setInstallResult(null)
   }
 
   /**
@@ -947,6 +949,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     queueMicrotask(() => setShowSearchBox(true))
     setCurrentPage(1)
     setSelectedIndex(0)
+    setInstallResult(null)
   }
 
   /**
@@ -1004,8 +1007,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           ),
         )
         setInstallResult({ slug: ext.slug, ok: true, msg: `安装并启用成功${depMsg}` })
+        setTimeout(() => setInstallResult((prev) => prev?.slug === ext.slug ? null : prev), 3000)
       } catch (enableErr) {
         setInstallResult({ slug: ext.slug, ok: false, msg: `安装成功，但启用失败: ${enableErr}${depMsg}` })
+        setTimeout(() => setInstallResult((prev) => prev?.slug === ext.slug ? null : prev), 5000)
       }
 
       setInstallingSlug(null)
@@ -1019,6 +1024,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       setInstallingSlug(null)
       setInstallProgress(null)
       setInstallResult({ slug: ext.slug, ok: false, msg: `安装失败: ${e}` })
+      setTimeout(() => setInstallResult((prev) => prev?.slug === ext.slug ? null : prev), 5000)
     }
   }
 
@@ -1064,7 +1070,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     const buttons = () => {
       if (installResult()?.slug === ext.slug) {
         return [
-          <text fg={installResult()!.ok ? theme.primary : theme.error}>
+          <text fg={installResult()!.ok ? theme.success : theme.error}>
             {installResult()!.msg}
           </text>,
         ]
@@ -1151,8 +1157,8 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           canPrev={canPrev}
           canNext={canNext}
           pageText={pageText}
-          onPrev={() => { setCurrentPage((p) => p - 1); setSelectedIndex(0) }}
-          onNext={() => { setCurrentPage((p) => p + 1); setSelectedIndex(0) }}
+          onPrev={() => { setCurrentPage((p) => p - 1); setSelectedIndex(0); setInstallResult(null) }}
+          onNext={() => { setCurrentPage((p) => p + 1); setSelectedIndex(0); setInstallResult(null) }}
         />
       </Show>
     </box>

@@ -109,6 +109,19 @@ export interface ExtensionEntry {
 }
 
 /**
+ * 扩展版本修订记录。
+ * 由后端 `/api/v1/packages/{entity_type}/{slug}/revisions` 接口返回。
+ */
+export interface Revision {
+  /** 版本号 */
+  version: string
+  /** 版本创建时间（ISO 8601） */
+  created_at: string
+  /** 版本变更日志；后端可能返回，也可能为空 */
+  changelog?: string
+}
+
+/**
  * 本地扩展状态文件的数据结构。
  * 对应 `~/.omni_studio/state.json`。
  */

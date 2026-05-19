@@ -1,7 +1,7 @@
 import { Effect, Layer, Context } from "effect"
 import { OmniStudioAuth } from "./auth"
 import { OmniStudioConfig } from "./config"
-import type { Extension, ExtensionType, PagedResult } from "./types"
+import type { Extension, ExtensionType, PagedResult, Revision } from "./types"
 
 /**
  * 后端统一响应信封结构：{ code, message, success, data }
@@ -32,6 +32,8 @@ export interface Interface {
   readonly listPaged: (type?: ExtensionType, page?: number, search?: string) => Effect.Effect<PagedResult<Extension>, string>
   /** 获取扩展元数据 */
   readonly getMeta: (type: ExtensionType, slug: string) => Effect.Effect<Extension, string>
+  /** 获取扩展的所有可选版本列表 */
+  readonly getRevisions: (type: ExtensionType, slug: string) => Effect.Effect<Revision[], string>
   /** 下载扩展包到指定目录；onProgress 回调报告已下载字节数和总字节数 */
   readonly download: (ext: Extension, targetDir: string, onProgress?: (downloaded: number, total: number) => void) => Effect.Effect<void, string>
 }
@@ -204,6 +206,34 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       } as Extension
     })
 
+    /** 获取扩展的所有可选版本列表 */
+    const getRevisions = Effect.fn("OmniStudioMarket.getRevisions")(function* (type: ExtensionType, slug: string) {
+      const base = yield* getApiBase()
+      const entityType = toEntityType(type)
+      const url = `${base}/api/v1/packages/${entityType}/${slug}/revisions`
+
+      const envelope = yield* fetchWithRefresh((headers) =>
+        Effect.gen(function* () {
+          const response = yield* Effect.tryPromise({
+            try: () => fetch(url, { headers }),
+            catch: (error) => (error instanceof Error ? error.message : String(error)),
+          })
+          const envelope = yield* parseEnvelope(response)
+          yield* checkError(response, envelope)
+          return envelope
+        }),
+      )
+
+      const raw = envelope.data as { revisions?: Array<Record<string, unknown>> }
+      const revisions: Revision[] = (raw.revisions ?? []).map((r) => ({
+        version: String(r.version ?? ""),
+        created_at: String(r.createdAt ?? r.created_at ?? ""),
+        changelog: String(r.changelog ?? ""),
+      })).filter((r) => r.version)
+
+      return revisions
+    })
+
     /** 下载扩展包到指定目录；使用 ReadableStream 逐块读取并写入，支持进度回调 */
     const download = Effect.fn("OmniStudioMarket.download")(function* (ext: Extension, targetDir: string, onProgress?: (downloaded: number, total: number) => void) {
       const base = yield* getApiBase()
@@ -265,6 +295,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       list,
       listPaged,
       getMeta,
+      getRevisions,
       download,
     })
   }),

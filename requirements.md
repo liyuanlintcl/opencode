@@ -25,8 +25,9 @@
 | F1a | 服务地址配置：`opencode omni-studio setup`，设置 api_base | P0 |
 | F2 | 登出：`opencode omni-studio logout` | P0 |
 | F3 | 交互式列出市场扩展：`opencode omni-studio list [type]`，显示本地安装状态并支持选中直接安装 | P0 |
-| F4 | 安装扩展：`opencode omni-studio install <type> <slug> [version]` | P0 |
+| F4 | 安装扩展：`opencode omni-studio install <type> <slug> [version]`；`version` 参数支持指定版本号，缺省时安装最新版 | P0 |
 | F4a | 更新检测：TUI 市场列表自动比对本地版本与远程版本，版本不一致时展示 `[更新]` 按钮 | P0 |
+| F4c | 版本选择：TUI 市场列表点击 `[安装]` 后弹出版本选择下拉框，展示该扩展所有可选版本（调用 `/api/v1/packages/{entity_type}/{slug}/revisions`），用户可选择特定版本安装；缺省时默认安装最新版 | P0 |
 | F4b | 下载进度显示：扩展包下载时展示实时进度百分比 | P1 |
 | F5 | 卸载扩展：`opencode omni-studio uninstall <type> <slug>` | P0 |
 | F6 | 启用扩展：`opencode omni-studio enable <type> <slug>` | P0 |
@@ -80,3 +81,6 @@
 - [x] TUI 中可手动触发已安装的 spec 扩展（F14）
 - [x] Omni Studio 扩展更新后，已加载的 plugin 代码自动热重载，无需重启 opencode（POSIX 系统通过绝对路径 + query string 绕过 Bun ESM 缓存；WSL2 已验证通过）
 - [x] Plugin 热重载过程包含完整调试日志，便于定位问题（state.json watchFile 触发、InstanceState invalidate、import 路径转换、加载结果）
+- [ ] TUI 市场列表点击 `[安装]` 时弹出版本选择下拉框，展示可选版本列表（调用 revisions API），支持选择特定版本或默认最新版（F4c）
+- [ ] CLI `install` 命令的 `version` 参数生效，传入时下载并安装指定版本（F4）
+- [ ] 安装指定版本后覆盖本地旧版本（旧版本文件删除，不保留多版本共存）

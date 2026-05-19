@@ -149,8 +149,21 @@ async function setupEndpoints(apiBase: string): Promise<void>  // 设置服务�
 
 ```ts
 async function listExtensions(type?: ExtensionType): Promise<Extension[]>
-async function downloadExtension(ext: Extension, targetDir: string): Promise<void>
+async function getRevisions(type: ExtensionType, slug: string): Promise<Revision[]>  // 新增：查询扩展可选版本列表
+async function downloadExtension(ext: Extension, targetDir: string, version?: string): Promise<void>  // version 参数支持指定版本
+
+interface Revision {
+  version: string
+  created_at: string
+  // 可能包含其他元数据（changelog、作者等）
+}
 ```
+
+**版本列表接口**：
+- Endpoint: `GET /api/v1/packages/{entity_type}/{slug}/revisions`
+- Response: `{ revisions: Array<{ version: string, created_at: string }> }`
+- 按版本号降序排列，最新版在首条
+- 无认证要求（或携带认证头，视后端策略）
 
 ### 4.4 Store API
 
@@ -207,7 +220,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 
 ```
 1. 检查是否已登录（读取 omni-studio.json）
-2. 调用 Market API 获取扩展元数据
+2. 调用 Market API 获取扩展元数据（listExtensions 或 getExtensionMeta）
 3. 查找本地是否已有同类型同 slug 的扩展，记录其 enabled 状态（更新场景需保留）
 4. 检查缓存 ~/.omni_studio/cache/{type}/{slug}-{version}.zip 是否存在
    - 存在 → 直接使用缓存，跳过下载
@@ -224,6 +237,12 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 11. 输出安装成功信息
 ```
 
+**指定版本安装补充说明**：
+- CLI 命令 `install <type> <slug> [version]` 的 `version` 参数为可选，缺省时默认安装最新版
+- TUI 中用户可通过版本下拉框选择特定版本，下拉框数据由 `getRevisions(type, slug)` 提供
+- 指定版本时，下载 URL 需携带版本参数（由后端 `revisions` 接口返回的下载信息或 `downloadExtension` 内部拼接）
+- 安装指定版本后仍覆盖本地旧版本（不保留多版本共存），旧版本文件被 rm -rf 删除
+
 ### 5.4 列表交互流程（list）
 
 ```
@@ -234,12 +253,25 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
    - 已安装且版本一致 → 右侧展示 [已安装] 灰色文字
    - 已安装但版本不一致 → 右侧展示 [ 更新 ] 按钮（橙色，同安装按钮）
 4. 用户选中扩展按 Enter：
-   - 未安装 / 需要更新 → 进入确认模式（[确认安装]/[取消] 或 [确认更新]/[取消]）
+   - 未安装 → 弹出版本选择下拉框（调用 getRevisions 获取可选版本列表）
+     - 下拉框默认选中最新版本（列表首条）
+     - 用户可选择其他版本或保持默认
+     - 按 Enter 确认后进入 [确认安装]/[取消] 模式
+   - 需要更新 → 弹出版本选择下拉框（同上），默认选中最新版本
+     - 用户可选择回退到旧版本（如果 revisions 列表中包含比本地更低的版本）
+     - 按 Enter 确认后进入 [确认更新]/[取消] 模式
    - 已安装 → 无操作
-5. 确认后执行 install（更新场景会覆盖旧版本）
-6. 安装结果通过行内状态展示（成功/失败），3 秒后自动清除
+5. 确认后执行 install(ext, version)（传入用户选择的版本号）
+6. 安装结果通过行内状态展示（成功/失败），直接显示灰色 [已安装]，不再使用 3 秒高亮过渡
 7. 使用 while 循环支持连续操作
 ```
+
+**版本下拉框设计约束**：
+- 使用 `DialogSelect` 或行内 `<select>` 组件展示版本列表
+- 列表项格式：`v{version}` + 可选的 `({created_at} 发布)`
+- 默认选中首条（最新版），用户可用 ↑/↓ 切换
+- 按 Esc 取消版本选择，回到列表视图
+- 版本列表加载失败时（如网络错误），降级为直接安装最新版，并展示警告提示
 
 ### 5.5 状态交互流程（status）
 

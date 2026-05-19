@@ -635,7 +635,7 @@ export const layer = Layer.effect(
         const stateContent = yield* fs.readFileString(path.join(omniStudioDir, "state.json")).pipe(
           Effect.catch(() => Effect.succeed("{}")),
         )
-        let omniState: { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }
+        let omniState: { extensions?: Array<{ type: string; slug: string; version: string; enabled: boolean }> }
         try {
           omniState = JSON.parse(stateContent)
         } catch {
@@ -647,30 +647,30 @@ export const layer = Layer.effect(
           extensionsCount: omniState.extensions?.length ?? 0,
         })
 
-        for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {
+        for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; version: string; enabled: boolean }> }).extensions ?? []) {
           log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
           if (!ext.enabled) {
             log.info("omni studio extension disabled, skipping", { type: ext.type, slug: ext.slug })
             continue
           }
-          const extDir = path.join(omniStudioDir, ext.type + "s", ext.slug)
+          const extDir = path.join(omniStudioDir, ext.type + "s", ext.slug, ext.version)
           const dirExists = yield* fs.isDir(extDir).pipe(Effect.orElseSucceed(() => false))
-          log.info("omni studio extension directory check", { type: ext.type, slug: ext.slug, extDir, exists: dirExists })
+          log.info("omni studio extension directory check", { type: ext.type, slug: ext.slug, version: ext.version, extDir, exists: dirExists })
           if (!dirExists) {
-            log.warn("omni studio extension directory not found", { type: ext.type, slug: ext.slug, extDir })
+            log.warn("omni studio extension directory not found", { type: ext.type, slug: ext.slug, version: ext.version, extDir })
             continue
           }
 
           if (ext.type === "agent") {
-            log.info("loading omni studio agent", { slug: ext.slug, extDir })
+            log.info("loading omni studio agent", { slug: ext.slug, version: ext.version, extDir })
             result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.load(extDir)))
             result.agent = mergeDeep(result.agent ?? {}, yield* Effect.promise(() => ConfigAgent.loadMode(extDir)))
-            log.info("omni studio agent loaded", { slug: ext.slug })
+            log.info("omni studio agent loaded", { slug: ext.slug, version: ext.version })
           } else if (ext.type === "plugin") {
-            log.info("loading omni studio plugin", { slug: ext.slug, extDir })
+            log.info("loading omni studio plugin", { slug: ext.slug, version: ext.version, extDir })
             const list = yield* Effect.promise(() => ConfigPlugin.load(extDir))
             yield* mergePluginOrigins(extDir, list, "global")
-            log.info("omni studio plugin loaded", { slug: ext.slug, count: list?.length ?? 0 })
+            log.info("omni studio plugin loaded", { slug: ext.slug, version: ext.version, count: list?.length ?? 0 })
           }
         }
 

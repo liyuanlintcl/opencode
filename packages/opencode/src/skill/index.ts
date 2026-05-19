@@ -248,6 +248,7 @@ const discoverSkills = Effect.fnUntraced(function* (
       slug: string
       name?: string
       description?: string
+      version: string
       enabled: boolean
     }>
   }
@@ -263,11 +264,11 @@ const discoverSkills = Effect.fnUntraced(function* (
   })
 
   for (const ext of omniState.extensions ?? []) {
-    log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
+    log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, version: ext.version, enabled: ext.enabled })
     if (ext.type === "skill" && ext.enabled) {
-      const extDir = path.join(Global.Path.home, ".omni_studio", "skills", ext.slug)
+      const extDir = path.join(Global.Path.home, ".omni_studio", "skills", ext.slug, ext.version)
       const dirExists = yield* fsys.isDir(extDir)
-      log.info("omni studio skill directory check", { slug: ext.slug, extDir, exists: dirExists })
+      log.info("omni studio skill directory check", { slug: ext.slug, version: ext.version, extDir, exists: dirExists })
       if (dirExists) {
         const beforeMatches = state.matches.size
         yield* scan(state, extDir, SKILL_PATTERN)
@@ -309,13 +310,16 @@ const discoverSkills = Effect.fnUntraced(function* (
     const deps = parseSpecDependencies(content)
     for (const dep of deps) {
       if (dep.type !== "skill") continue
-      const skillDir = path.join(Global.Path.home, ".omni_studio", "skills", dep.slug)
+      const depEntry = omniState.extensions?.find((e) => e.type === dep.type && e.slug === dep.slug)
+      const skillDir = depEntry
+        ? path.join(Global.Path.home, ".omni_studio", "skills", dep.slug, depEntry.version)
+        : path.join(Global.Path.home, ".omni_studio", "skills", dep.slug)
       const dirExists = yield* fsys.isDir(skillDir)
-      log.info("checking spec external skill", { spec: spec.slug, skill: dep.slug, dir: skillDir, exists: dirExists })
+      log.info("checking spec external skill", { spec: spec.slug, skill: dep.slug, version: depEntry?.version, dir: skillDir, exists: dirExists })
       if (dirExists) {
         const beforeMatches = state.matches.size
         yield* scan(state, skillDir, SKILL_PATTERN)
-        log.info("spec external skill scanned", { spec: spec.slug, skill: dep.slug, newMatches: state.matches.size - beforeMatches })
+        log.info("spec external skill scanned", { spec: spec.slug, skill: dep.slug, version: depEntry?.version, newMatches: state.matches.size - beforeMatches })
       }
     }
   }

@@ -226,14 +226,14 @@ export const layer: Layer.Layer<
           extensionsCount: omniState.extensions?.length ?? 0,
         })
 
-        for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; enabled: boolean }> }).extensions ?? []) {
-          log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
+        for (const ext of (omniState as { extensions?: Array<{ type: string; slug: string; version: string; enabled: boolean }> }).extensions ?? []) {
+          log.info("checking omni studio extension", { type: ext.type, slug: ext.slug, version: ext.version, enabled: ext.enabled })
           if (ext.type !== "tool" || !ext.enabled) {
-            log.info("omni studio extension not tool or disabled, skipping", { type: ext.type, slug: ext.slug, enabled: ext.enabled })
+            log.info("omni studio extension not tool or disabled, skipping", { type: ext.type, slug: ext.slug, version: ext.version, enabled: ext.enabled })
             continue
           }
-          const extDir = path.join(omniStudioDir, "tools", ext.slug)
-          log.info("scanning omni studio tool files", { slug: ext.slug, extDir })
+          const extDir = path.join(omniStudioDir, "tools", ext.slug, ext.version)
+          log.info("scanning omni studio tool files", { slug: ext.slug, version: ext.version, extDir })
           const toolMatches = Glob.scanSync("{tool,tools}/*.{js,ts}", { cwd: extDir, absolute: true, dot: true, symlink: true })
           log.info("omni studio tool files found", { slug: ext.slug, count: toolMatches.length, files: toolMatches })
           for (const match of toolMatches) {

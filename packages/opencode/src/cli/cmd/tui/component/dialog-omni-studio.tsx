@@ -205,13 +205,18 @@ function ExtensionRowShell(props: {
   name?: string
   slug: string
   version: string
+  showVersion?: boolean
   isSelected: Accessor<boolean>
   children: any
 }) {
   const { theme } = useTheme()
   const rowFg = () => (props.isSelected() ? theme.primary : theme.textMuted)
   const rowAttrs = () => (props.isSelected() ? TextAttributes.BOLD : undefined)
-  const displayName = () => props.name || props.slug
+  const displayName = () => {
+    const base = props.name || props.slug
+    if (!props.showVersion || !props.version) return base
+    return `${base}@${props.version}`
+  }
   return (
     <box flexDirection="row" justifyContent="space-between">
       <text fg={rowFg()} attributes={rowAttrs()} wrapMode="none" overflow="hidden">
@@ -756,7 +761,7 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     }
 
     return (
-      <ExtensionRowShell name={ext.name} slug={ext.slug} version={ext.version} isSelected={isRowSelected}>
+      <ExtensionRowShell name={ext.name} slug={ext.slug} version={ext.version} showVersion={true} isSelected={isRowSelected}>
         {buttons()}
       </ExtensionRowShell>
     )
@@ -827,13 +832,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   const [searchKeyword, setSearchKeyword] = createSignal("")
   const [showSearchBox, setShowSearchBox] = createSignal(true)
   const [pendingSlug, setPendingSlug] = createSignal<string | null>(null)
-  const [pendingVersion, setPendingVersion] = createSignal<string | null>(null)
   const [installingSlug, setInstallingSlug] = createSignal<string | null>(null)
   const [installResult, setInstallResult] = createSignal<{ slug: string; ok: boolean; msg: string } | null>(null)
   const [installProgress, setInstallProgress] = createSignal<{ slug: string; downloaded: number; total: number } | null>(null)
   const [localVersions, setLocalVersions] = createSignal<Map<string, string>>(new Map())
-  const [revisionList, setRevisionList] = createSignal<Revision[] | null>(null)
-  const [revisionExt, setRevisionExt] = createSignal<Extension | null>(null)
 
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent", "spec"]
 
@@ -870,8 +872,6 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 
   const { selectedIndex, selectedButtonIndex, setSelectedIndex } = useExtensionKeyboard({
     items: () => {
-      const revs = revisionList()
-      if (revisionExt() && revs && revs.length > 0) return revs as any[]
       const l = marketList()
       return l.kind === "ok" ? l.data : []
     },
@@ -882,15 +882,8 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     canPrev: () => canPrev(),
     canNext: () => canNext(),
     onEsc: () => {
-      if (revisionExt()) {
-        setRevisionExt(null)
-        setRevisionList(null)
-        setSelectedIndex(0)
-        return true
-      }
       if (pendingSlug()) {
         setPendingSlug(null)
-        setPendingVersion(null)
         return true
       }
       if (installResult()) {
@@ -900,37 +893,21 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       return false
     },
     onBackspace: () => {
-      if (revisionExt()) return
       setSearchKeyword("")
       setShowSearchBox(false)
       queueMicrotask(() => setShowSearchBox(true))
       setCurrentPage(1)
       setSelectedIndex(0)
     },
-    onEnter: (item, btnIdx) => {
-      if (revisionExt()) {
-        const version = (item as Revision).version
-        const ext = revisionExt()!
-        setPendingVersion(version)
-        setRevisionExt(null)
-        setRevisionList(null)
-        setPendingSlug(ext.slug)
-        return
-      }
-      const ext = item as Extension
+    onEnter: (ext, btnIdx) => {
       if (pendingSlug() === ext.slug) {
         if (btnIdx === 0) handleInstallExt(ext)
-        else {
-          setPendingSlug(null)
-          setPendingVersion(null)
-        }
+        else setPendingSlug(null)
       } else if ((!isInstalled(ext) || needsUpdate(ext)) && installingSlug() !== ext.slug && installResult()?.slug !== ext.slug) {
-        void handleShowRevisions(ext)
+        setPendingSlug(ext.slug)
       }
     },
-    getButtonCount: (item) => {
-      if (revisionExt()) return 0
-      const ext = item as Extension
+    getButtonCount: (ext) => {
       if (installResult()?.slug === ext.slug || installingSlug() === ext.slug) return 0
       if (pendingSlug() === ext.slug) return 2
       if (!isInstalled(ext) || needsUpdate(ext)) return 1
@@ -973,35 +950,11 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
   }
 
   /**
-   * 获取扩展版本列表并进入版本选择模式。
-   * 如果只有一个版本或获取失败，降级为直接安装最新版。
-   */
-  const handleShowRevisions = async (ext: Extension) => {
-    try {
-      const revisions = await Effect.runPromise(
-        OmniStudioMarket.Service.use((svc) => svc.getRevisions(ext.type, ext.slug)).pipe(
-          Effect.provide(OmniStudioMarket.defaultLayer),
-        ),
-      )
-      if (revisions.length <= 1) {
-        setPendingSlug(ext.slug)
-        return
-      }
-      setRevisionList(revisions)
-      setRevisionExt(ext)
-      setSelectedIndex(0)
-    } catch (e) {
-      // 获取版本列表失败，降级为直接安装最新版
-      setPendingSlug(ext.slug)
-    }
-  }
-
-  /**
    * 点击确认安装扩展。
    * 直接执行 getMeta 和 install，不使用 DialogConfirm 避免触发 backToMenu。
    * 安装结果通过行内状态显示，直接显示灰色 [已安装]。
    */
-  const handleInstallExt = async (ext: Extension, targetVersion?: string) => {
+  const handleInstallExt = async (ext: Extension) => {
     setPendingSlug(null)
     setInstallingSlug(ext.slug)
     try {
@@ -1010,11 +963,8 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           Effect.provide(OmniStudioMarket.defaultLayer),
         ),
       )
-      // 使用用户选择的版本号，或 fallback 到当前列表中的版本
-      const version = targetVersion || pendingVersion() || ext.version
-      const installMeta = { ...meta, version }
       await Effect.runPromise(
-        OmniStudioStore.Service.use((svc) => svc.install(installMeta, (downloaded, total) => {
+        OmniStudioStore.Service.use((svc) => svc.install(meta, (downloaded, total) => {
           setInstallProgress({ slug: ext.slug, downloaded, total })
         })).pipe(
           Effect.provide(OmniStudioStore.defaultLayer),
@@ -1049,11 +999,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 
       setInstallingSlug(null)
       setInstallProgress(null)
-      setPendingVersion(null)
       // 安装成功后直接更新本地版本集合，UI 立即显示灰色 [已安装]，无高亮过渡
       setLocalVersions((prev) => {
         const next = new Map(prev)
-        next.set(`${ext.type}:${ext.slug}`, version)
+        next.set(`${ext.type}:${ext.slug}`, ext.version)
         return next
       })
     } catch (e) {
@@ -1132,19 +1081,19 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       }
       if (needsUpdate(ext)) {
         return [
-          <ActionButton defaultFg={theme.primary} position={0} onClick={() => void handleShowRevisions(ext)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[ 更新 ]</ActionButton>,
+          <ActionButton defaultFg={theme.primary} position={0} onClick={() => setPendingSlug(ext.slug)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[ 更新 ]</ActionButton>,
         ]
       }
       if (isInstalled(ext)) {
         return [<text fg={theme.textMuted}>[已安装]</text>]
       }
       return [
-        <ActionButton defaultFg={theme.primary} position={0} onClick={() => void handleShowRevisions(ext)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[ 安装 ]</ActionButton>,
+        <ActionButton defaultFg={theme.primary} position={0} onClick={() => setPendingSlug(ext.slug)} isRowSelected={isRowSelected} selectedButtonIndex={selectedButtonIndex}>[ 安装 ]</ActionButton>,
       ]
     }
 
     return (
-      <ExtensionRowShell name={ext.name} slug={ext.slug} version={ext.version} isSelected={isRowSelected}>
+      <ExtensionRowShell name={ext.name} slug={ext.slug} version={ext.version} showVersion={true} isSelected={isRowSelected}>
         {buttons()}
       </ExtensionRowShell>
     )
@@ -1175,38 +1124,20 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           </text>
         </Show>
       </box>
-      <Show when={revisionExt() && revisionList()}>
-        <box flexDirection="column" gap={1}>
-          <text fg={theme.text} attributes={TextAttributes.BOLD}>
-            选择版本 - {revisionExt()?.name || revisionExt()?.slug}
-          </text>
-          <box flexDirection="column">
-            <For each={revisionList()}>{(rev, idx) => (
-              <text fg={selectedIndex() === idx() ? theme.primary : theme.text}>
-                {selectedIndex() === idx() ? "▸ " : "  "}v{rev.version}
-                {rev.created_at ? ` (${rev.created_at})` : ""}
-              </text>
-            )}</For>
-          </box>
-          <text fg={theme.textMuted}>↑/↓ 选择版本，Enter 确认，Esc 取消</text>
-        </box>
-      </Show>
       <Show
-        when={!revisionExt() && marketList().kind === "ok" && (marketList() as Extract<ListResult, { kind: "ok" }>).data.length > 0}
+        when={marketList().kind === "ok" && (marketList() as Extract<ListResult, { kind: "ok" }>).data.length > 0}
         fallback={
-          <Show when={!revisionExt()}>
-            <box paddingBottom={1}>
-              <text fg={theme.textMuted}>
-                {marketList().kind === "loading"
-                  ? "加载中..."
-                  : marketList().kind === "error"
-                    ? `错误: ${(marketList() as Extract<ListResult, { kind: "error" }>).message}`
-                    : searchKeyword()
-                      ? `未找到匹配 "${searchKeyword()}" 的扩展`
-                      : "未找到扩展"}
-              </text>
-            </box>
-          </Show>
+          <box paddingBottom={1}>
+            <text fg={theme.textMuted}>
+              {marketList().kind === "loading"
+                ? "加载中..."
+                : marketList().kind === "error"
+                  ? `错误: ${(marketList() as Extract<ListResult, { kind: "error" }>).message}`
+                  : searchKeyword()
+                    ? `未找到匹配 "${searchKeyword()}" 的扩展`
+                    : "未找到扩展"}
+            </text>
+          </box>
         }
       >
         <ScrollableList maxHeight={scrollHeight()} itemCount={(marketList() as Extract<ListResult, { kind: "ok" }>).data.length} selectedIndex={selectedIndex()}>

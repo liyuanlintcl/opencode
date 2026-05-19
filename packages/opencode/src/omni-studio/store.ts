@@ -83,9 +83,10 @@ export const layer = Layer.effect(
         return cachePath
       })
 
-      const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(ext.type), ext.slug)
+      const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(ext.type), ext.slug, ext.version)
+      const slugDir = path.join(Global.Path.home, ".omni_studio", toPlural(ext.type), ext.slug)
 
-      /** 若目标目录已存在（更新场景），先删除旧目录避免旧版本文件残留 */
+      /** 若目标目录已存在（更新场景），先删除旧版本目录避免旧版本文件残留 */
       const targetExists = yield* fs.isDir(targetDir).pipe(Effect.orElseSucceed(() => false))
       if (targetExists) {
         yield* fs.remove(targetDir, { recursive: true, force: true }).pipe(Effect.catch(() => Effect.void))
@@ -141,7 +142,7 @@ export const layer = Layer.effect(
       const entry = state.extensions.find((e) => e.type === type && e.slug === slug)
       if (!entry) return yield* Effect.fail("Extension not installed")
 
-      const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(type), slug)
+      const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(type), slug, entry.version)
       const scripts = yield* detectScripts(targetDir)
 
       /** 若扩展当前处于启用状态，先执行 stop 脚本 */
@@ -181,7 +182,7 @@ export const layer = Layer.effect(
       const entry = state.extensions.find((e) => e.type === type && e.slug === slug)
       if (!entry) return yield* Effect.fail("Extension not installed")
 
-      const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(type), slug)
+      const targetDir = path.join(Global.Path.home, ".omni_studio", toPlural(type), slug, entry.version)
       const scripts = yield* detectScripts(targetDir)
 
       /** 启用时执行 start 脚本；失败则保持禁用状态 */

@@ -211,11 +211,7 @@ function ExtensionRowShell(props: {
   const { theme } = useTheme()
   const rowFg = () => (props.isSelected() ? theme.primary : theme.textMuted)
   const rowAttrs = () => (props.isSelected() ? TextAttributes.BOLD : undefined)
-  const displayName = () => {
-    const base = props.name || props.slug
-    if (!props.version) return base
-    return `${base}@${props.version}`
-  }
+  const displayName = () => props.name || props.slug
   return (
     <box flexDirection="row" justifyContent="space-between">
       <text fg={rowFg()} attributes={rowAttrs()} wrapMode="none" overflow="hidden">

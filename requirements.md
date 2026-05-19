@@ -68,11 +68,11 @@
 
 ## 6. 验收标准
 
-- [x] 所有 9 个 CLI 命令可正常执行并返回预期结果（含 setup）
+- [x] TUI slash 命令 `/omni-extensions`（别名 `/ext`）可正常打开 Omni Extensions 管理菜单
 - [x] 登录成功后 `~/.omni_studio/omni-studio.json` 包含有效 token
 - [x] 安装扩展后文件存在于 `~/.omni_studio/{type}/{slug}/`
 - [x] 启用/禁用状态持久化到 `~/.omni_studio/state.json`
-- [x] `status` 命令同时显示登录状态和本地扩展列表
+- [x] TUI 中 Status 视图同时显示登录状态和本地扩展列表
 - [x] 安装时如扩展包含 `install.sh`/`install.bat`/`install.ps1`，脚本被正确执行
 - [x] 卸载时如扩展包含 `uninstall` 脚本，脚本被正确执行后再删除文件
 - [x] 启用/禁用时如扩展包含 `start`/`stop` 脚本，脚本被正确执行
@@ -83,7 +83,11 @@
 - [x] TUI 中可手动触发已安装的 spec 扩展（F14）
 - [x] Omni Studio 扩展更新后，已加载的 plugin 代码自动热重载，无需重启 Omni Studio CLI（POSIX 系统通过绝对路径 + query string 绕过 Bun ESM 缓存；WSL2 已验证通过）
 - [x] Plugin 热重载过程包含完整调试日志，便于定位问题（state.json watchFile 触发、InstanceState invalidate、import 路径转换、加载结果）
-- [x] CLI `install` 命令的 `version` 参数生效，传入时下载并安装指定版本（F4）
+- [x] TUI 中安装扩展时 `version` 参数生效，传入时下载并安装指定版本（F4）
 - [x] 安装指定版本后覆盖本地旧版本（旧版本文件删除，不保留多版本共存）
 - [x] TUI 安装成功后自动启用扩展，启用失败时行内提示红色错误信息（F4）
 - [x] 本地扩展列表显示 `name@version`，市场扩展列表只显示 `name`
+- [ ] TUI 安装成功后 1 秒内行内提示自动消失（成功绿色、失败红色）（F4）
+- [ ] 品牌统一：用户可见的 `OpenCode` / `opencode` 描述全部替换为 `Omni Studio` / `omni`。CLI 命令名、配置文件路径、桌面端应用名、i18n、TUI 标题、构建产物名、TUI 提示语、VS Code 扩展 ID 均已更新（F15）
+- [ ] 新 TUI 默认主题 `omni.json` 已创建并设为默认，dark/light 双模式完整定义 46 个颜色键 + thinkingOpacity，通过 `isTheme` 验证（F16）
+- [ ] 桌面端应用包含 Extensions 入口按钮，可打开扩展管理视图；支持市场浏览、安装/更新/卸载/启用/禁用、登录/配置、spec 触发；UI 风格与 TUI 一致并应用新主题（F17）

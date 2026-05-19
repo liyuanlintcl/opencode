@@ -210,8 +210,8 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 4. 检查缓存 ~/.omni_studio/cache/{type}/{slug}-{version}.zip 是否存在
    - 存在 → 直接使用缓存，跳过下载
    - 不存在 → 使用 fetch ReadableStream 流式下载扩展包，通过 onProgress 回调实时报告已下载字节数和 Content-Length 总字节数；TUI 列表行展示 `下载中 XX%`
-5. 若目标目录 ~/.omni_studio/{type}s/{slug}/ 已存在（更新场景），先 rm -rf 删除旧目录，避免旧版本文件残留
-6. 解压到 ~/.omni_studio/{type}s/{slug}/
+5. 若目标目录 ~/.omni_studio/{type}s/{slug}/{version}/ 已存在（同版本重新安装场景），先 rm -rf 删除该版本目录，避免旧文件残留
+6. 解压到 ~/.omni_studio/{type}s/{slug}/{version}/
 7. 检测扩展目录 lifecycle/ 子目录中的生命周期脚本（detectScripts）
 8. 如存在 install 脚本：
    - 先检测是否存在 activate 脚本，有则先 source/调用
@@ -229,7 +229,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 - `version` 参数为可选，缺省时默认安装最新版
 - TUI 中用户可通过版本下拉框选择特定版本，下拉框数据由 `getRevisions(type, slug)` 提供
 - 指定版本时，下载 URL 需携带版本参数（由后端 `revisions` 接口返回的下载信息或 `downloadExtension` 内部拼接）
-- 安装指定版本后仍覆盖本地旧版本（不保留多版本共存），旧版本文件被 rm -rf 删除
+- 安装指定版本后解压到 `{slug}/{version}/` 路径；旧版本目录（`{slug}/{old_version}/`）不会被自动删除，由用户手动清理
 
 ### 5.4 列表交互流程（list）
 
@@ -278,7 +278,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
    - 先 source/调用 activate 脚本（如有）
    - 执行 uninstall 脚本
    - 脚本失败仍继续删除文件，但警告用户
-4. 删除 ~/.omni_studio/{type}/{slug}/ 目录
+4. 删除 ~/.omni_studio/{type}s/{slug}/{version}/ 目录
 5. 从 state.json 移除该扩展记录
 6. 输出卸载成功信息
 ```
@@ -315,7 +315,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 背景：
 - spec 扩展是一个组合规格，通过 SPEC.md 声明意图和依赖
 - 发现机制借鉴 opencode.jsonc 的 instructions 字段：系统读取文件内容并注入 system prompt
-- 不同于 skill/tool/plugin/agent，spec 不需要注册到 state.json 作为独立可加载扩展
+- spec 与其他扩展类型一样，安装后注册到 state.json，支持启用/禁用/卸载管理
 - spec 的内容（SPEC.md 正文）直接作为指令被消费，内嵌的 skill/tool/plugin/agent 通过扩展类型自身的扫描机制自动发现
 
 发现时机：
@@ -355,23 +355,20 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 - spec 卸载后目录不存在，自然跳过
 ```
 
-### 5.8b Spec 触发流程（TUI）—— 未实现
+### 5.8b Spec 触发流程（TUI）
 
 ```
-【状态：未实现（F14）】
-
-设计草案：
-1. 用户在 Omni Studio 主菜单选择 "Spec"
-2. 调用 Store.getStatus() 过滤出 type === "spec" 的已安装扩展
-3. 构建 spec 列表，每行展示名称和版本
-4. 用户选中 spec 按 Enter：
-   a. 读取 spec 目录下的 SPEC.md
-   b. 解析依赖列表（外部 + 内部）
-   c. 检查所有依赖扩展是否已启用
-   d. 有未启用的依赖 → 提示用户先启用（提供一键启用选项）
-   e. 所有依赖就绪 → 执行 spec 定义的组合流水线
-5. 执行结果通过 DialogAlert 展示
-6. 按 esc 返回 spec 列表
+1. DialogOmniStudio 主菜单提供 "触发 Spec" 选项，点击进入 SpecTriggerView
+2. 调用 Store.getStatus() 获取本地扩展列表，过滤出 type === "spec" 且 enabled === true 的扩展
+3. 构建 spec 列表，支持搜索框按关键词过滤（slug / name）
+4. 用户选中 spec 按 Enter 或点击 `[触发]` 按钮：
+   a. 检查当前 route 是否在 session 中（route.data.type === "session"）
+   b. 不在 session 中 → DialogAlert 提示"请先进入一个会话后再触发 spec"
+   c. 在 session 中 → 调用 sdk.client.session.prompt() 发送用户消息：
+      `请按 spec "{name}" 的规范执行。`
+5. 触发成功 → 行内显示绿色 "已触发"，1.2 秒后自动清除并关闭对话框
+6. 触发失败 → DialogAlert 展示错误信息
+7. 按 esc 返回 Omni Studio 主菜单
 ```
 
 ### 5.9 TUI Slash 命令流程
@@ -426,7 +423,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
   - 如为 .sh，使用 "source lifecycle/activate.sh && <command>" 方式合并执行
   - 如为 .bat/.ps1，先执行 activate 脚本，再执行目标脚本（同进程环境继承）
   - activate 脚本本身不计入错误回滚条件，仅用于环境准备
-- 所有脚本执行工作目录设为扩展目录本身（cwd = ~/.omni_studio/{type}/{slug}/），脚本路径为相对路径 lifecycle/{name}.{suffix}
+- 所有脚本执行工作目录设为扩展目录本身（cwd = ~/.omni_studio/{type}s/{slug}/{version}/），脚本路径为相对路径 lifecycle/{name}.{suffix}
 ```
 
 ### 5.10a Spec 依赖管理流程
@@ -481,37 +478,12 @@ store.ts 额外监听：
 - 当 skills/agents/plugins/tools 下的扩展目录被删除时
 - 自动从 state.json 中移除对应扩展记录，防止加载不存在的扩展
 - 幂等设计：即使多次触发或 uninstall API 已清理过，都不会重复写入
-```
 
-### 5.12 Plugin 热重载机制
-
-```
-背景：
-- Omni Studio 扩展更新后，plugin 代码需要重新加载，但 Bun 的 ESM 缓存导致旧代码仍然生效
-- Bun issue #21346：对 file:// URL 动态 import 时，即使 query string 变化也不会触发重新加载
-
-初始方案（已废弃）：
-- 在 plugin/loader.ts 的 load() 中给所有 plugin（file 和 npm source）统一添加 ?invalidate=${Date.now()}
-- 实际测试证明对 file:// URL 无效，Omni Studio 扩展更新后 plugin 版本号仍为旧版本
-
-最终方案：
-- POSIX 系统（Linux/macOS/WSL2）：将 file:// URL 转换为绝对路径 + ?invalidate=... 再 import
-  - 例：file:///home/lyl/.omni_studio/plugins/session-memory-plugin/plugin.ts
-    → /home/lyl/.omni_studio/plugins/session-memory-plugin/plugin.ts?invalidate=123456
-  - Bun 将绝对路径视为不同的模块 specifier，从而绕过 ESM 缓存
-- Windows 系统：暂时保持 file:// URL 格式（绝对路径 + query string 在 Windows 上会报错）
-  - 等待 Bun 官方修复 issue #21346
-- 调试日志：在 plugin/index.ts 中记录 fs.watchFile 的注册、触发、完成状态
-  - 在 plugin/loader.ts 中记录 import 路径转换（original → transformed）和加载结果
-
-触发链路：
-1. Omni Studio 扩展更新 → store.ts 写入 state.json
-2. plugin/index.ts 的 fs.watchFile 检测到 state.json mtime 变化
-3. 调用 InstanceState.invalidateAll(state) 清除 ScopedCache
-4. 下次 Plugin.trigger / Plugin.list / Plugin.init 调用时，InstanceState.get 重新执行 init
-5. init 中 PluginLoader.loadExternal 重新 resolve + load 所有 plugin
-6. load() 中 cacheBustEntry() 转换路径，import() 加载新代码
-7. 新 plugin hooks 注册到 state.hooks，后续事件触发执行新逻辑
+扩展更新后的缓存刷新：
+- 所有扩展类型（skill / tool / plugin / agent / spec）安装到 `~/.omni_studio/{type}s/{slug}/{version}/` 路径
+- 更新后 version 变化，路径自然不同，各模块加载时自动识别为新路径
+- plugin 的 loader.ts 直接 `import(row.entry)`，Bun 将不同绝对路径视为不同模块 specifier，ESM 缓存自动 miss
+- plugin/index.ts 通过 fs.watchFile 监听 state.json，变化时调用 InstanceState.invalidateAll() 清除 ScopedCache，下次触发时重新加载
 ```
 
 ## 6. 技术选型

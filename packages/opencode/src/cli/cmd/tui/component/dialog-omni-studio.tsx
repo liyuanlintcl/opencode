@@ -1414,8 +1414,32 @@ export function DialogOmniStudio() {
   }
 
   /**
+   * 将后端或网络错误映射为用户友好的中文提示。
+   */
+  function formatLoginError(err: unknown): string {
+    const msg = String(err).toLowerCase()
+    if (msg.includes("timeout") || msg.includes("aborted") || msg.includes("abort")) {
+      return "请求超时，请检查 API 地址是否正确或网络是否通畅"
+    }
+    if (msg.includes("密码错误") || msg.includes("用户不存在") || msg.includes("用户名或密码") || msg.includes("invalid credentials") || msg.includes("incorrect")) {
+      return "用户名或密码错误"
+    }
+    if (msg.includes("401") || msg.includes("unauthorized")) {
+      return "用户名或密码错误"
+    }
+    if (msg.includes("404") || msg.includes("not found")) {
+      return "登录接口不存在，请检查 API 地址是否正确"
+    }
+    if (msg.includes("econnrefused") || msg.includes("econnreset") || msg.includes("fetch failed") || msg.includes("getaddrinfo") || msg.includes("cannot connect") || msg.includes("network")) {
+      return "无法连接到服务器，请检查 API 地址和网络"
+    }
+    return String(err)
+  }
+
+  /**
    * 处理登录操作。
    * 先检测是否已有登录配置，若已登录则询问是否重新登录。
+   * 输入密码后显示"登录中..."，完成后给出友好的成功或失败提示。
    */
   const handleLogin = async () => {
     const loggedIn = await Effect.runPromise(
@@ -1444,15 +1468,28 @@ export function DialogOmniStudio() {
     const password = await DialogPrompt.show(dialog, "密码（输入内容可见）", { placeholder: "输入密码" })
     if (!password) return
 
+    suppressBackToMenu = true
+    dialog.replace(() => (
+      <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
+        <text fg={theme.textMuted}>登录中...</text>
+      </box>
+    ))
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 0))
+
     try {
       const config = await Effect.runPromise(
         OmniStudioAuth.Service.use((svc) =>
           svc.login({ username, password }),
         ).pipe(Effect.provide(OmniStudioAuth.defaultLayer)),
       )
-      await showResult("登录成功", `已以 ${config.user.username} 身份登录`)
+      suppressBackToMenu = false
+      await DialogAlert.show(dialog, "登录成功", `已以 ${config.user.username} 身份登录`)
+      dialog.replace(() => <DialogOmniStudio />)
     } catch (e) {
-      await showResult("登录失败", String(e))
+      suppressBackToMenu = false
+      await DialogAlert.show(dialog, "登录失败", formatLoginError(e))
+      dialog.replace(() => <DialogOmniStudio />)
     }
   }
 

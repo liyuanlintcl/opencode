@@ -81,14 +81,13 @@ export const layer = Layer.effect(
       yield* fs.remove(configFile()).pipe(Effect.catch(() => Effect.void))
     })
 
-    /** 设置 api_base；保留已有 token 和用户信息；存储前规范化 */
+    /** 设置 api_base；切换服务器时清空已有 token 和用户信息；存储前规范化 */
     const setEndpoints = Effect.fn("OmniStudioConfig.setEndpoints")(function* (apiBase: string) {
-      const existing = yield* read()
       const config: OmniStudioConfig = {
         api_base: normalizeApiBase(apiBase),
-        access_token: existing?.access_token ?? "",
-        refresh_token: existing?.refresh_token ?? "",
-        user: existing?.user ?? { id: "", username: "" },
+        access_token: "",
+        refresh_token: "",
+        user: { id: "", username: "" },
       }
       yield* write(config)
     })

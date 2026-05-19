@@ -123,7 +123,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const envelope = yield* fetchWithRefresh((headers) =>
         Effect.gen(function* () {
           const response = yield* Effect.tryPromise({
-            try: () => fetch(url, { headers }),
+            try: () => fetch(url, { headers, signal: AbortSignal.timeout(15_000) }),
             catch: (error) => (error instanceof Error ? error.message : String(error)),
           })
           const envelope = yield* parseEnvelope(response)
@@ -175,7 +175,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const envelope = yield* fetchWithRefresh((headers) =>
         Effect.gen(function* () {
           const response = yield* Effect.tryPromise({
-            try: () => fetch(url, { headers }),
+            try: () => fetch(url, { headers, signal: AbortSignal.timeout(15_000) }),
             catch: (error) => (error instanceof Error ? error.message : String(error)),
           })
           const envelope = yield* parseEnvelope(response)
@@ -215,7 +215,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const envelope = yield* fetchWithRefresh((headers) =>
         Effect.gen(function* () {
           const response = yield* Effect.tryPromise({
-            try: () => fetch(url, { headers }),
+            try: () => fetch(url, { headers, signal: AbortSignal.timeout(15_000) }),
             catch: (error) => (error instanceof Error ? error.message : String(error)),
           })
           const envelope = yield* parseEnvelope(response)
@@ -248,7 +248,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
       const envelope = yield* fetchWithRefresh((headers) =>
         Effect.gen(function* () {
           const urlResponse = yield* Effect.tryPromise({
-            try: () => fetch(downloadEndpoint, { headers }),
+            try: () => fetch(downloadEndpoint, { headers, signal: AbortSignal.timeout(15_000) }),
             catch: (error) => (error instanceof Error ? error.message : String(error)),
           })
           const envelope = yield* parseEnvelope(urlResponse)
@@ -265,7 +265,7 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
 
       /** 请求预签名下载地址并使用流式读取，实时报告下载进度 */
       const fileResponse = yield* Effect.tryPromise({
-        try: () => fetch(actualUrl),
+        try: () => fetch(actualUrl, { signal: AbortSignal.timeout(300_000) }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
       if (!fileResponse.ok) return yield* Effect.fail(`Download failed: HTTP ${fileResponse.status}`)

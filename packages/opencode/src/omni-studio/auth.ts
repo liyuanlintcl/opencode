@@ -49,6 +49,7 @@ export const layer = Layer.effect(
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(credentials),
+            signal: AbortSignal.timeout(10_000),
           }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })
@@ -125,6 +126,7 @@ export const layer = Layer.effect(
               Authorization: `Bearer ${config.access_token}`,
             },
             body: JSON.stringify({ accessToken: config.access_token }),
+            signal: AbortSignal.timeout(10_000),
           }),
         catch: (error) => (error instanceof Error ? error.message : String(error)),
       })

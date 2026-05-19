@@ -1007,10 +1007,10 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           ),
         )
         setInstallResult({ slug: ext.slug, ok: true, msg: `安装并启用成功${depMsg}` })
-        setTimeout(() => setInstallResult((prev) => prev?.slug === ext.slug ? null : prev), 3000)
+        setTimeout(() => setInstallResult((prev) => prev?.slug === ext.slug ? null : prev), 1000)
       } catch (enableErr) {
         setInstallResult({ slug: ext.slug, ok: false, msg: `安装成功，但启用失败: ${enableErr}${depMsg}` })
-        setTimeout(() => setInstallResult((prev) => prev?.slug === ext.slug ? null : prev), 5000)
+        setTimeout(() => setInstallResult((prev) => prev?.slug === ext.slug ? null : prev), 1000)
       }
 
       setInstallingSlug(null)
@@ -1024,7 +1024,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
       setInstallingSlug(null)
       setInstallProgress(null)
       setInstallResult({ slug: ext.slug, ok: false, msg: `安装失败: ${e}` })
-      setTimeout(() => setInstallResult((prev) => prev?.slug === ext.slug ? null : prev), 5000)
+      setTimeout(() => setInstallResult((prev) => prev?.slug === ext.slug ? null : prev), 1000)
     }
   }
 

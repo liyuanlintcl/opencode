@@ -1,6 +1,6 @@
 import { Effect, Layer, Context } from "effect"
 import { OmniStudioAuth } from "./auth"
-import { OmniStudioConfig } from "./config"
+import { OmniStudioConfig, DEFAULT_API_BASE } from "./config"
 import type { Extension, ExtensionType, PagedResult, Revision } from "./types"
 
 /**
@@ -55,11 +55,11 @@ export const layer: Layer.Layer<Service, never, OmniStudioAuth.Service | OmniStu
     const authSvc = yield* OmniStudioAuth.Service
     const configSvc = yield* OmniStudioConfig.Service
 
-    /** 获取 API 基础地址；config.read() 已做规范化 */
+    /** 获取 API 基础地址；config.read() 已做规范化；未配置时使用默认值 */
     const getApiBase = Effect.fn("OmniStudioMarket.getApiBase")(function* () {
       const config = yield* configSvc.read()
-      if (!config) return yield* Effect.fail("Not logged in")
-      return config.api_base
+      if (config?.api_base) return config.api_base
+      return DEFAULT_API_BASE
     })
 
     /**

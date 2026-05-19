@@ -15,7 +15,7 @@ import { useKeyboard } from "@opentui/solid"
 import { Effect } from "effect"
 import { Global } from "@opencode-ai/core/global"
 import { OmniStudioAuth } from "@/omni-studio/auth"
-import { OmniStudioConfig } from "@/omni-studio/config"
+import { OmniStudioConfig, DEFAULT_API_BASE } from "@/omni-studio/config"
 import { OmniStudioStore } from "@/omni-studio/store"
 import { OmniStudioMarket } from "@/omni-studio/market"
 import { checkMissingDependencies, checkDisabledDependencies, findDependentSpecs } from "@/omni-studio/spec-discovery"
@@ -1499,8 +1499,8 @@ export function DialogOmniStudio() {
    */
   const handleSetup = async () => {
     const apiBase = await DialogPrompt.show(dialog, "Omni Studio Extension API 地址", {
-      placeholder: "http://192.88.1.63:3008",
-      value: "http://192.88.1.63:3008",
+      placeholder: DEFAULT_API_BASE,
+      value: DEFAULT_API_BASE,
     })
     if (!apiBase) return
 

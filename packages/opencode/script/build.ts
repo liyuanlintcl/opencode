@@ -221,12 +221,18 @@ for (const item of targets) {
     const rgUrl = `https://github.com/BurntSushi/ripgrep/releases/download/${RG_VERSION}/${rgFilename}`
     const rgArchive = `dist/${name}/bin/${rgFilename}`
     const rgTarget = `dist/${name}/bin/rg${item.os === "win32" ? ".exe" : ""}`
+    const localCache = path.join(dir, "..", "..", "vendor", "ripgrep", rgFilename)
     try {
-      console.log(`downloading ripgrep for ${platformKey}: ${rgUrl}`)
-      const response = await fetch(rgUrl)
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const buffer = await response.arrayBuffer()
-      fs.writeFileSync(rgArchive, new Uint8Array(buffer))
+      if (fs.existsSync(localCache)) {
+        console.log(`using cached ripgrep for ${platformKey}: ${localCache}`)
+        fs.copyFileSync(localCache, rgArchive)
+      } else {
+        console.log(`downloading ripgrep for ${platformKey}: ${rgUrl}`)
+        const response = await fetch(rgUrl)
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const buffer = await response.arrayBuffer()
+        fs.writeFileSync(rgArchive, new Uint8Array(buffer))
+      }
 
       if (rgConfig.extension === "tar.gz") {
         await $`tar -xzf ${rgArchive} -C dist/${name}/bin`

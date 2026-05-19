@@ -4,6 +4,9 @@ import { Effect, Layer, Context } from "effect"
 import { AppFileSystem } from "@opencode-ai/core/filesystem"
 import type { OmniStudioConfig, OmniStudioState } from "./types"
 
+/** 默认 Omni Studio Extension API 基础地址 */
+export const DEFAULT_API_BASE = "http://192.88.1.63:3008"
+
 /** 登录配置文件路径：`~/.omni_studio/omni-studio.json` */
 const configFile = () => path.join(Global.Path.home, ".omni_studio", "omni-studio.json")
 

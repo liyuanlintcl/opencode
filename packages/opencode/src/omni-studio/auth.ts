@@ -1,5 +1,5 @@
 import { Effect, Layer, Context } from "effect"
-import { OmniStudioConfig } from "./config"
+import { OmniStudioConfig, DEFAULT_API_BASE } from "./config"
 import type { OmniStudioConfig as OmniStudioConfigType } from "./types"
 
 /**
@@ -35,13 +35,10 @@ export const layer = Layer.effect(
   Effect.gen(function* () {
     const configSvc = yield* OmniStudioConfig.Service
 
-    /** 登录：从配置读取 api_base，仅更新 token 和用户信息 */
+    /** 登录：从配置读取 api_base，未配置时使用默认值；仅更新 token 和用户信息 */
     const login = Effect.fn("OmniStudioAuth.login")(function* (credentials: { username: string; password: string }) {
       const existing = yield* configSvc.read()
-      const apiBase = existing?.api_base
-      if (!apiBase) {
-        return yield* Effect.fail("api_base not configured, run `opencode omni-studio setup` first")
-      }
+      const apiBase = existing?.api_base || DEFAULT_API_BASE
 
       const response = yield* Effect.tryPromise({
         try: () =>

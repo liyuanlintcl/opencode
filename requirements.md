@@ -2,7 +2,7 @@
 
 ## 1. 背景与目标
 
-为 OpenCode CLI 提供 Omni Studio 扩展市场能力，使用户能够通过命令行浏览、安装、管理来自 Omni Studio Marketplace 的扩展（skill / tool / plugin / agent / spec）。
+为 Omni Studio CLI 提供 Omni Studio 扩展市场能力，使用户能够通过命令行浏览、安装、管理来自 Omni Studio Marketplace 的扩展（skill / tool / plugin / agent / spec）。
 其中 spec 为组合规格类型，通过 `SPEC.md` 声明依赖的外部/内部扩展集合，支持一键触发执行。
 
 ## 2. 用户故事
@@ -79,7 +79,7 @@
 - [x] 手动删除扩展目录后，state.json 自动清理对应记录
 - [x] 安装 spec 扩展后，系统自动发现其内部 skill / tool / plugin / agent 并正确加载（通过修改各扩展类型的扫描路径实现：skill→`specs/*/skills/`、tool→`specs/*/tools/`、agent→`specs/*/agents/`、plugin→`specs/*/plugins/`）
 - [x] TUI 中可手动触发已安装的 spec 扩展（F14）
-- [x] Omni Studio 扩展更新后，已加载的 plugin 代码自动热重载，无需重启 opencode（POSIX 系统通过绝对路径 + query string 绕过 Bun ESM 缓存；WSL2 已验证通过）
+- [x] Omni Studio 扩展更新后，已加载的 plugin 代码自动热重载，无需重启 Omni Studio CLI（POSIX 系统通过绝对路径 + query string 绕过 Bun ESM 缓存；WSL2 已验证通过）
 - [x] Plugin 热重载过程包含完整调试日志，便于定位问题（state.json watchFile 触发、InstanceState invalidate、import 路径转换、加载结果）
 - [ ] ~~TUI 市场列表常驻版本下拉框~~（需求已取消）
 - [x] CLI `install` 命令的 `version` 参数生效，传入时下载并安装指定版本（F4）

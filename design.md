@@ -4,7 +4,7 @@
 
 ```
 ┌─────────────────────────────────────────┐
-│         opencode omni-studio            │
+│         omni-studio 命令                │
 │  (CLI command router & argument parser) │
 └─────────────────────────────────────────┘
                    │
@@ -555,7 +555,7 @@ store.ts 额外监听：
 1. build.ts 下载对应平台 rg → dist/{name}/bin/rg
 2. 生成 src/file/ripgrep-embedded.gen.ts
    import embeddedRg from "../../dist/{name}/bin/rg" with { type: "file" };
-3. Bun.build() 编译时自动将 rg 嵌入到 opencode 二进制内部的 bunfs
+3. Bun.build() 编译时自动将 rg 嵌入到 Omni Studio CLI 二进制内部的 bunfs
 4. 构建完成后恢复默认 ripgrep-embedded.gen.ts（export undefined）
 
 运行流程：

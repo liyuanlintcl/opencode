@@ -78,6 +78,7 @@ Task 1: 类型定义 & 配置模块
 | T36 | Plugin 热重载：Bun ESM 缓存绕过与调试日志 | Omni Studio 扩展更新后 plugin 代码未热重载；根因是 Bun issue #21346（`file://` URL + query string 不会触发重新加载）。修复：POSIX 系统上将 `file://` URL 转为绝对路径 + `?invalidate=...` 再 import；Windows 暂保持原样。在 `plugin/index.ts` 和 `plugin/loader.ts` 中添加详细调试日志辅助定位 | 2h | ✅ |
 | T37 | session-memory-plugin API 适配与响应解析修复 | plugin 中 v1 messages 调用需传 `path.id` 替换 URL 占位符；v2 调用需使用 `client._client.get()`；Anthropic 返回 content 数组含 thinking + text block，需过滤 `type === "text"` 后拼接；OpenAI 兼容格式也可能返回数组，统一处理 | 2h | ✅ |
 | T38 | Omni Studio TUI 安装成功 UI 优化 | 安装成功后移除 3 秒高亮 `setTimeout` 过渡，直接更新 `localVersions` Map 使按钮立即显示灰色 `[已安装]`，避免闪烁 | 1h | ✅ |
+| T39 | TUI 安装后自动启用扩展 | 安装成功后自动调用 `setEnabled(type, slug, true)`；启用成功行内提示绿色"安装并启用成功"，启用失败行内提示红色"安装成功，但启用失败: xxx"；安装失败也改为行内提示，不再弹出 DialogAlert | 1h | ✅ |
 
 ## Task 交付规范
 
@@ -144,3 +145,4 @@ Task 1: 类型定义 & 配置模块
 - [x] T36 — Plugin 热重载：Bun ESM 缓存绕过与调试日志
 - [x] T37 — session-memory-plugin API 适配与响应解析修复
 - [x] T38 — Omni Studio TUI 安装成功 UI 优化
+- [x] T39 — TUI 安装后自动启用扩展

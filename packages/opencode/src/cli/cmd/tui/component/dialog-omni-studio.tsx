@@ -951,8 +951,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 
   /**
    * 点击确认安装扩展。
-   * 直接执行 getMeta 和 install，不使用 DialogConfirm 避免触发 backToMenu。
-   * 安装结果通过行内状态显示，直接显示灰色 [已安装]。
+   * 安装成功后自动启用扩展；启用失败时通过行内状态提示，不阻断安装结果。
    */
   const handleInstallExt = async (ext: Extension) => {
     setPendingSlug(null)
@@ -997,9 +996,20 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
         }
       }
 
+      // 安装成功后自动启用扩展
+      try {
+        await Effect.runPromise(
+          OmniStudioStore.Service.use((svc) => svc.setEnabled(ext.type, ext.slug, true)).pipe(
+            Effect.provide(OmniStudioStore.defaultLayer),
+          ),
+        )
+        setInstallResult({ slug: ext.slug, ok: true, msg: `安装并启用成功${depMsg}` })
+      } catch (enableErr) {
+        setInstallResult({ slug: ext.slug, ok: false, msg: `安装成功，但启用失败: ${enableErr}${depMsg}` })
+      }
+
       setInstallingSlug(null)
       setInstallProgress(null)
-      // 安装成功后直接更新本地版本集合，UI 立即显示灰色 [已安装]，无高亮过渡
       setLocalVersions((prev) => {
         const next = new Map(prev)
         next.set(`${ext.type}:${ext.slug}`, ext.version)
@@ -1008,13 +1018,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     } catch (e) {
       setInstallingSlug(null)
       setInstallProgress(null)
-      suppressBackToMenu = true
-      try {
-        await DialogAlert.show(props.dialog, "安装失败", String(e))
-      } finally {
-        suppressBackToMenu = false
-      }
-      props.dialog.replace(() => <OmniStudioListView dialog={props.dialog} onBack={props.onBack} />, props.onBack)
+      setInstallResult({ slug: ext.slug, ok: false, msg: `安装失败: ${e}` })
     }
   }
 

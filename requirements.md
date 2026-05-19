@@ -25,7 +25,7 @@
 | F1a | 服务地址配置：`opencode omni-studio setup`，设置 api_base | P0 |
 | F2 | 登出：`opencode omni-studio logout` | P0 |
 | F3 | 交互式列出市场扩展：`opencode omni-studio list [type]`，显示本地安装状态并支持选中直接安装 | P0 |
-| F4 | 安装扩展：`opencode omni-studio install <type> <slug> [version]`；`version` 参数支持指定版本号，缺省时安装最新版 | P0 |
+| F4 | 安装扩展：`opencode omni-studio install <type> <slug> [version]`；`version` 参数支持指定版本号，缺省时安装最新版；TUI 中安装成功后自动启用扩展，启用失败时行内提示 | P0 |
 | F4a | 更新检测：TUI 市场列表自动比对本地版本与远程版本，版本不一致时展示 `[更新]` 按钮 | P0 |
 | F4c | ~~常驻版本下拉框~~（已取消）：TUI 市场列表每行右侧直接展示版本选择下拉框 | P0 |
 | F4b | 下载进度显示：扩展包下载时展示实时进度百分比 | P1 |
@@ -84,4 +84,5 @@
 - [ ] ~~TUI 市场列表常驻版本下拉框~~（需求已取消）
 - [x] CLI `install` 命令的 `version` 参数生效，传入时下载并安装指定版本（F4）
 - [x] 安装指定版本后覆盖本地旧版本（旧版本文件删除，不保留多版本共存）
+- [x] TUI 安装成功后自动启用扩展，启用失败时行内提示红色错误信息（F4）
 - [x] 本地扩展列表显示 `name@version`，市场扩展列表只显示 `name`

@@ -1,8 +1,8 @@
-# Omni Studio Marketplace (CLI) — 需求分析
+# Omni Studio Extension — 需求分析
 
 ## 1. 背景与目标
 
-为 Omni Studio CLI 提供 Omni Studio 扩展市场能力，使用户能够通过命令行浏览、安装、管理来自 Omni Studio Marketplace 的扩展（skill / tool / plugin / agent / spec）。
+为 Omni Studio CLI（`omni`）提供扩展市场能力，使用户能够通过命令行浏览、安装、管理来自 Omni Studio Marketplace 的扩展（skill / tool / plugin / agent / spec）。
 其中 spec 为组合规格类型，通过 `SPEC.md` 声明依赖的外部/内部扩展集合，支持一键触发执行。
 
 ## 2. 用户故事
@@ -21,24 +21,27 @@
 
 | ID | 需求 | 优先级 |
 |---|---|---|
-| F1 | 登录：`opencode omni-studio login`，仅输入用户名和密码；认证地址和 API 地址通过 `setup` 预先配置 | P0 |
-| F1a | 服务地址配置：`opencode omni-studio setup`，设置 api_base | P0 |
-| F2 | 登出：`opencode omni-studio logout` | P0 |
-| F3 | 交互式列出市场扩展：`opencode omni-studio list [type]`，显示本地安装状态并支持选中直接安装 | P0 |
-| F4 | 安装扩展：`opencode omni-studio install <type> <slug> [version]`；`version` 参数支持指定版本号，缺省时安装最新版；TUI 中安装成功后自动启用扩展，启用失败时行内提示 | P0 |
+| F1 | 登录：`omni extension login`，仅输入用户名和密码；认证地址和 API 地址通过 `setup` 预先配置 | P0 |
+| F1a | 服务地址配置：`omni extension setup`，设置 api_base | P0 |
+| F2 | 登出：`omni extension logout` | P0 |
+| F3 | 交互式列出市场扩展：`omni extension list [type]`，显示本地安装状态并支持选中直接安装 | P0 |
+| F4 | 安装扩展：`omni extension install <type> <slug> [version]`；`version` 参数支持指定版本号，缺省时安装最新版；TUI 中安装成功后自动启用扩展，启用失败时行内提示 | P0 |
 | F4a | 更新检测：TUI 市场列表自动比对本地版本与远程版本，版本不一致时展示 `[更新]` 按钮 | P0 |
 | F4c | ~~常驻版本下拉框~~（已取消）：TUI 市场列表每行右侧直接展示版本选择下拉框 | P0 |
 | F4b | 下载进度显示：扩展包下载时展示实时进度百分比 | P1 |
-| F5 | 卸载扩展：`opencode omni-studio uninstall <type> <slug>` | P0 |
-| F6 | 启用扩展：`opencode omni-studio enable <type> <slug>` | P0 |
-| F7 | 禁用扩展：`opencode omni-studio disable <type> <slug>` | P0 |
-| F8 | 交互式查看本地扩展状态：`opencode omni-studio status`，支持选中扩展进行启用/禁用/卸载操作 | P0 |
+| F5 | 卸载扩展：`omni extension uninstall <type> <slug>` | P0 |
+| F6 | 启用扩展：`omni extension enable <type> <slug>` | P0 |
+| F7 | 禁用扩展：`omni extension disable <type> <slug>` | P0 |
+| F8 | 交互式查看本地扩展状态：`omni extension status`，支持选中扩展进行启用/禁用/卸载操作 | P0 |
 | F9 | TUI slash 命令：`/omni-studio` 在终端界面中显示 Omni Studio 管理菜单，支持 status / local / list / login / logout | P0 |
 | F10 | 实时同步：扩展启用/禁用后，skill / config / tool 模块实时刷新，TUI 主界面即时生效 | P0 |
 | F11 | 自动清理：扩展目录被手动删除后，自动从 state.json 中移除对应记录 | P1 |
 | F12 | Token 自动刷新：accessToken 过期时自动调用 refresh-token 接口，更新本地 token 并重试原请求 | P1 |
 | F13 | Spec 扩展支持：安装 spec 类型扩展后，自动扫描已启用的 spec，将其 SPEC.md **正文**（去掉 YAML frontmatter）作为 instructions 注入系统提示；自动拼接内嵌扩展（skills/tools/agents/plugins）的说明文件内容；skill/tool/agent/plugin 扫描自动覆盖 `specs/{slug}/` 子目录 | P0 |
 | F14 | Spec 触发：TUI 中提供手动触发 spec 的入口，执行其 SPEC.md 定义的组合流水线 | P0 |
+| F15 | **品牌统一**：将用户可见的产品品牌从 `OpenCode` / `opencode` 全面替换为 `Omni Studio` / `omni`。优先项：CLI 命令名（`opencode` → `omni`）、配置文件名/路径（`opencode.json` → `omni.json`、`.opencode/` → `.omni/`、`~/.config/opencode/` → `~/.config/omni/`）、桌面端应用名（窗口标题、菜单、i18n）、TUI 标题（`DEFAULT_TITLE`）、构建产物名（`opencode-desktop-*` → `omni-desktop-*`）、TUI 提示语、VS Code 扩展 ID | P0 |
+| F16 | **新 TUI 默认主题**：创建一套全新的 TUI 内置主题（`omni.json`），替换现有默认主题 `opencode.json`，作为 Omni Studio 品牌的视觉识别主题 | P1 |
+| F17 | **桌面端集成**：在桌面端应用（Electron）中添加 Omni Studio Extension 入口按钮，打开独立窗口/视图展示扩展管理界面。基本功能与 TUI 一致（浏览市场、安装/卸载/启用/禁用扩展、触发 spec），同时应用品牌修改和新主题 | P1 |
 
 ## 4. 非功能需求
 

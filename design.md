@@ -1,10 +1,10 @@
-# Omni Studio Marketplace (CLI) — 设计文档
+# Omni Studio Extension — 设计文档
 
 ## 1. 架构概览
 
 ```
 ┌─────────────────────────────────────────┐
-│         omni-studio 命令                │
+│      omni extension 命令                │
 │  (CLI command router & argument parser) │
 └─────────────────────────────────────────┘
                    │
@@ -24,7 +24,7 @@ omni-studio.json             {skills,tools,...}/
 
 | 模块 | 职责 | 文件 |
 |---|---|---|
-| `cli.ts` | 命令解析与路由 | `src/omni-studio/cli.ts` |
+| `cli.ts` | 命令解析与路由：注册 `omni extension <subcmd>` 子命令 | `src/omni-studio/cli.ts` |
 | `auth.ts` | 登录/登出/Token 管理 | `src/omni-studio/auth.ts` |
 | `market.ts` | HTTP 市场 API 调用 | `src/omni-studio/market.ts` |
 | `store.ts` | 本地扩展安装/卸载/状态，含 fs.watch 自动清理 | `src/omni-studio/store.ts` |
@@ -95,6 +95,8 @@ interface ExtensionScripts {
 ## 4. 接口设计
 
 ### 4.1 CLI 命令接口
+
+通过 `omni extension <subcmd>` 调用：
 
 ```ts
 type Command =
@@ -627,3 +629,156 @@ async function refreshToken(): Promise<OmniStudioConfig>
   - 所有脚本超时时间为 5 分钟，超时时强制终止
 - **风险**：activate 脚本未正确设置环境变量导致后续脚本失败。缓减措施：在合并命令中导出环境变量，或在同一会话中顺序执行。
 - **风险**：Bun ESM 缓存导致 plugin 热重载在 Windows 上无法生效。缓减措施：POSIX 系统已使用绝对路径 + query string 绕过缓存；Windows 暂保持 file:// URL 格式，等待 Bun 修复 issue #21346。如 Windows 需紧急支持，可降级为临时目录复制方案（将 plugin 目录复制到 %TEMP% 后 import）。
+
+## 9. 品牌统一设计（F15）
+
+### 9.1 CLI 命令名
+
+- **主命令**：`opencode` → `omni`
+- **扩展市场子命令**：`omni extension <subcmd>`（原规划中 `opencode omni-studio <subcmd>`）
+- **示例**：`omni extension login`、`omni extension list`、`omni extension install skill math-tool`
+
+### 9.2 配置文件与路径
+
+| 旧路径/文件名 | 新路径/文件名 | 说明 |
+|---|---|---|
+| `opencode.json` / `opencode.jsonc` | `omni.json` / `omni.jsonc` | 项目级配置文件 |
+| `.opencode/` | `.omni/` | 项目级配置目录 |
+| `~/.config/opencode/` | `~/.config/omni/` | XDG 全局配置目录 |
+| `~/.cache/opencode/` | `~/.cache/omni/` | 缓存目录（含 rg 解压路径） |
+| `packages/core/src/global.ts` 中 `const app = "opencode"` | `const app = "omni"` | 决定 XDG 目录根名 |
+
+**迁移策略**：首次启动时检测旧路径是否存在，存在则自动复制到新路径并提示用户。
+
+### 9.3 桌面端应用名
+
+| 位置 | 旧值 | 新值 |
+|---|---|---|
+| `APP_NAMES.prod` | `"OpenCode"` | `"Omni Studio"` |
+| `APP_NAMES.beta` | `"OpenCode Beta"` | `"Omni Studio Beta"` |
+| `APP_NAMES.dev` | `"OpenCode Dev"` | `"Omni Studio Dev"` |
+| 菜单项 | `"OpenCode Documentation"` | `"Omni Studio Documentation"` |
+| `package.json` author | `"OpenCode"` | `"Omni Studio"` |
+| i18n 文本（15 个语言文件） | 所有 `"OpenCode"` | `"Omni Studio"` |
+
+### 9.4 TUI 标题与提示
+
+- `attention.ts` 中 `DEFAULT_TITLE = "opencode"` → `"omni"`
+- `tips-view.tsx` 中所有产品名引用（`opencode run`、`opencode serve`、`.opencode/` 等）→ `omni run`、`omni serve`、`.omni/`
+- 注意保留命令本身的语法正确性（如 `{highlight}omni run{/highlight}`）
+
+### 9.5 构建产物名
+
+| 旧产物名 | 新产物名 |
+|---|---|
+| `opencode-desktop-${os}-${arch}.${ext}` | `omni-desktop-${os}-${arch}.${ext}` |
+| `opencode-darwin-arm64` / `x64` 等 | `omni-darwin-arm64` / `x64` 等 |
+| `opencode`（单文件 CLI） | `omni`（单文件 CLI） |
+
+### 9.6 VS Code 扩展
+
+- `sdks/vscode/package.json` 中 `name`、`displayName`、`description` 从 `opencode` 改为 `omni`
+- Marketplace 发布时需同步更新扩展 ID
+
+## 10. 新 TUI 默认主题设计（F16）
+
+### 10.1 设计目标
+
+为 Omni Studio 品牌打造一套专属视觉主题，替换现有的 `opencode.json` 默认主题，成为 TUI 终端界面的默认外观。
+
+### 10.2 主题文件
+
+- **文件名**：`packages/opencode/src/cli/cmd/tui/context/theme/omni.json`
+- **默认激活名**：`theme.tsx` 中 `createStore` 的 `active: "omni"`
+- **双模式支持**：完整的 dark / light 双模式（参考 `opencode.json` 的 `defs` + `theme` 结构）
+
+### 10.3 色彩方案（草案）
+
+以 Omni Studio 品牌色为基调（假设品牌主色为深蓝/青色系）：
+
+| 色彩角色 | Dark 模式 | Light 模式 | 用途 |
+|---|---|---|---|
+| primary | `#00d4ff` | `#0077cc` | 主按钮、选中高亮 |
+| secondary | `#7b61ff` | `#5a3fd6` | 次要操作、标签 |
+| accent | `#00ffc8` | `#00aa88` | 强调文字、链接 |
+| success | `#00ff88` | `#00aa55` | 成功状态 |
+| error | `#ff5577` | `#cc2244` | 错误状态 |
+| warning | `#ffaa33` | `#cc8800` | 警告状态 |
+| text | `#f0f0f0` | `#1a1a1a` | 正文 |
+| textMuted | `#8899aa` | `#667788` | 次要文本 |
+| background | `#0a0f1a` | `#ffffff` | 背景（深色用近黑蓝） |
+| backgroundPanel | `#111827` | `#f8f9fa` | 面板背景 |
+| backgroundElement | `#1a2332` | `#f0f2f5` | 元素背景 |
+
+### 10.4 完整键映射
+
+参照 `opencode.json` 的完整结构，定义 46 个颜色键 + `thinkingOpacity`：
+- 核心：`primary`、`secondary`、`accent`
+- 状态：`error`、`warning`、`success`、`info`
+- 文本：`text`、`textMuted`
+- 背景：`background`、`backgroundPanel`、`backgroundElement`、`backgroundMenu`
+- 边框：`border`、`borderActive`、`borderSubtle`
+- Diff 系列（12 键）
+- Markdown 系列（15 键）
+- 语法高亮（9 键）
+
+## 11. 桌面端集成设计（F17）
+
+### 11.1 功能范围
+
+在 Electron 桌面端应用中新增 Omni Studio Extension 管理入口，功能与 TUI 基本一致：
+
+- **市场浏览**：展示远程扩展列表，支持 skill/tool/plugin/agent/spec 类型切换和搜索
+- **安装/更新**：点击安装按钮，展示下载进度，安装后自动启用
+- **本地管理**：展示已安装扩展，支持启用/禁用/卸载
+- **Spec 触发**：展示已启用的 spec 列表，点击触发
+- **登录/登出/配置**：输入 api_base、username、password 完成认证
+
+### 11.2 UI 入口
+
+在桌面端主窗口侧边栏或顶部工具栏添加 **"Extensions"** 按钮/图标：
+
+```
+┌──────────────────────────────────────┐
+│  💬 Chat    📝 Notes    🧩 Extensions │  ← 顶部 Tab 栏新增 Extensions
+├──────────────────────────────────────┤
+│                                      │
+│  [Extension Manager View]            │
+│  ┌────────────────────────────────┐  │
+│  │ [skill] [tool] [plugin] [spec] │  │  ← 类型切换 Tab
+│  │ Search: [________]             │  │  ← 搜索框
+│  │                                │  │
+│  │ math-tool@v1.0.0        [安装] │  │  ← 扩展列表行
+│  │ code-reviewer@draft     [安装] │  │
+│  │ session-memory@1.0.1  [已安装] │  │
+│  │                                │  │
+│  │ 第 1/3 页  ◀  ▶               │  │
+│  └────────────────────────────────┘  │
+│                                      │
+└──────────────────────────────────────┘
+```
+
+### 11.3 技术方案
+
+- **UI 框架**：复用桌面端现有的 React/Solid 组件体系（根据桌面端实际框架）
+- **数据层**：复用 `OmniStudioMarket`、`OmniStudioStore`、`OmniStudioAuth` 三个 Effect Service（通过桌面端的 IPC 桥接调用 CLI 核心逻辑）
+- **窗口模式**：
+  - 方案 A：在主窗口内以 Tab/Route 形式嵌入（推荐，与现有桌面端集成度高）
+  - 方案 B：点击后打开独立子窗口（类似设置窗口）
+- **状态同步**：扩展启用/禁用后，通过 IPC 通知主进程刷新 skill/config/tool 扫描
+
+### 11.4 与 TUI 的复用关系
+
+| 层级 | 复用方式 |
+|---|---|
+| Effect Service（auth/market/store） | ✅ 完全复用，通过 `Effect.provide(defaultLayer)` |
+| 类型定义（types.ts） | ✅ 完全复用 |
+| UI 组件（DialogSelect、行内按钮等） | ❌ 需重写为桌面端组件（React/Solid/HTML） |
+| 主题/配色 | ✅ 复用新主题 `omni.json` 的颜色定义 |
+
+### 11.5 品牌一致性
+
+桌面端集成需同步应用 F15 品牌修改：
+- 窗口标题、菜单项显示 "Omni Studio"
+- 应用图标、Dock 标签使用新品牌名
+- 错误报告链接、文档链接指向新域名（如有）

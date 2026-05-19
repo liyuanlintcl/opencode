@@ -146,3 +146,11 @@ Task 1: 类型定义 & 配置模块
 - [x] T37 — session-memory-plugin API 适配与响应解析修复
 - [x] T38 — Omni Studio TUI 安装成功 UI 优化
 - [x] T39 — TUI 安装后自动启用扩展
+| T40 | **品牌统一：CLI 命令名** | 将 CLI 主命令从 `opencode` 改为 `omni`；扩展市场子命令注册为 `omni extension <subcmd>`；修改 `package.json` bin 字段、`src/cli/index.ts` 命令注册、所有命令描述文案 | 2h | ⏳ |
+| T41 | **品牌统一：配置文件与路径** | 修改 `packages/core/src/global.ts` 中 `const app = "opencode"` 为 `"omni"`；更新 `Flag.OPENCODE_CONFIG_DIR` 等常量；配置迁移逻辑：首次启动检测旧路径并自动复制；修改 `config.ts` 默认 schema URL | 2h | ⏳ |
+| T42 | **品牌统一：桌面端应用名与 i18n** | 修改 `packages/desktop/src/main/index.ts` APP_NAMES、menu.ts 菜单项、`package.json` author；更新 15 个 i18n 语言文件中的产品名称；修改 `electron-builder.config.ts` 中 protocols.name、artifactName、appId | 2h | ⏳ |
+| T43 | **品牌统一：TUI 标题与提示语** | `attention.ts` DEFAULT_TITLE 改为 `"omni"`；`tips-view.tsx` 中所有产品名引用改为 `omni` 品牌；TUI 配置默认值同步更新 | 1h | ⏳ |
+| T44 | **品牌统一：构建产物与 VS Code 扩展** | 修改 `scripts/utils.ts` 二进制文件名、`electron-builder.config.ts` artifactName；修改 `sdks/vscode/package.json` name/displayName/description | 1h | ⏳ |
+| T45 | **新 TUI 默认主题** | 创建 `packages/opencode/src/cli/cmd/tui/context/theme/omni.json`，定义完整的 dark/light 双模式色彩方案（46 个颜色键 + thinkingOpacity）；在 `theme.tsx` 中导入并设为默认 `active: "omni"`；确保主题通过 `isTheme` 验证 | 3h | ⏳ |
+| T46 | **桌面端集成：Extension 入口与视图** | 在桌面端主窗口添加 "Extensions" Tab/按钮；创建 ExtensionManager 视图组件（市场列表、本地管理、spec 触发）；复用 OmniStudioMarket/OmniStudioStore/OmniStudioAuth Effect Service（通过 IPC 桥接） | 6h | ⏳ |
+| T47 | **桌面端集成：UI 组件与交互** | 实现桌面端风格的扩展列表（类型切换、搜索、分页、安装/更新/卸载/启用/禁用按钮）；实现下载进度展示；实现登录/配置对话框；实现 spec 触发功能 | 4h | ⏳ |

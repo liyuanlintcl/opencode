@@ -112,18 +112,49 @@ async function selfInstall() {
 
   process.stderr.write(`Installed to ${targetFile}${EOL}`)
   if (!inPath) {
-    process.stderr.write(EOL)
-    process.stderr.write(`WARNING: ${targetDir} is not in your PATH.${EOL}`)
-    process.stderr.write(`Add the following to your shell profile:${EOL}`)
     if (platform === "win32") {
-      process.stderr.write(`  setx PATH "%PATH%;${targetDir}"${EOL}`)
+      try {
+        const { execSync } = await import("child_process")
+        execSync(
+          `powershell.exe -Command "[Environment]::SetEnvironmentVariable('Path', [Environment]::GetEnvironmentVariable('Path', 'User') + ';${targetDir}', 'User')"`,
+          { stdio: "ignore" },
+        )
+        process.stderr.write(EOL)
+        process.stderr.write(`Added ${targetDir} to your user PATH.${EOL}`)
+        process.stderr.write(`Restart your terminal for the change to take effect.${EOL}`)
+      } catch {
+        process.stderr.write(EOL)
+        process.stderr.write(`WARNING: Could not add ${targetDir} to PATH automatically.${EOL}`)
+        process.stderr.write(`Add it manually via System Settings.${EOL}`)
+      }
     } else {
       const shell = process.env.SHELL ?? "/bin/bash"
-      const profile = shell.includes("zsh") ? "~/.zshrc" : "~/.bashrc"
-      process.stderr.write(`  echo 'export PATH="${targetDir}:\$PATH"' >> ${profile}${EOL}`)
+      const profileFile = shell.includes("zsh")
+        ? path.join(os.homedir(), ".zshrc")
+        : path.join(os.homedir(), ".bashrc")
+      try {
+        let existing = ""
+        try {
+          existing = await fsPromises.readFile(profileFile, "utf-8")
+        } catch {
+          // profile may not exist yet
+        }
+        const exportLine = `export PATH="${targetDir}:\$PATH"`
+        if (!existing.includes(exportLine)) {
+          const prefix = existing === "" || existing.endsWith("\n") ? "" : "\n"
+          await fsPromises.appendFile(profileFile, prefix + exportLine + "\n")
+        }
+        process.stderr.write(EOL)
+        process.stderr.write(`Added ${targetDir} to your PATH via ${path.basename(profileFile)}.${EOL}`)
+        process.stderr.write(`Run the following to apply the change in the current terminal:${EOL}`)
+        process.stderr.write(`  source ${profileFile}${EOL}`)
+      } catch {
+        process.stderr.write(EOL)
+        process.stderr.write(`WARNING: Could not update ${profileFile} automatically.${EOL}`)
+        process.stderr.write(`Add the following manually:${EOL}`)
+        process.stderr.write(`  export PATH="${targetDir}:\$PATH"${EOL}`)
+      }
     }
-    process.stderr.write(EOL)
-    process.stderr.write(`Then restart your terminal or run: source ${platform === "win32" ? "your profile" : "your shell profile"}${EOL}`)
   } else {
     process.stderr.write(`Run 'omni --help' to get started.${EOL}`)
   }

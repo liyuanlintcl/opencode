@@ -41,14 +41,13 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path artifact
           # rg 已嵌入到 opencode.exe 内部，直接复制单文件即可
-          Copy-Item packages/opencode/dist/opencode-windows-x64/bin/opencode.exe artifact/opencode-windows-x64.exe
           Copy-Item packages/opencode/dist/opencode-windows-x64/bin/opencode.exe artifact/omni-windows-x64.exe
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: opencode-cli-windows
-          path: artifact/opencode-windows-x64.exe
+          name: omni-cli-windows
+          path: artifact/omni-windows-x64.exe
           if-no-files-found: error
 
       - name: Publish to GitHub Release
@@ -68,7 +67,7 @@ jobs:
           } else {
             Write-Host "cli-latest release exists, uploading asset..."
           }
-          gh release upload cli-latest artifact/opencode-windows-x64.exe `
+          gh release upload cli-latest artifact/omni-windows-x64.exe `
             --clobber `
             --repo ${{ github.repository }}
           Write-Host "Windows release asset uploaded successfully."
@@ -101,14 +100,13 @@ jobs:
         run: |
           mkdir -p artifact
           # rg 已嵌入到 opencode 内部，直接复制单文件即可
-          cp packages/opencode/dist/opencode-linux-x64/bin/opencode artifact/opencode-linux-x64
           cp packages/opencode/dist/opencode-linux-x64/bin/opencode artifact/omni-linux-x64
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: opencode-cli-linux
-          path: artifact/opencode-linux-x64
+          name: omni-cli-linux
+          path: artifact/omni-linux-x64
           if-no-files-found: error
 
       - name: Publish to GitHub Release
@@ -126,7 +124,7 @@ jobs:
           else
             echo "cli-latest release exists, uploading asset..."
           fi
-          gh release upload cli-latest artifact/opencode-linux-x64 artifact/omni-linux-x64 \
+          gh release upload cli-latest artifact/omni-linux-x64 \
             --clobber \
             --repo ${{ github.repository }}
           echo "Linux release asset uploaded successfully."

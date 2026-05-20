@@ -253,7 +253,7 @@ const TIPS: Tip[] = [
   "Run {highlight}opencode serve{/highlight} for headless API access to OpenCode",
   "Use {highlight}opencode run --attach{/highlight} to connect to a running server",
   "Run {highlight}opencode upgrade{/highlight} to update to the latest version",
-  "Run {highlight}opencode auth list{/highlight} to see all configured providers",
+  "Run {highlight}omni auth list{/highlight} to see all configured providers",
   "Run {highlight}opencode agent create{/highlight} for guided agent creation",
   "Use {highlight}/opencode{/highlight} in GitHub issues/PRs to trigger AI actions",
   "Run {highlight}opencode github install{/highlight} to set up the GitHub workflow",

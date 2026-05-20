@@ -402,7 +402,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Run opencode
+      - name: Run omni
         uses: anomalyco/opencode/github@latest${envStr}
         with:
           model: ${provider}/${model}`,

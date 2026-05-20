@@ -1,4 +1,4 @@
-// CLI entry point for `opencode run`.
+// CLI entry point for `omni run`.
 //
 // Handles three modes:
 //   1. Non-interactive (default): sends a single prompt, streams events to
@@ -6,7 +6,7 @@
 //   2. Interactive local (`--interactive`): boots the split-footer direct mode
 //      with an in-process server (no external HTTP).
 //   3. Interactive attach (`--interactive --attach`): connects to a running
-//      opencode server and runs interactive mode against it.
+//      omni server and runs interactive mode against it.
 //
 // Also supports `--command` for slash-command execution, `--format json` for
 // raw event streaming, `--continue` / `--session` for session resumption,
@@ -189,7 +189,7 @@ export const RunCommand = effectCmd({
       })
       .option("attach", {
         type: "string",
-        describe: "attach to a running opencode server (e.g., http://localhost:4096)",
+        describe: "attach to a running omni server (e.g., http://localhost:4096)",
       })
       .option("password", {
         alias: ["p"],

@@ -301,7 +301,7 @@ export const ProvidersLoginCommand = effectCmd({
   builder: (yargs) =>
     yargs
       .positional("url", {
-        describe: "opencode auth provider",
+        describe: "omni auth provider",
         type: "string",
       })
       .option("provider", {

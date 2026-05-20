@@ -17,6 +17,7 @@
     "db": "bun drizzle-kit"
   },
   "bin": {
+    "omni": "./bin/omni",
     "opencode": "./bin/opencode"
   },
   "exports": {

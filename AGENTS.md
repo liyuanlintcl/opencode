@@ -130,27 +130,18 @@ const table = sqliteTable("session", {
 
 - Always run `bun typecheck` from package directories (e.g., `packages/opencode`), never `tsc` directly.
 
-## Omni Studio Marketplace (CLI)
+## Omni Studio Marketplace
 
-文件下载和本地扩展管理由 CLI `opencode omni-studio` 命令负责。
+详细设计见：
+- `docs/requirements.md` — 功能需求与用户故事
+- `docs/design.md` — 架构设计、数据模型、接口设计与关键流程
+- `docs/plan.md` — 任务拆分与进度记录
 
-### CLI 命令
+### 文件路径约定
 
-```
-opencode omni-studio login              # 交互式登录并保存配置到 ~/.omni_studio/omni-studio.json
-opencode omni-studio logout             # 清除本地登录配置
-opencode omni-studio list [type]        # 查看市场列表（可选 skill/tool/plugin/agent 过滤）
-opencode omni-studio install <type> <slug> [version]  # 下载并安装扩展
-opencode omni-studio uninstall <type> <slug>          # 卸载扩展
-opencode omni-studio enable <type> <slug>             # 启用扩展
-opencode omni-studio disable <type> <slug>            # 禁用扩展
-opencode omni-studio status             # 查看本地已安装扩展状态和登录信息
-```
-
-配置和状态文件位置：
-- `~/.omni_studio/omni-studio.json` — 登录配置（API URL / Auth URL / Token）
-- `~/.omni_studio/state.json` — 本地扩展启用状态
-- `~/.omni_studio/{skills,tools,plugins,agents}/{slug}/` — 扩展文件目录
+- `~/.omni_studio/omni-studio.json` — 登录配置（API URL / Token），权限 0o600
+- `~/.omni_studio/state.json` — 本地扩展启用状态，权限 0o600
+- `~/.omni_studio/{skills,tools,plugins,agents,specs}/{slug}/{version}/` — 扩展文件目录
 
 ### 后端对接
 
@@ -161,8 +152,8 @@ opencode omni-studio status             # 查看本地已安装扩展状态和�
 
 ### 登录系统
 
-采用与 VXAgent Platform 前端 (`platform-frontend`) 一致的 JWT Bearer Token 模式：
+采用 JWT Bearer Token 模式：
 - 登录：`POST ${authBase}/auth/auth/login` { username, password }
 - 返回 `{ accessToken, refreshToken, user }`
-- Token 和用户信息持久化到 `~/.omni_studio/omni-studio.json`（CLI）
+- Token 和用户信息持久化到 `~/.omni_studio/omni-studio.json`
 - 后续请求携带 `Authorization: Bearer ${accessToken}` Header

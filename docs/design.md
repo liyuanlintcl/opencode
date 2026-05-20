@@ -24,7 +24,7 @@ omni-studio.json             {skills,tools,...}/
 
 | 模块 | 职责 | 文件 |
 |---|---|---|
-| `cli.ts` | 预留扩展市场命令路由模块 | `src/omni-studio/cli.ts` |
+| `cli.ts` | 预留 TUI 扩展市场命令路由模块 | `src/omni-studio/cli.ts` |
 | `auth.ts` | 登录/登出/Token 管理 | `src/omni-studio/auth.ts` |
 | `market.ts` | HTTP 市场 API 调用 | `src/omni-studio/market.ts` |
 | `store.ts` | 本地扩展安装/卸载/状态，含 fs.watch 自动清理 | `src/omni-studio/store.ts` |
@@ -499,7 +499,7 @@ store.ts 额外监听：
 | 实时同步 | `fs.watch` | 绕过 Bun Web Worker 模块缓存隔离问题，跨进程可靠 |
 | Effect Service | `Effect.gen` + `Layer.effect` | 项目标准模式，支持依赖注入和上下文管理 |
 
-## 6. CLI 构建与分发设计
+## 6. 构建与分发设计
 
 ### 6.1 ripgrep 嵌入方案
 
@@ -512,7 +512,7 @@ store.ts 额外监听：
 1. build.ts 下载对应平台 rg → dist/{name}/bin/rg
 2. 生成 src/file/ripgrep-embedded.gen.ts
    import embeddedRg from "../../dist/{name}/bin/rg" with { type: "file" };
-3. Bun.build() 编译时自动将 rg 嵌入到 Omni Studio CLI 二进制内部的 bunfs
+3. Bun.build() 编译时自动将 rg 嵌入到 Omni Studio 二进制内部的 bunfs
 4. 构建完成后恢复默认 ripgrep-embedded.gen.ts（export undefined）
 
 运行流程：
@@ -522,7 +522,7 @@ store.ts 额外监听：
    b. 不存在 → 从 bunfs 读取嵌入的 rg 内容 → 写入 cache → chmod 755
    c. 返回 cache 路径
 3. 如果 embeddedRg 不存在（开发模式 bun run）：
-   a. 回退到原有查找逻辑：CLI 同目录 → node_modules/.bin → PATH → 网络下载
+   a. 回退到原有查找逻辑：二进制同目录 → node_modules/.bin → PATH → 网络下载
 ```
 
 **文件变更**：
@@ -589,7 +589,7 @@ async function refreshToken(): Promise<OmniStudioConfig>
 
 ### 9.1 命令与入口
 
-- **CLI 主命令**：`opencode` → `omni`
+- **主命令名**：`opencode` → `omni`
 - **扩展市场入口**：TUI slash 命令 `/omni-extensions`（别名 `/ext`）
 
 ### 9.2 配置文件与路径
@@ -627,7 +627,7 @@ async function refreshToken(): Promise<OmniStudioConfig>
 |---|---|
 | `opencode-desktop-${os}-${arch}.${ext}` | `omni-desktop-${os}-${arch}.${ext}` |
 | `opencode-darwin-arm64` / `x64` 等 | `omni-darwin-arm64` / `x64` 等 |
-| `opencode`（单文件 CLI） | `omni`（单文件 CLI） |
+| `opencode`（单文件可执行程序） | `omni`（单文件可执行程序） |
 
 ### 9.6 VS Code 扩展
 
@@ -715,7 +715,7 @@ async function refreshToken(): Promise<OmniStudioConfig>
 ### 11.3 技术方案
 
 - **UI 框架**：复用桌面端现有的 React/Solid 组件体系（根据桌面端实际框架）
-- **数据层**：复用 `OmniStudioMarket`、`OmniStudioStore`、`OmniStudioAuth` 三个 Effect Service（通过桌面端的 IPC 桥接调用 CLI 核心逻辑）
+- **数据层**：复用 `OmniStudioMarket`、`OmniStudioStore`、`OmniStudioAuth` 三个 Effect Service（通过桌面端的 IPC 桥接调用核心逻辑）
 - **窗口模式**：
   - 方案 A：在主窗口内以 Tab/Route 形式嵌入（推荐，与现有桌面端集成度高）
   - 方案 B：点击后打开独立子窗口（类似设置窗口）
@@ -746,17 +746,17 @@ async function refreshToken(): Promise<OmniStudioConfig>
 ### 12.1 功能范围（三个插件一致）
 
 - **市场浏览**：在 IDE 中展示 Omni Studio Marketplace 远程扩展列表，支持 skill/tool/plugin/agent/spec 类型切换和搜索
-- **安装/更新/卸载/启用/禁用**：完整的扩展生命周期管理，操作结果与 CLI 状态实时同步
+- **安装/更新/卸载/启用/禁用**：完整的扩展生命周期管理，操作结果状态实时同步
 - **Spec 触发**：展示已启用的 spec 列表并支持手动触发
 - **登录/配置**：输入 api_base、username、password 完成认证
-- **状态同步**：与 CLI 共用 `~/.omni_studio/` 配置和状态文件
+- **状态同步**：共用 `~/.omni_studio/` 配置和状态文件
 
 ### 12.2 对接约束
 
-- **配置文件**：必须读取/写入 `~/.omni_studio/omni-studio.json`（登录配置）和 `~/.omni_studio/state.json`（扩展状态），文件格式与 CLI 保持一致
-- **HTTP API**：可直接调用 Omni Studio Marketplace HTTP API（`GET /api/v1/packages` 等），接口契约与 CLI 使用的 Market Client 一致
-- **CLI 兜底**：对于扩展生命周期脚本执行等复杂操作，可通过调用 `omni` CLI 命令完成
-- **状态刷新**：需监听 `~/.omni_studio/state.json` 文件变化，实现与 CLI / TUI / 桌面端的跨进程状态同步
+- **配置文件**：必须读取/写入 `~/.omni_studio/omni-studio.json`（登录配置）和 `~/.omni_studio/state.json`（扩展状态），文件格式保持一致
+- **HTTP API**：可直接调用 Omni Studio Marketplace HTTP API（`GET /api/v1/packages` 等），接口契约与 Market Client 一致
+- **命令兜底**：对于扩展生命周期脚本执行等复杂操作，可通过调用 `omni` 命令完成
+- **状态刷新**：需监听 `~/.omni_studio/state.json` 文件变化，实现与 TUI / 桌面端的跨进程状态同步
 
 ### 12.3 各插件负责团队
 

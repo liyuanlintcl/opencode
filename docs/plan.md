@@ -1,4 +1,4 @@
-# Omni Studio Marketplace (CLI) — 实现计划
+# Omni Studio Marketplace — 实现计划
 
 ## 任务拆分
 
@@ -8,14 +8,14 @@
 |---|---|---|---|---|
 | T1 | 创建 `src/omni-studio/` 目录及 `types.ts`、`config.ts` | 类型定义完整，配置读写通过单测 | 2h | ✅ |
 | T2 | 实现 Auth 模块（login / logout / getAuthHeaders） | 可成功登录并持久化 token，登出后配置清空 | 3h | ✅ |
-| T3 | 实现登录交互流程（仅 username / password，地址由 setup 预先配置） | 交互体验与主 CLI 一致；api_base 由 setup 配置 | 2h | ✅ |
+| T3 | 实现登录交互流程（仅 username / password，地址由 setup 预先配置） | 交互体验与主 TUI 一致；api_base 由 setup 配置 | 2h | ✅ |
 | T4 | 实现 Market HTTP 客户端（list / getExtensionMeta / download） | 可正常调用 API 并处理 401/404 错误 | 3h | ✅ |
 | T5 | 实现 Store 模块（install / uninstall / enable / disable / status） | 文件正确写入 `~/.omni_studio/`，状态持久化 | 3h | ✅ |
 | T6 | 实现 Executor 模块（detectScripts / runScript / activate 处理） | 支持 .sh/.bat/.ps1，activate 先执行，超时处理 | 3h | ✅ |
-| T7 | 实现 CLI 命令路由与参数解析（list/status 为交互式） | 8 个命令全部可调用，帮助信息完整；list 支持交互安装，status 支持交互管理 | 3h | ✅ |
-| T8 | 集成测试：端到端验证各命令组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ✅ |
-| T9 | 交互式 list 命令：远程列表混合本地安装状态并支持一键安装 | 选中未安装扩展后 confirm 并调用 install，操作后循环返回列表 | 2h | ✅ |
-| T10 | 交互式 status 命令：本地扩展列表支持 enable/disable/uninstall | 选中扩展后二次选择动作，执行后循环返回列表 | 2h | ✅ |
+| T7 | 实现 TUI 命令路由与交互（list/status 为交互式） | TUI 中 8 个功能全部可调用；list 支持交互安装，status 支持交互管理 | 3h | ✅ |
+| T8 | 集成测试：端到端验证各功能组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ✅ |
+| T9 | 交互式 list 功能：远程列表混合本地安装状态并支持一键安装 | 选中未安装扩展后 confirm 并调用 install，操作后循环返回列表 | 2h | ✅ |
+| T10 | 交互式 status 功能：本地扩展列表支持 enable/disable/uninstall | 选中扩展后二次选择动作，执行后循环返回列表 | 2h | ✅ |
 | T11 | TUI slash 命令集成：`/omni-studio` 在终端界面中显示管理菜单 | DialogOmniStudio 组件实现，在 app.tsx 中注册 slash 命令，支持 status/local/list/login/logout/setup；安装/卸载/启用/禁用集成在 list 和 local 视图中以行内按钮提供；登录使用 TUI 原生 DialogPrompt，不使用 @clack/prompts | 3h | ✅ |
 | T12 | 实时同步：扩展启用/禁用后 skill / config / tool 自动刷新 | state.json 变化触发 refresh()，TUI 主界面即时生效 | 4h | ✅ |
 | T13 | fs.watch 兜底方案：监听 state.json 文件系统事件 | 因 Bun Web Worker 模块缓存隔离导致 GlobalBus 失效，改用 fs.watch 监听 state.json 变化 | 2h | ✅ |
@@ -34,11 +34,11 @@
 | T21 | Alert 错误展示与闪退修复 | 脚本失败时 DialogAlert 展示完整 stdout/stderr；suppressBackToMenu 防止 Alert 被 backToMenu 替换闪退 | 2h | ✅ |
 | T22 | 生命周期脚本路径调整 | 脚本从扩展根目录移至 lifecycle/ 子目录，cwd 仍为扩展根目录 | 1h | ✅ |
 | T23 | 安装后默认禁用 | install 完成后 enabled 设为 false，需手动 enable 才执行 start 脚本 | 1h | ✅ |
-| T24 | dev 分支合并（2025-05-14）：Effect Schema + HttpApi + import 路径迁移 | 将 cli 的 Omni Studio 代码适配到 dev 的新架构（Zod→Effect Schema、Hono→HttpApi、@/effect→@/effect/instance-state）。**注：dev 为主开发分支，后续需持续跟踪合并。** | 6h | ✅ |
-| T25 | ripgrep 打包到 CLI：构建时下载 rg，运行时优先查找 CLI 同目录 | build.ts 下载 rg 到 dist/*/bin/，ripgrep.ts 优先查找 path.dirname(process.execPath) 下的 rg | 2h | ✅ |
+| T24 | dev 分支合并（2025-05-14）：Effect Schema + HttpApi + import 路径迁移 | 将 omni-studio 模块代码适配到 dev 的新架构（Zod→Effect Schema、Hono→HttpApi、@/effect→@/effect/instance-state）。**注：dev 为主开发分支，后续需持续跟踪合并。** | 6h | ✅ |
+| T25 | ripgrep 打包到可执行文件：构建时下载 rg，运行时优先查找二进制同目录 | build.ts 下载 rg 到 dist/*/bin/，ripgrep.ts 优先查找 path.dirname(process.execPath) 下的 rg | 2h | ✅ |
 | T26 | ripgrep 开发模式修复：增加开发模式检测和调试日志 | process.execPath 指向 bun 时查找 node_modules/.bin/rg，修复 target 变量缺失错误 | 1h | ✅ |
 | T27 | ripgrep 嵌入编译产物：将 rg 二进制嵌入到可执行文件内部 | build.ts 生成 ripgrep-embedded.gen.ts（with { type: "file" } 导入），ripgrep.ts 运行时从 bunfs 解压到 cache | 3h | ✅ |
-| T28 | workflow 恢复单文件上传 | rg 嵌入后不再需要压缩包分发，workflow 直接上传 Omni Studio CLI 单文件 | 1h | ✅ |
+| T28 | workflow 恢复单文件上传 | rg 嵌入后不再需要压缩包分发，workflow 直接上传 Omni Studio 单文件 | 1h | ✅ |
 | T29 | TUI 键盘快捷键导航 | 列表/本地扩展视图支持 ↑/↓ 或 j/k 移动选中、Enter 执行、Tab 切换类型、←/→ 翻页 | 3h | ✅ |
 
 ### P2 — 可选增强
@@ -66,7 +66,7 @@
 | T43 | 品牌统一：TUI 标题与提示语 | `attention.ts` DEFAULT_TITLE 改为 `"omni"`；`tips-view.tsx` 中所有产品名引用改为 `omni` 品牌；TUI 配置默认值同步更新 | 1h | ⏳ |
 | T44 | 品牌统一：构建产物与 VS Code 扩展 | 修改 `scripts/utils.ts` 二进制文件名、`electron-builder.config.ts` artifactName；修改 `sdks/vscode/package.json` name/displayName/description | 1h | ⏳ |
 | T45 | 新 TUI 默认主题 | 创建 `packages/opencode/src/cli/cmd/tui/context/theme/omni.json`，定义完整的 dark/light 双模式色彩方案（46 个颜色键 + thinkingOpacity）；在 `theme.tsx` 中导入并设为默认 `active: "omni"`；确保主题通过 `isTheme` 验证 | 3h | ⏳ |
-| T46 | 桌面端集成：IPC 桥接与主进程集成 | 在 `main/ipc.ts` 中注册 omni-studio 相关 IPC handlers：`extension-list`、`extension-install`、`extension-uninstall`、`extension-enable`、`extension-disable`、`extension-status`、`extension-login`、`extension-logout`、`extension-setup`；通过 sidecar 或子进程调用 CLI 核心 Effect Service（OmniStudioMarket / OmniStudioStore / OmniStudioAuth）；在 `preload/types.ts` 中声明 IPC 类型 | 3h | ⏳ |
+| T46 | 桌面端集成：IPC 桥接与主进程集成 | 在 `main/ipc.ts` 中注册 omni-studio 相关 IPC handlers：`extension-list`、`extension-install`、`extension-uninstall`、`extension-enable`、`extension-disable`、`extension-status`、`extension-login`、`extension-logout`、`extension-setup`；通过 sidecar 或子进程调用核心 Effect Service（OmniStudioMarket / OmniStudioStore / OmniStudioAuth）；在 `preload/types.ts` 中声明 IPC 类型 | 3h | ⏳ |
 | T47 | 桌面端集成：Extension 路由与入口 | 在 renderer 路由中添加 `/extensions` 路径；在主窗口侧边栏/顶部工具栏添加 "Extensions" 图标按钮；点击后导航到 ExtensionManager 视图；应用品牌修改后的新主题配色 | 2h | ⏳ |
 | T48 | 桌面端集成：市场列表视图 | 实现远程扩展列表组件：类型切换 Tab（skill/tool/plugin/agent/spec）、搜索框、分页控件；每行展示 name@version + 右侧操作按钮（`[安装]` / `[更新]` / `[已安装]`）；下载时展示实时进度百分比；安装成功后自动启用，行内显示成功/失败提示 | 3h | ⏳ |
 | T49 | 桌面端集成：本地管理视图 | 实现本地已安装扩展列表：每行展示 name@version + 状态（enabled/disabled）+ 操作按钮（`[启用]`/`[禁用]`/`[卸载]`）；行内确认模式（点击卸载后切换为 `[确认卸载] [取消]`）；支持按关键词过滤 | 2h | ⏳ |
@@ -77,9 +77,9 @@
 
 | # | 任务 | 验收标准 | 预估 | 状态 |
 |---|---|---|---|---|
-| T52 | VS Code 插件集成 | VS Code 插件团队负责：在现有 VS Code 扩展中新增 Omni Studio 面板（Activity Bar WebView），支持市场浏览、安装/卸载/启用/禁用扩展、触发 spec；与 CLI 共用 `~/.omni_studio/` 配置和状态 | 可在 VS Code 中完成 Omni Studio 扩展的全生命周期管理 | — | ⏳ |
-| T53 | IDEA 插件集成 | IDEA 插件团队负责：在现有 IDEA 插件中新增 Omni Studio Tool Window，支持市场浏览、安装/卸载/启用/禁用扩展、触发 spec；与 CLI 共用 `~/.omni_studio/` 配置和状态 | 可在 IDEA 中完成 Omni Studio 扩展的全生命周期管理 | — | ⏳ |
-| T54 | Qt 插件集成 | Qt 插件团队负责：在现有 Qt 插件中新增 Omni Studio 管理面板，支持市场浏览、安装/卸载/启用/禁用扩展、触发 spec；与 CLI 共用 `~/.omni_studio/` 配置和状态 | 可在 Qt Creator 中完成 Omni Studio 扩展的全生命周期管理 | — | ⏳ |
+| T52 | VS Code 插件集成 | VS Code 插件团队负责：在现有 VS Code 扩展中新增 Omni Studio 面板（Activity Bar WebView），支持市场浏览、安装/卸载/启用/禁用扩展、触发 spec；共用 `~/.omni_studio/` 配置和状态 | 可在 VS Code 中完成 Omni Studio 扩展的全生命周期管理 | — | ⏳ |
+| T53 | IDEA 插件集成 | IDEA 插件团队负责：在现有 IDEA 插件中新增 Omni Studio Tool Window，支持市场浏览、安装/卸载/启用/禁用扩展、触发 spec；共用 `~/.omni_studio/` 配置和状态 | 可在 IDEA 中完成 Omni Studio 扩展的全生命周期管理 | — | ⏳ |
+| T54 | Qt 插件集成 | Qt 插件团队负责：在现有 Qt 插件中新增 Omni Studio 管理面板，支持市场浏览、安装/卸载/启用/禁用扩展、触发 spec；共用 `~/.omni_studio/` 配置和状态 | 可在 Qt Creator 中完成 Omni Studio 扩展的全生命周期管理 | — | ⏳ |
 
 ## Task 交付规范
 
@@ -100,7 +100,7 @@
 
 ## 执行建议
 
-1. **第一周**：完成 T1–T7（核心 CLI 功能）
+1. **第一周**：完成 T1–T7（核心 TUI 功能）
 2. **第二周**：完成 T8（集成测试）+ T9–T12（体验优化）
 3. **第三周**：完成 T13–T14（实时同步与自动清理）+ T24（dev 分支合并适配）
 4. **第四周及以后**：完成 P3 品牌与体验升级 + P4 IDE 插件集成
@@ -115,10 +115,10 @@
 - [x] T4 — Market HTTP 客户端
 - [x] T5 — Store 模块
 - [x] T6 — Executor 模块
-- [x] T7 — CLI 命令路由与参数解析
+- [x] T7 — TUI 命令路由与交互
 - [x] T8 — 集成测试
-- [x] T9 — 交互式 list 命令
-- [x] T10 — 交互式 status 命令
+- [x] T9 — 交互式 list 功能
+- [x] T10 — 交互式 status 功能
 - [x] T11 — TUI slash 命令集成
 - [x] T12 — 实时同步
 - [x] T13 — fs.watch 兜底方案
@@ -133,7 +133,7 @@
 - [x] T22 — 生命周期脚本路径调整
 - [x] T23 — 安装后默认禁用
 - [x] T24 — dev 分支合并（2025-05-14）Effect Schema + HttpApi + import 路径迁移
-- [x] T25 — ripgrep 打包到 CLI
+- [x] T25 — ripgrep 打包到可执行文件
 - [x] T26 — ripgrep 开发模式修复
 - [x] T27 — ripgrep 嵌入编译产物
 - [x] T28 — workflow 恢复单文件上传

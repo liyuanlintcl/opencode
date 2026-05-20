@@ -92,7 +92,7 @@ export function createDialogProviderOptions() {
       placeholder: "Provider id",
       description: () => (
         <text fg={theme.textMuted}>
-          This only stores a credential. Configure the provider in opencode.json to use it.
+          Custom provider using OpenAI-compatible API. Enter a unique id (e.g. my-provider).
         </text>
       ),
     })
@@ -109,6 +109,127 @@ export function createDialogProviderOptions() {
     return promptCustomProviderID()
   }
 
+  async function setupCustomProvider(providerID: string, existing?: { baseURL: string; modelID: string; modelName: string }) {
+    const baseURL = await DialogPrompt.show(dialog, "Base URL", {
+      placeholder: "https://api.example.com/v1",
+      description: () => <text fg={theme.textMuted}>The API endpoint URL for this provider.</text>,
+      value: existing?.baseURL,
+    })
+    if (!baseURL) return
+
+    const modelID = await DialogPrompt.show(dialog, "Model ID", {
+      placeholder: "e.g. gpt-4, claude-sonnet-4-5",
+      description: () => <text fg={theme.textMuted}>The model identifier used in API requests.</text>,
+      value: existing?.modelID,
+    })
+    if (!modelID) return
+
+    const modelName = await DialogPrompt.show(dialog, "Model Name", {
+      placeholder: modelID,
+      description: () => <text fg={theme.textMuted}>Display name for this model (optional).</text>,
+      value: existing?.modelName,
+    })
+    if (modelName === null) return
+
+    const apiKey = await DialogPrompt.show(dialog, "API Key", {
+      placeholder: "sk-...",
+      description: () => <text fg={theme.textMuted}>Your API key for this provider.</text>,
+    })
+    if (!apiKey) return
+
+    await sdk.client.config.update({
+      config: {
+        provider: {
+          [providerID]: {
+            name: providerID,
+            options: { baseURL: baseURL.trim() },
+            models: {
+              [modelID.trim()]: {
+                name: modelName.trim() || modelID.trim(),
+                provider: { npm: "@ai-sdk/openai-compatible", api: "openai-compatible" },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    await sdk.client.auth.set({
+      providerID,
+      auth: { type: "api", key: apiKey },
+    })
+
+    await sdk.client.instance.dispose()
+    await sync.bootstrap()
+    dialog.replace(() => <DialogModel providerID={providerID} />)
+  }
+
+  async function editCustomProvider(providerID: string) {
+    const providerInfo = sync.data.provider_next.all.find((p) => p.id === providerID)
+    if (!providerInfo) return
+
+    const existingBaseURL = typeof providerInfo.options.baseURL === "string" ? providerInfo.options.baseURL : ""
+    const modelEntries = Object.entries(providerInfo.models)
+    const [existingModelID, existingModel] = modelEntries.length > 0 ? modelEntries[0] : ["", null]
+    const existingModelName = existingModel?.name ?? ""
+
+    const baseURL = await DialogPrompt.show(dialog, "Base URL", {
+      placeholder: "https://api.example.com/v1",
+      description: () => <text fg={theme.textMuted}>The API endpoint URL for this provider.</text>,
+      value: existingBaseURL,
+    })
+    if (!baseURL) return
+
+    const modelID = await DialogPrompt.show(dialog, "Model ID", {
+      placeholder: "e.g. gpt-4, claude-sonnet-4-5",
+      description: () => <text fg={theme.textMuted}>The model identifier used in API requests.</text>,
+      value: existingModelID,
+    })
+    if (!modelID) return
+
+    const modelName = await DialogPrompt.show(dialog, "Model Name", {
+      placeholder: modelID,
+      description: () => <text fg={theme.textMuted}>Display name for this model (optional).</text>,
+      value: existingModelName,
+    })
+    if (modelName === null) return
+
+    const apiKey = await DialogPrompt.show(dialog, "API Key", {
+      placeholder: "Leave empty to keep current key",
+      description: () => <text fg={theme.textMuted}>Your API key for this provider (optional).</text>,
+    })
+    if (apiKey === null) return
+
+    await sdk.client.config.update({
+      config: {
+        provider: {
+          [providerID]: {
+            name: providerID,
+            options: { baseURL: baseURL.trim() },
+            models: {
+              [modelID.trim()]: {
+                name: modelName.trim() || modelID.trim(),
+                provider: { npm: "@ai-sdk/openai-compatible", api: "openai-compatible" },
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (apiKey && apiKey.trim()) {
+      await sdk.client.auth.set({
+        providerID,
+        auth: { type: "api", key: apiKey.trim() },
+      })
+    }
+
+    await sdk.client.instance.dispose()
+    await sync.bootstrap()
+    toast.show({ variant: "success", message: `Updated ${providerID}` })
+    dialog.clear()
+  }
+
   const options = createMemo(() => {
     return pipe(
       providerOptions(sync.data.provider_next.all),
@@ -122,7 +243,7 @@ export function createDialogProviderOptions() {
             async onSelect() {
               const providerID = await promptCustomProviderID()
               if (!providerID) return
-              return dialog.replace(() => <ApiMethod providerID={providerID} title="API key" custom />)
+              await setupCustomProvider(providerID)
             },
           }
         }
@@ -130,6 +251,8 @@ export function createDialogProviderOptions() {
         const providerID = provider.providerID
         const consoleManaged = isConsoleManagedProvider(sync.data.console_state.consoleManagedProviders, providerID)
         const connected = sync.data.provider_next.connected.includes(providerID)
+        const providerInfo = sync.data.provider_next.all.find((p) => p.id === providerID)
+        const isCustom = providerInfo && (providerInfo.source === "config" || providerInfo.source === "custom")
 
         return {
           title: provider.title,
@@ -140,6 +263,33 @@ export function createDialogProviderOptions() {
           gutter: connected && onboarded() ? () => <text fg={theme.success}>✓</text> : undefined,
           async onSelect() {
             if (consoleManaged) return
+
+            if (isCustom && connected) {
+              const action = await new Promise<string | null>((resolve) => {
+                dialog.replace(
+                  () => (
+                    <DialogSelect
+                      title={provider.title}
+                      options={[
+                        { title: "Edit configuration", value: "edit", category: "Action" },
+                        { title: "Reconnect", value: "reconnect", category: "Action" },
+                      ]}
+                      onSelect={(option) => resolve(option.value as string)}
+                    />
+                  ),
+                  () => resolve(null),
+                )
+              })
+              if (action === null) return
+              if (action === "edit") {
+                await editCustomProvider(providerID)
+                return
+              }
+              if (action === "reconnect") {
+                return dialog.replace(() => <ApiMethod providerID={providerID} title="API key" custom />)
+              }
+              return
+            }
 
             const methods = sync.data.provider_auth[providerID] ?? [
               {

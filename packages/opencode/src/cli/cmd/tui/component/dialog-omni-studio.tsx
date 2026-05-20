@@ -23,6 +23,66 @@ import { AppFileSystem } from "@opencode-ai/core/filesystem"
 
 import type { ExtensionType, Extension, ExtensionEntry, PagedResult, Revision, OmniStudioConfig as OmniStudioConfigType } from "@/omni-studio/types"
 
+/** 批量安装配置文件的单个条目 */
+interface PackageEntry {
+  type: ExtensionType
+  slug: string
+  version?: string
+}
+
+/** 批量安装配置文件结构 */
+interface PackagesConfig {
+  packages: PackageEntry[]
+}
+
+/** 验证字符串是否为合法的 ExtensionType */
+function isExtensionType(value: unknown): value is ExtensionType {
+  return typeof value === "string" && ["skill", "tool", "plugin", "agent", "spec"].includes(value)
+}
+
+/**
+ * 读取并解析批量安装配置文件。
+ * 返回解析后的配置或错误信息。
+ */
+async function readPackagesConfig(filePath: string): Promise<{ ok: true; config: PackagesConfig } | { ok: false; error: string }> {
+  try {
+    const content = await Bun.file(filePath).text()
+    const data = JSON.parse(content) as unknown
+
+    if (!data || typeof data !== "object" || !("packages" in data)) {
+      return { ok: false, error: "配置文件必须包含 `packages` 数组" }
+    }
+
+    const rawPackages = (data as Record<string, unknown>).packages
+    if (!Array.isArray(rawPackages)) {
+      return { ok: false, error: "`packages` 必须是数组" }
+    }
+
+    const packages: PackageEntry[] = []
+    for (const item of rawPackages) {
+      if (!item || typeof item !== "object") {
+        return { ok: false, error: "packages 数组中的每一项必须是对象" }
+      }
+      const entry = item as Record<string, unknown>
+      if (!isExtensionType(entry.type)) {
+        return { ok: false, error: `无效的扩展类型: ${String(entry.type)}` }
+      }
+      if (!entry.slug || typeof entry.slug !== "string") {
+        return { ok: false, error: "packages 中的每一项必须包含 `slug` 字符串字段" }
+      }
+      packages.push({
+        type: entry.type,
+        slug: entry.slug,
+        version: typeof entry.version === "string" ? entry.version : undefined,
+      })
+    }
+
+    return { ok: true, config: { packages } }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 /** 当子视图中弹出 DialogAlert 时，阻止 backToMenu 被 dialog.replace 触发，避免 Alert 闪退。 */
 let suppressBackToMenu = false
 
@@ -1380,6 +1440,168 @@ function OmniStudioSpecTriggerView(props: { dialog: DialogContext; onBack: () =>
 }
 
 /**
+ * 批量安装视图。
+ * 展示从配置文件中读取的待安装扩展列表，
+ * 支持确认后逐个下载安装并实时展示进度。
+ */
+function OmniStudioBatchInstallView(props: { dialog: DialogContext; onBack: () => void; packages: PackageEntry[] }) {
+  const { theme } = useTheme()
+  const [phase, setPhase] = createSignal<"resolving" | "preview" | "installing" | "done">("resolving")
+  const [resolved, setResolved] = createSignal<(Extension | null)[]>([])
+  const [currentIndex, setCurrentIndex] = createSignal(0)
+  const [results, setResults] = createSignal<{ slug: string; ok: boolean; msg: string }[]>([])
+  const [scrollHeight, setScrollHeight] = createSignal(10)
+
+  const dimensions = useTerminalDimensions()
+
+  createEffect(() => {
+    setScrollHeight(Math.max(6, dimensions().height - 14))
+  })
+
+  /** 组件挂载后自动解析每个扩展的元数据 */
+  createEffect(() => {
+    void (async () => {
+      const list: (Extension | null)[] = []
+      for (const pkg of props.packages) {
+        try {
+          const meta = await Effect.runPromise(
+            OmniStudioMarket.Service.use((svc) => svc.getMeta(pkg.type, pkg.slug)).pipe(
+              Effect.provide(OmniStudioMarket.defaultLayer),
+            ),
+          )
+          list.push(pkg.version ? { ...meta, version: pkg.version } : meta)
+        } catch {
+          list.push(null)
+        }
+      }
+      setResolved(list)
+      setPhase("preview")
+    })()
+  })
+
+  /** 执行批量安装 */
+  const handleInstall = async () => {
+    setPhase("installing")
+    const pkgs = props.packages
+    const res = resolved()
+    const out: { slug: string; ok: boolean; msg: string }[] = []
+
+    for (let i = 0; i < pkgs.length; i++) {
+      setCurrentIndex(i)
+      const ext = res[i]
+      const pkg = pkgs[i]
+      if (!ext) {
+        out.push({ slug: pkg.slug, ok: false, msg: "元数据获取失败" })
+        continue
+      }
+      try {
+        await Effect.runPromise(
+          OmniStudioStore.Service.use((svc) => svc.install(ext, () => {})).pipe(
+            Effect.provide(OmniStudioStore.defaultLayer),
+          ),
+        )
+        out.push({ slug: pkg.slug, ok: true, msg: "安装成功" })
+      } catch (e) {
+        out.push({ slug: pkg.slug, ok: false, msg: String(e) })
+      }
+    }
+    setResults(out)
+    setPhase("done")
+  }
+
+  useKeyboard((evt) => {
+    if (evt.name === "escape") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      props.onBack()
+    } else if (evt.name === "return" && phase() === "preview") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void handleInstall()
+    }
+  })
+
+  const total = () => props.packages.length
+  const successCount = () => results().filter((r) => r.ok).length
+  const failCount = () => results().filter((r) => !r.ok).length
+
+  const PreviewRow = (pkg: PackageEntry, index: Accessor<number>) => {
+    const ext = () => resolved()[index()]
+    const name = () => ext()?.name ?? pkg.slug
+    const version = () => ext()?.version ?? pkg.version ?? "最新版"
+    const error = () => !ext()
+
+    return (
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={error() ? theme.error : theme.text}>
+          {pkg.type}/{pkg.slug} {name() !== pkg.slug ? `(${name()})` : ""} @ {version()}
+        </text>
+        <Show when={error()}>
+          <text fg={theme.error}>[元数据获取失败]</text>
+        </Show>
+      </box>
+    )
+  }
+
+  const ResultRow = (r: { slug: string; ok: boolean; msg: string }, _index: Accessor<number>) => {
+    return (
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={theme.text}>{r.slug}</text>
+        <text fg={r.ok ? theme.success : theme.error}>{r.ok ? "成功" : r.msg}</text>
+      </box>
+    )
+  }
+
+  return (
+    <box paddingLeft={2} paddingRight={2} gap={1} paddingBottom={1}>
+      <box flexDirection="row" justifyContent="space-between">
+        <text fg={theme.text} attributes={TextAttributes.BOLD}>
+          批量安装
+        </text>
+        <text fg={theme.textMuted} selectable={false} onMouseUp={() => props.onBack()}>
+          esc
+        </text>
+      </box>
+
+      <Show when={phase() === "resolving"}>
+        <box paddingBottom={1}>
+          <text fg={theme.textMuted}>正在获取扩展元数据...</text>
+        </box>
+      </Show>
+
+      <Show when={phase() === "preview"}>
+        <box paddingBottom={1}>
+          <text fg={theme.textMuted}>共 {total()} 个扩展待安装，按 Enter 开始安装</text>
+        </box>
+        <ScrollableList maxHeight={scrollHeight()} itemCount={total()}>
+          <For each={props.packages}>{PreviewRow}</For>
+        </ScrollableList>
+      </Show>
+
+      <Show when={phase() === "installing"}>
+        <box paddingBottom={1}>
+          <text fg={theme.textMuted}>
+            正在安装 {props.packages[currentIndex()].slug}... [{currentIndex() + 1}/{total()}]
+          </text>
+        </box>
+        <ScrollableList maxHeight={scrollHeight()} itemCount={total()}>
+          <For each={props.packages}>{PreviewRow}</For>
+        </ScrollableList>
+      </Show>
+
+      <Show when={phase() === "done"}>
+        <box paddingBottom={1}>
+          <text fg={theme.success}>安装完成：成功 {successCount()} 个，失败 {failCount()} 个</text>
+        </box>
+        <ScrollableList maxHeight={scrollHeight()} itemCount={total()}>
+          <For each={results()}>{ResultRow}</For>
+        </ScrollableList>
+      </Show>
+    </box>
+  )
+}
+
+/**
  * Omni Studio TUI 对话框。
  * 在终端界面中提供扩展市场管理功能，
  * 支持查看状态、管理本地扩展、浏览市场列表、配置 API 地址、登录和登出。
@@ -1532,6 +1754,48 @@ export function DialogOmniStudio() {
     }
   }
 
+  /**
+   * 处理批量安装操作。
+   * 弹出 Prompt 让用户选择配置文件路径，读取后进入批量安装视图。
+   */
+  const handleBatchInstall = async () => {
+    const defaultPath = path.join(process.cwd(), "omni-studio.packages.json")
+    const inputPath = await DialogPrompt.show(dialog, "批量安装配置文件路径", {
+      placeholder: defaultPath,
+      value: defaultPath,
+    })
+    if (!inputPath) return
+
+    const resolvedPath = path.resolve(inputPath)
+    const parsed = await readPackagesConfig(resolvedPath)
+    if (!parsed.ok) {
+      suppressBackToMenu = true
+      try {
+        await DialogAlert.show(dialog, "配置文件错误", parsed.error)
+      } finally {
+        suppressBackToMenu = false
+      }
+      dialog.replace(() => <DialogOmniStudio />)
+      return
+    }
+
+    if (parsed.config.packages.length === 0) {
+      suppressBackToMenu = true
+      try {
+        await DialogAlert.show(dialog, "批量安装", "配置文件中无待安装扩展")
+      } finally {
+        suppressBackToMenu = false
+      }
+      dialog.replace(() => <DialogOmniStudio />)
+      return
+    }
+
+    dialog.replace(
+      () => <OmniStudioBatchInstallView dialog={dialog} onBack={backToMenu} packages={parsed.config.packages} />,
+      backToMenu,
+    )
+  }
+
   return (
     <DialogSelect
       title="Omni Studio Extension"
@@ -1553,6 +1817,12 @@ export function DialogOmniStudio() {
             debugLog("[Menu] entering OmniStudioListView")
             dialog.replace(() => <OmniStudioListView dialog={dialog} onBack={backToMenu} />, backToMenu)
           },
+        },
+        {
+          title: "批量安装",
+          value: "batch-install",
+          description: "从配置文件批量安装扩展",
+          onSelect: handleBatchInstall,
         },
         {
           title: "触发 Spec",

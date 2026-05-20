@@ -47,7 +47,7 @@
 |---|---|---|---|---|
 | T30 | 安装路径带版本号：扩展安装到 `~/.omni_studio/{type}s/{slug}/{version}/`，更新后路径变化自然绕过 Bun ESM 缓存 | 后端已支持指定版本下载；store.ts 安装路径改为 `{slug}/{version}/`，卸载/启用/禁用时路径同步更新；config/tool/skill 扫描路径同步适配。**范围调整**：不做多版本共存/版本回退，不做 TUI 常驻版本下拉框 | 4h | ✅ |
 | T31 | 扩展搜索（TUI 常驻搜索框，按 `/` 获取焦点，Backspace 清除搜索） | 市场列表：market.ts `listPaged` 支持 `search` 参数调用后端 `&keyword=` 过滤；本地扩展：前端按 `name`/`slug` 关键词过滤。搜索框常驻显示，默认焦点在列表（方向键可导航），按 `/` 键 focus 搜索框，Enter 确认后自动 blur 回到列表；焦点在列表时按 Backspace 一键清空搜索词；切换类型保留搜索词 | 2h | ✅ |
-| T32 | 批量安装（`install` 支持从配置文件读取列表） | 可从 `omni-studio.packages.json` 批量安装 | 3h | ⏳ |
+| T32 | 批量安装（`install` 支持从配置文件读取列表） | 可从 `omni-studio.packages.json` 批量安装 | 3h | ✅ |
 | T33 | Spec 扩展类型支持：类型定义、Market API、Store 安装/卸载 | `ExtensionType` 增加 `"spec"`，market.ts `toEntityType` 映射 specs，store.ts `toPlural` 映射 spec→specs，安装解压到 `~/.omni_studio/specs/`，TUI `typeOptions` 增加 spec 类型 | 3h | ✅ |
 | T34 | Spec 发现机制：扫描已启用 spec 的 SPEC.md 并注入 instructions，含依赖管理、内嵌扩展自动发现、搜索框常驻 | `spec-discovery.ts` 扫描已启用 spec 的 `SPEC.md`，解析 YAML frontmatter，**只注入正文**（去掉 frontmatter）；扫描内嵌扩展说明文件拼接到正文；`session/instruction.ts` 集成发现结果；skill/tool/agent/plugin 扫描增加 `specs/{slug}/` 子目录路径；TUI 搜索框常驻显示，按 `/` 获取焦点，Enter 确认后自动 blur | 4h | ✅ |
 | T35 | Spec TUI 手动触发：新增 Spec 菜单和触发视图 | DialogOmniStudio 主菜单增加 "触发 Spec" 选项，展示已安装且已启用的 spec 列表，支持搜索和 `[触发]` 按钮；触发时检查当前是否在 session 中，发送简短消息 `请按 spec "xxx" 的规范执行。` 到当前 session | 3h | ✅ |
@@ -140,7 +140,7 @@
 - [x] T29 — TUI 键盘快捷键导航
 - [x] T30 — 安装路径带版本号：扩展安装到 `{slug}/{version}/`，更新后路径变化自然绕过 Bun ESM 缓存
 - [x] T31 — 扩展搜索（市场列表远程搜索 + 本地扩展前端过滤，常驻搜索框按 `/` 获取焦点）
-- [ ] T32 — 批量安装
+- [x] T32 — 批量安装
 - [x] T33 — Spec 扩展类型支持（类型定义、Market API、Store 安装/卸载）
 - [x] T34 — Spec 发现机制（扫描已启用 spec 的 SPEC.md 并注入 instructions）
 - [x] T35 — Spec TUI 手动触发（新增 Spec 菜单和触发视图）

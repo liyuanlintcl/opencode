@@ -44,12 +44,12 @@ M6 正式上线 + 文档交付      ──────►  第 11-12 周
 | 任务 ID | 任务名称 | 所属模块 | 修改文件 | 详细描述 | 验收标准 | 预估工时 | 依赖 |
 |---------|----------|----------|----------|----------|----------|----------|------|
 | T2.1 | 审批流状态机实现 | MOD-WORKFLOW | `src/workflow/service.ts`, `src/workflow/schema.ts` | 实现 submit / review / approve / reject / freeze 状态转换逻辑，持久化到 approval_record 表 | AC1-7 ~ AC1-9 全部满足；状态转换非法操作时抛出 WorkflowError | 12h | T1.2 |
-| T2.2 | 词汇表数据模型 | MOD-TERM-STORE | `src/requirement/schema.ts` 中 Term 类型，`src/db/schema.ts` 中 term 表 | 定义 Term 类型和 SQLite 表结构，包含 term / definition / forbidden_synonyms / scope / status 字段 | 可通过 Repository 完成 Term 的 CRUD | 6h | T1.2 |
+| T2.2 | 术语表数据模型 | MOD-TERM-STORE | `src/requirement/schema.ts` 中 Term 类型，`src/db/schema.ts` 中 term 表 | 定义 Term 类型和 SQLite 表结构，包含 term / definition / forbidden_synonyms / scope / status 字段 | 可通过 Repository 完成 Term 的 CRUD | 6h | T1.2 |
 | T2.3 | 需求结构化 LLM Prompt | MOD-REQ-ENGINE | `src/requirement/llm-prompts.ts` | 编写结构化转换 Prompt，输入原始描述，输出 JSON 格式的 Requirement 数组；编写术语提取 Prompt | Prompt 在测试数据集上的解析成功率 ≥ 85% | 10h | T1.4 |
 | T2.4 | 需求解析服务 | MOD-REQ-ENGINE | `src/requirement/service.ts` | 实现 parse()：调用 LLM API 获取结构化需求 → 校验 JSON 格式 → 存入 requirement 表；实现 extractTerms()：从需求中提取术语草案 | AC1-1 ~ AC1-3 满足；解析耗时 ≤ 30s | 12h | T2.2, T2.3 |
-| T2.5 | 术语校验器 | MOD-REQ-ENGINE | `src/requirement/term-validator.ts` | 实现 validateTerms()：遍历需求中的相关术语，检查是否都在词汇表中存在定义；若发现同义词替代，标红警告 | AC1-5 ~ AC1-6 满足；同义词检测准确率 ≥ 90% | 8h | T2.2, T2.4 |
+| T2.5 | 术语校验器 | MOD-REQ-ENGINE | `src/requirement/term-validator.ts` | 实现 validateTerms()：遍历需求中的相关术语，检查是否都在术语表中存在定义；若发现同义词替代，标红警告 | AC1-5 ~ AC1-6 满足；同义词检测准确率 ≥ 90% | 8h | T2.2, T2.4 |
 | T2.6 | 需求管理前端页面 | 前端 | `src/pages/requirements/`, `src/components/requirement-form/` | 实现需求列表页、需求详情页、新建需求页、审批操作按钮（提交/通过/拒绝） | 可通过 UI 完成需求的完整生命周期操作 | 16h | T2.1, T2.4 |
-| T2.7 | 词汇表管理前端页面 | 前端 | `src/pages/terms/`, `src/components/term-editor/` | 实现词汇表列表、新增术语、术语审批流程 | 可通过 UI 完成术语的 CRUD 和审批 | 10h | T2.2 |
+| T2.7 | 术语表管理前端页面 | 前端 | `src/pages/terms/`, `src/components/term-editor/` | 实现术语表列表、新增术语、术语审批流程 | 可通过 UI 完成术语的 CRUD 和审批 | 10h | T2.2 |
 | T2.8 | 需求域集成测试 | MOD-REQ-ENGINE | `src/requirement/__tests__/integration.test.ts` | 端到端测试：原始描述输入 → 解析 → 审批通过 → 冻结 | 覆盖正常流程和拒绝后重提流程 | 8h | T2.1 ~ T2.7 |
 
 **可并行任务**：
@@ -63,20 +63,20 @@ M6 正式上线 + 文档交付      ──────►  第 11-12 周
 
 ### Phase 3：设计域 + 任务域上线（Week 5-6）
 
-**目标**：实现设计方案 SKILL 和任务分工 SKILL，平台可完成"已审批需求 → SDD → 任务列表 → 审批通过"的闭环。
+**目标**：实现设计方案 SKILL 和任务分工 SKILL，平台可完成"已审批需求 → 设计文档 → 任务列表 → 审批通过"的闭环。
 
 | 任务 ID | 任务名称 | 所属模块 | 修改文件 | 详细描述 | 验收标准 | 预估工时 | 依赖 |
 |---------|----------|----------|----------|----------|----------|----------|------|
-| T3.1 | 设计文档数据模型 | MOD-SCHEMA | `src/design/schema.ts`, `src/db/schema.ts` 扩展 | 定义 DesignDoc / Module / FileNode / Interface / DataModel 类型和表结构 | 可存储和查询完整的 SDD 结构 | 8h | T1.2 |
+| T3.1 | 设计文档数据模型 | MOD-SCHEMA | `src/design/schema.ts`, `src/db/schema.ts` 扩展 | 定义 DesignDoc / Module / FileNode / Interface / DataModel 类型和表结构 | 可存储和查询完整的设计文档结构 | 8h | T1.2 |
 | T3.2 | 需求映射矩阵构建器 | MOD-DESIGN-ENGINE | `src/design/rtm-builder.ts` | 实现 buildRTM()：遍历 DesignDoc.modules，建立 module_id → req_id 的多对多映射矩阵 | AC2-1 ~ AC2-2 满足；覆盖率计算准确 | 8h | T3.1 |
-| T3.3 | SDD 生成 LLM Prompt | MOD-DESIGN-ENGINE | `src/design/llm-prompts.ts` | 编写 Prompt：输入已审批需求列表，输出 SDD 草案（含模块拆分、文件结构、接口定义） | 生成的 SDD 包含所有必要字段，JSON 格式合法 | 10h | T1.4 |
+| T3.3 | 设计文档生成 LLM Prompt | MOD-DESIGN-ENGINE | `src/design/llm-prompts.ts` | 编写 Prompt：输入已审批需求列表，输出设计文档草案（含模块拆分、文件结构、接口定义） | 生成的设计文档包含所有必要字段，JSON 格式合法 | 10h | T1.4 |
 | T3.4 | 设计生成服务 | MOD-DESIGN-ENGINE | `src/design/service.ts` | 实现 generate()：调用 LLM → 校验输出 → 存入 design_doc 表；实现 validateDependencies()：检测模块间循环依赖 | AC2-3 ~ AC2-5 满足；循环依赖检测准确率 100% | 12h | T3.1 ~ T3.3 |
-| T3.5 | 设计管理前端页面 | 前端 | `src/pages/designs/`, `src/components/design-viewer/`, `src/components/rtm-matrix/` | 实现 SDD 详情页（展示模块、文件结构、接口）、RTM 矩阵可视化、审批操作 | 可查看 RTM 矩阵，确认需求-模块映射关系 | 16h | T3.2, T3.4 |
+| T3.5 | 设计管理前端页面 | 前端 | `src/pages/designs/`, `src/components/design-viewer/`, `src/components/rtm-matrix/` | 实现设计文档详情页（展示模块、文件结构、接口）、RTM 矩阵可视化、审批操作 | 可查看 RTM 矩阵，确认需求-模块映射关系 | 16h | T3.2, T3.4 |
 | T3.6 | 任务数据模型 | MOD-TASK-ENGINE | `src/task/schema.ts`, `src/db/schema.ts` 扩展 | 定义 Task / TaskGraph 类型和 task 表结构，包含 files_to_modify / data_structures / functions / dependencies 字段 | 可存储和查询完整的任务结构 | 6h | T1.2 |
-| T3.7 | 任务分解服务 | MOD-TASK-ENGINE | `src/task/service.ts` | 实现 decompose()：基于 SDD 的 modules 分解为 Task 数组；估算每个任务的工时 | 每个模块至少分解出 1 个任务；files_to_modify 在模块 file_structure 范围内 | 10h | T3.4, T3.6 |
+| T3.7 | 任务分解服务 | MOD-TASK-ENGINE | `src/task/service.ts` | 实现 decompose()：基于设计文档的 modules 分解为 Task 数组；估算每个任务的工时 | 每个模块至少分解出 1 个任务；files_to_modify 在模块 file_structure 范围内 | 10h | T3.4, T3.6 |
 | T3.8 | 依赖图构建与关键路径 | MOD-GRAPH | `src/task/graph-builder.ts` | 实现 buildGraph()：根据 task.dependencies 构建有向图；calculateCriticalPath()：拓扑排序找最长路径 | AC3-3 满足；1000 个任务节点计算时间 ≤ 2s | 10h | T3.6 |
 | T3.9 | 任务流程图前端 | 前端 | `src/pages/tasks/`, `src/components/task-graph/`, `src/components/task-board/` | 实现任务看板（Kanban）、依赖图可视化（有向图渲染）、任务认领/释放按钮 | 可查看依赖图，可点击认领任务 | 16h | T3.7, T3.8 |
-| T3.10 | 设计+任务域集成测试 | MOD-DESIGN-ENGINE, MOD-TASK-ENGINE | `src/__tests__/design-task-flow.test.ts` | 端到端测试：需求审批 → 生成 SDD → SDD 审批 → 分解任务 → 任务审批 | 全流程状态转换正确 | 10h | T3.1 ~ T3.9 |
+| T3.10 | 设计+任务域集成测试 | MOD-DESIGN-ENGINE, MOD-TASK-ENGINE | `src/__tests__/design-task-flow.test.ts` | 端到端测试：需求审批 → 生成设计文档 → 设计文档审批 → 分解任务 → 任务审批 | 全流程状态转换正确 | 10h | T3.1 ~ T3.9 |
 
 **可并行任务**：
 - T3.1 / T3.3 / T3.6 可同时开始

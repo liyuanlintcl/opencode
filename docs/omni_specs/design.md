@@ -30,7 +30,7 @@
 | 需求 ID | 需求标题 | 设计模块 | 映射关系 |
 |---------|----------|----------|----------|
 | F1.1 | 需求结构化转换 | MOD-REQ-ENGINE | 1:1 |
-| F1.2 | 词汇表生成与维护 | MOD-REQ-ENGINE, MOD-TERM-STORE | 1:N |
+| F1.2 | 术语表生成与维护 | MOD-REQ-ENGINE, MOD-TERM-STORE | 1:N |
 | F1.3 | 需求审批流 | MOD-WORKFLOW | 1:1 |
 | F2.1 | 设计文档生成 | MOD-DESIGN-ENGINE | 1:1 |
 | F2.2 | 模块级设计规范 | MOD-DESIGN-ENGINE, MOD-SCHEMA | 1:N |
@@ -119,7 +119,7 @@ MOD-TEST-STORE
 
 ### 4.1 需求域（MOD-REQ-ENGINE）
 
-**职责**：将自然语言需求转换为结构化需求，维护词汇表
+**职责**：将自然语言需求转换为结构化需求，维护术语表
 
 **文件结构**：
 ```
@@ -129,7 +129,7 @@ src/requirement/
   ├── schema.ts             # Requirement, Term, Approval 类型定义
   ├── repository.ts         # SQLite 持久化
   ├── llm-prompts.ts        # 结构化转换的 Prompt 模板
-  ├── term-validator.ts     # 词汇表一致性校验
+  ├── term-validator.ts     # 术语表一致性校验
   └── __tests__/
       └── service.test.ts
 ```
@@ -140,10 +140,10 @@ interface RequirementService {
   // 将原始描述解析为结构化需求列表
   parse(input: RawRequirementInput): Effect<Requirement[], ParseError>
 
-  // 从需求中提取术语，生成词汇表草案
+  // 从需求中提取术语，生成术语表草案
   extractTerms(requirements: Requirement[]): Effect<TermDraft[], TermError>
 
-  // 校验需求中的术语是否全部在词汇表中有定义
+  // 校验需求中的术语是否全部在术语表中有定义
   validateTerms(requirements: Requirement[]): Effect<ValidationReport, never>
 }
 ```
@@ -198,13 +198,13 @@ interface WorkflowService {
 
 ### 4.3 设计域（MOD-DESIGN-ENGINE）
 
-**职责**：基于已审批需求生成结构化 SDD，维护需求-模块映射
+**职责**：基于已审批需求生成结构化设计文档，维护需求-模块映射
 
 **文件结构**：
 ```
 src/design/
   ├── index.ts
-  ├── service.ts            # 生成 SDD、维护 RTM
+  ├── service.ts            # 生成设计文档、维护 RTM
   ├── schema.ts             # DesignDoc, Module, Interface, FileNode
   ├── rtm-builder.ts        # Requirement Traceability Matrix 构建器
   ├── repository.ts
@@ -239,12 +239,23 @@ interface FileNode {
   type: "file" | "directory"
   children?: FileNode[]
 }
+
+interface Interface {
+  interface_id: string
+  interface_name: string
+  module_id: string
+  signature: string
+  input_type: string
+  output_type: string
+  error_type?: string
+  description: string
+}
 ```
 
 **核心接口**：
 ```typescript
 interface DesignService {
-  // 基于需求列表生成 SDD 草案
+  // 基于需求列表生成设计文档草案
   generate(reqIds: string[]): Effect<DesignDoc, DesignError>
 
   // 校验模块依赖无环
@@ -278,7 +289,7 @@ src/task/
 **核心接口**：
 ```typescript
 interface TaskService {
-  // 基于 SDD 生成任务列表
+  // 基于设计文档生成任务列表
   decompose(designId: string): Effect<Task[], TaskError>
 
   // 构建任务依赖图
@@ -495,7 +506,7 @@ CREATE TABLE requirement (
   updated_at INTEGER NOT NULL
 );
 
--- 词汇表
+-- 术语表
 CREATE TABLE term (
   id TEXT PRIMARY KEY,              -- TERM-001
   term TEXT NOT NULL UNIQUE,
@@ -527,6 +538,7 @@ CREATE TABLE task (
   files_to_modify TEXT NOT NULL,    -- JSON 数组
   data_structures TEXT,             -- JSON 数组
   functions TEXT,                   -- JSON 数组
+  interface_ids TEXT,               -- JSON 数组，关联的接口 ID 列表
   acceptance_criteria TEXT NOT NULL,-- JSON 数组
   estimated_hours INTEGER,
   dependencies TEXT,                -- JSON 数组，task_id 列表
@@ -572,11 +584,11 @@ POST   /api/v1/requirements/:id/submit     # 提交审批
 POST   /api/v1/requirements/:id/approve    # 审批通过
 POST   /api/v1/requirements/:id/reject     # 审批拒绝
 
-GET    /api/v1/terms                       # 词汇表列表
+GET    /api/v1/terms                       # 术语表列表
 POST   /api/v1/terms                       # 新增术语
 POST   /api/v1/terms/:id/approve           # 术语审批
 
-POST   /api/v1/designs/generate            # 基于需求生成 SDD
+POST   /api/v1/designs/generate            # 基于需求生成设计文档
 GET    /api/v1/designs/:id/rtm             # 获取需求映射矩阵
 POST   /api/v1/designs/:id/submit          # 提交设计审批
 
@@ -622,8 +634,8 @@ curl -X POST https://admin.omni-studio.local/api/v1/hooks/validate \
 | 场景 | 处理策略 | 对应需求 |
 |------|----------|----------|
 | LLM 解析需求失败/超时 | 返回 `ParseError`，保留原始输入，提示人工介入 | F1.1, NF2-1 |
-| 词汇表术语冲突 | 标记冲突位置，强制人工选择保留哪个定义 | F1.2 |
-| 模块依赖成环 | `validateDependencies` 抛出 `CycleError`，阻止 SDD 提交 | F2.2 |
+| 术语表术语冲突 | 标记冲突位置，强制人工选择保留哪个定义 | F1.2 |
+| 模块依赖成环 | `validateDependencies` 抛出 `CycleError`，阻止设计文档提交 | F2.2 |
 | 任务依赖成环 | `buildGraph` 检测并抛出错误，强制人工调整 | F3.1 |
 | 开发者越权修改 | Hook 拦截，返回违规文件清单，阻止提交 | F4.2 |
 | 认领任务超时 | 定时任务扫描，超 48h 无提交自动释放 | F4.1 |

@@ -112,7 +112,7 @@ TUI 中的 slash 命令（`/` 触发）通过 `app.tsx` 的 command registry 机
 
 `DialogOmniStudio` 组件内部使用 `DialogSelect` 展示子菜单：
 - **Status**：调用 `Store.getStatus()`，仅展示登录状态和 API 配置摘要
-- **Local**：调用 `Store.getStatus()`，展示本地扩展列表，每行提供行内 `[启用]`/`[禁用]`/`[卸载]` 按钮（点击后切换为 `[确认启用] [取消]` 等确认模式）
+- **Local**：调用 `Store.getStatus()`，展示本地扩展列表，每行提供复选框及行内 `[启用]`/`[禁用]`/`[卸载]` 按钮；支持 Space 多选、a 全选、e/d/u 批量启用/禁用/卸载（点击后切换为 `[确认启用] [取消]` 等确认模式）
 - **List**：调用 `Market.listPaged()`，展示远程扩展列表，顶部支持 `[skill]`/`[tool]`/`[plugin]`/`[agent]`/`[spec]` 类型切换；每行左侧显示扩展名称（不含 version），右侧根据本地安装状态显示 `[安装]`/`[更新]`/`[已安装]` 按钮
 - **Spec**：展示已安装的 spec 列表，每行提供 `[触发]` 按钮，手动执行 spec 定义的组合流水线
 - **Login**：输入 username / password，从配置读取 api_base 完成认证
@@ -251,22 +251,25 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 8. 使用 while 循环支持连续操作
 ```
 
-### 5.5 状态交互流程（status）
+### 5.5 本地扩展交互流程（local）
 
 ```
 1. 调用 Store.getStatus() 获取本地扩展列表
-2. 如无扩展，log.warn("No extensions installed") → 结束
-3. 构建 prompts.select 选项：
-   - 每个选项显示：slug (v1.0.0) [enabled/disabled]
-   - 末尾增加「退出」选项
-4. 用户选择扩展后，再次 select 动作：
-   - 启用 / 禁用 / 卸载 / 返回
-5. 执行对应操作：
-   - enable/disable → 调用 setEnabled → 成功提示 → 返回状态列表
-   - uninstall → 调用 uninstall → 成功提示 → 返回状态列表
-   - 返回 → 直接回到状态列表
-   - 退出 → 结束交互
-6. 使用 while 循环支持连续操作
+2. 如无扩展，显示 "该类型下没有已安装的扩展" → 结束
+3. 构建扩展列表，每行显示复选框 + 名称 + 操作按钮：
+   - 禁用状态 → 右侧 [启用] [卸载]
+   - 启用状态 → 右侧 [禁用] [卸载]
+   - 点击操作按钮后切换为确认模式（[确认启用] [取消] 等）
+4. 多选操作：
+   - Space：切换当前行复选框选中/取消
+   - a：全选/取消全选当前可见扩展（搜索生效时仅对结果操作）
+5. 批量操作（当选中扩展时底部显示操作按钮）：
+   - e / [批量启用] → 逐个调用 setEnabled(..., true) → 刷新列表
+   - d / [批量禁用] → 逐个调用 setEnabled(..., false) → 刷新列表
+   - u / [批量卸载] → 逐个调用 uninstall → 刷新列表
+6. 单条操作（Enter 执行当前行按钮）：
+   - enable/disable → 调用 setEnabled → 刷新列表
+   - uninstall → 调用 uninstall → 刷新列表
 ```
 
 ### 5.6 卸载流程
@@ -379,7 +382,7 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 3. TUI 打开 DialogOmniStudio 组件（DialogSelect 菜单）
 4. 用户选择子操作：
    - Status → 调用 Store.getStatus() → 展示登录状态和 API 配置摘要
-   - Local  → 调用 Store.getStatus() → 展示本地扩展列表，支持行内启用/禁用/卸载（行内确认模式，不弹出独立 dialog）
+   - Local  → 调用 Store.getStatus() → 展示本地扩展列表，支持复选框多选及行内启用/禁用/卸载；按 a 全选、e/d/u 批量启用/禁用/卸载（行内确认模式，不弹出独立 dialog）
    - List   → 调用 Market.listPaged() → 展示远程扩展列表，支持类型切换和分页，每行提供 `[安装]` 按钮
    - Login  → 输入 username / password（从配置读取 api_base）
    - Logout → 调用 Auth.logout() → 展示登出结果

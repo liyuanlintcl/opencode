@@ -444,6 +444,10 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
   const [searchKeyword, setSearchKeyword] = createSignal("")
   const [showSearchBox, setShowSearchBox] = createSignal(true)
   const [pendingAction, setPendingAction] = createSignal<{ type: "enable" | "disable" | "uninstall"; slug: string } | null>(null)
+  /** 批量操作：记录选中的扩展标识集合，格式为 `${type}:${slug}` */
+  const [selectedSlugs, setSelectedSlugs] = createSignal<Set<string>>(new Set())
+  /** 批量操作：是否正在执行批量操作 */
+  const [batchProcessing, setBatchProcessing] = createSignal(false)
   const typeOptions: ExtensionType[] = ["skill", "tool", "plugin", "agent", "spec"]
   const PAGE_SIZE = 10
 
@@ -654,11 +658,98 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
         else setPendingAction({ type: "uninstall", slug: ext.slug })
       }
     },
+    onSpace: (ext) => {
+      if (batchProcessing()) return
+      const key = `${ext.type}:${ext.slug}`
+      setSelectedSlugs((prev) => {
+        const next = new Set(prev)
+        if (next.has(key)) next.delete(key)
+        else next.add(key)
+        return next
+      })
+    },
     getButtonCount: (ext) => {
       const pending = pendingAction()
       return pending?.slug === ext.slug ? 2 : 2
     },
   })
+
+  /** 按 `a` 键全选/取消全选当前可见扩展 */
+  useKeyboard((evt) => {
+    if (evt.name === "a" && !batchProcessing()) {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const items = pagedExtensions()
+      if (items.length === 0) return
+      const keys = items.map((ext) => `${ext.type}:${ext.slug}`)
+      const allSelected = keys.every((k) => selectedSlugs().has(k))
+      setSelectedSlugs((prev) => {
+        const next = new Set(prev)
+        if (allSelected) {
+          for (const k of keys) next.delete(k)
+        } else {
+          for (const k of keys) next.add(k)
+        }
+        return next
+      })
+    }
+  })
+
+  /** 按 `e`/`d`/`u` 键触发批量启用/禁用/卸载 */
+  useKeyboard((evt) => {
+    if (batchProcessing()) return
+    const slugs = selectedSlugs()
+    if (slugs.size === 0) return
+    if (evt.name === "e") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void handleBatchEnable()
+    } else if (evt.name === "d") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void handleBatchDisable()
+    } else if (evt.name === "u") {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void handleBatchUninstall()
+    }
+  })
+
+  /** 批量启用选中的扩展 */
+  const handleBatchEnable = async () => {
+    const items = pagedExtensions().filter((ext) => selectedSlugs().has(`${ext.type}:${ext.slug}`))
+    if (items.length === 0) return
+    setBatchProcessing(true)
+    for (const ext of items) {
+      await handleEnable(ext)
+    }
+    setBatchProcessing(false)
+    setSelectedSlugs(new Set<string>())
+  }
+
+  /** 批量禁用选中的扩展 */
+  const handleBatchDisable = async () => {
+    const items = pagedExtensions().filter((ext) => selectedSlugs().has(`${ext.type}:${ext.slug}`))
+    if (items.length === 0) return
+    setBatchProcessing(true)
+    for (const ext of items) {
+      await handleDisable(ext)
+    }
+    setBatchProcessing(false)
+    setSelectedSlugs(new Set<string>())
+  }
+
+  /** 批量卸载选中的扩展 */
+  const handleBatchUninstall = async () => {
+    const items = pagedExtensions().filter((ext) => selectedSlugs().has(`${ext.type}:${ext.slug}`))
+    if (items.length === 0) return
+    setBatchProcessing(true)
+    for (const ext of items) {
+      await handleUninstall(ext)
+    }
+    setBatchProcessing(false)
+    setSelectedSlugs(new Set<string>())
+  }
 
   /** 切换类型时重置到第 1 页和选中索引，保留搜索词。 */
   const switchType = (type: ExtensionType) => {
@@ -735,9 +826,15 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     return Math.min(contentHeight, adjustedMaxH)
   })
 
-  /** 渲染单行本地扩展条目，包含名称和行内操作按钮。选中行和聚焦按钮高亮显示。 */
+  /** 渲染单行本地扩展条目，包含复选框、名称和行内操作按钮。选中行和聚焦按钮高亮显示。 */
   const LocalExtensionRow = (ext: { type: ExtensionType; slug: string; name?: string; version: string; enabled: boolean }, index: () => number) => {
     const isRowSelected = () => selectedIndex() === index()
+    const isChecked = () => selectedSlugs().has(`${ext.type}:${ext.slug}`)
+    const checkLabel = () => {
+      if (batchProcessing()) return "[ ] "
+      if (isChecked()) return "[x] "
+      return "[ ] "
+    }
 
     const buttons = () => {
       const pending = pendingAction()
@@ -772,9 +869,16 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
     }
 
     return (
-      <ExtensionRowShell name={ext.name} slug={ext.slug} version={ext.version} showVersion={true} isSelected={isRowSelected}>
-        {buttons()}
-      </ExtensionRowShell>
+      <box flexDirection="row" gap={1}>
+        <text fg={isChecked() ? theme.primary : theme.textMuted} attributes={isRowSelected() ? TextAttributes.BOLD : undefined}>
+          {checkLabel()}
+        </text>
+        <box flexGrow={1}>
+          <ExtensionRowShell name={ext.name} slug={ext.slug} version={ext.version} showVersion={true} isSelected={isRowSelected}>
+            {buttons()}
+          </ExtensionRowShell>
+        </box>
+      </box>
     )
   }
 
@@ -815,6 +919,29 @@ function OmniStudioLocalView(props: { dialog: DialogContext; onBack: () => void 
             onPrev={() => { setCurrentPage((p) => p - 1); setSelectedIndex(0) }}
             onNext={() => { setCurrentPage((p) => p + 1); setSelectedIndex(0) }}
           />
+        </Show>
+        <Show when={selectedSlugs().size > 0 && !batchProcessing()}>
+          <box flexDirection="row" justifyContent="center" paddingTop={1} gap={3}>
+            <text fg={theme.primary} selectable={false} onMouseUp={handleBatchEnable}>
+              [批量启用]
+            </text>
+            <text fg={theme.primary} selectable={false} onMouseUp={handleBatchDisable}>
+              [批量禁用]
+            </text>
+            <text fg={theme.error} selectable={false} onMouseUp={handleBatchUninstall}>
+              [批量卸载]
+            </text>
+          </box>
+          <box flexDirection="row" justifyContent="center" paddingTop={1} gap={3}>
+            <text fg={theme.textMuted} selectable={false}>按 e 启用</text>
+            <text fg={theme.textMuted} selectable={false}>按 d 禁用</text>
+            <text fg={theme.textMuted} selectable={false}>按 u 卸载</text>
+          </box>
+        </Show>
+        <Show when={batchProcessing()}>
+          <box flexDirection="row" justifyContent="center" paddingTop={1}>
+            <text fg={theme.textMuted}>批量操作中...</text>
+          </box>
         </Show>
       </Show>
       <Show when={status().kind === "ok" && filteredExtensions().length === 0}>

@@ -31,7 +31,7 @@
 | F5 | 卸载扩展：TUI 中选择已安装扩展并卸载 | P0 |
 | F6 | 启用扩展：TUI 中选择已禁用扩展并启用 | P0 |
 | F7 | 禁用扩展：TUI 中选择已启用扩展并禁用 | P0 |
-| F8 | 交互式查看本地扩展状态：TUI 中展示本地已安装扩展列表，支持选中进行启用/禁用/卸载操作 | P0 |
+| F8 | 交互式查看本地扩展状态：TUI 中展示本地已安装扩展列表，支持多选批量启用/禁用/卸载操作 | P0 |
 | F9 | TUI slash 命令：`/omni-extensions`（别名 `/ext`）在终端界面中显示 Omni Extensions 管理菜单，支持 status / local / list / spec / login / logout / setup | P0 |
 | F10 | 实时同步：扩展启用/禁用后，skill / config / tool 模块实时刷新，TUI 主界面即时生效 | P0 |
 | F11 | 自动清理：扩展目录被手动删除后，自动从 state.json 中移除对应记录 | P1 |
@@ -90,6 +90,7 @@
 - [x] 安装指定版本后覆盖本地旧版本（旧版本文件删除，不保留多版本共存）
 - [x] TUI 安装成功后自动启用扩展，启用失败时行内提示红色错误信息（F4）
 - [x] 本地扩展列表显示 `name@version`，市场扩展列表只显示 `name`
+- [x] TUI 本地扩展列表支持 Space 多选、a 全选、e/d/u 批量启用/禁用/卸载（F8）
 - [ ] TUI 安装成功后 1 秒内行内提示自动消失（成功绿色、失败红色）（F4）
 - [ ] 品牌统一：用户可见的 `OpenCode` / `opencode` 描述全部替换为 `Omni Studio` / `omni`。CLI 命令名（品牌重命名）、配置文件路径、桌面端应用名、i18n、TUI 标题、构建产物名、TUI 提示语、VS Code 扩展 ID 均已更新（F15）
 - [ ] 新 TUI 默认主题 `omni.json` 已创建并设为默认，dark/light 双模式完整定义 46 个颜色键 + thinkingOpacity，通过 `isTheme` 验证（F16）

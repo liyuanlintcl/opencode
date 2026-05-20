@@ -15,7 +15,7 @@
 | T7 | 实现 TUI 命令路由与交互（list/status 为交互式） | TUI 中 8 个功能全部可调用；list 支持交互安装，status 支持交互管理 | 3h | ✅ |
 | T8 | 集成测试：端到端验证各功能组合 | 覆盖登录→列表→安装→启用→状态→卸载→登出全流程，包含脚本执行场景 | 4h | ✅ |
 | T9 | 交互式 list 功能：远程列表混合本地安装状态并支持一键安装 | 选中未安装扩展后 confirm 并调用 install，操作后循环返回列表 | 2h | ✅ |
-| T10 | 交互式 status 功能：本地扩展列表支持 enable/disable/uninstall | 选中扩展后二次选择动作，执行后循环返回列表 | 2h | ✅ |
+| T10 | 交互式 status 功能：本地扩展列表支持多选批量启用/禁用/卸载 | 按 Space 多选扩展，底部展示 `[批量启用] [批量禁用] [批量卸载]` 按钮；按 e/d/u 批量启用/禁用/卸载；按 a 全选/取消全选；搜索生效时仅对结果操作 | 2h | ✅ |
 | T11 | TUI slash 命令集成：`/omni-studio` 在终端界面中显示管理菜单 | DialogOmniStudio 组件实现，在 app.tsx 中注册 slash 命令，支持 status/local/list/login/logout/setup；安装/卸载/启用/禁用集成在 list 和 local 视图中以行内按钮提供；登录使用 TUI 原生 DialogPrompt，不使用 @clack/prompts | 3h | ✅ |
 | T12 | 实时同步：扩展启用/禁用后 skill / config / tool 自动刷新 | state.json 变化触发 refresh()，TUI 主界面即时生效 | 4h | ✅ |
 | T13 | fs.watch 兜底方案：监听 state.json 文件系统事件 | 因 Bun Web Worker 模块缓存隔离导致 GlobalBus 失效，改用 fs.watch 监听 state.json 变化 | 2h | ✅ |
@@ -118,7 +118,7 @@
 - [x] T7 — TUI 命令路由与交互
 - [x] T8 — 集成测试
 - [x] T9 — 交互式 list 功能
-- [x] T10 — 交互式 status 功能
+- [x] T10 — 交互式 status 功能（本地扩展列表支持多选批量启用/禁用/卸载）
 - [x] T11 — TUI slash 命令集成
 - [x] T12 — 实时同步
 - [x] T13 — fs.watch 兜底方案

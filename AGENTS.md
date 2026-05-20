@@ -7,6 +7,7 @@
 ## Workflow
 
 - After completing a feature or task, commit all code changes and update `AGENTS.md` if the change affects conventions, architecture, or processes documented there.
+- **提交之前必须征得用户同意。** 不得擅自 `git commit` 或 `git push`，需先向用户确认变更内容，获得明确许可后方可执行提交操作。
 
 ## Style Guide
 

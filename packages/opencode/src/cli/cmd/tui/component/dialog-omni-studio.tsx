@@ -1146,6 +1146,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     const isChecked = () => selectedSlugs().has(`${ext.type}:${ext.slug}`)
     const checkLabel = () => {
       if (batchInstalling()) return "[ ] "
+      if (isInstalled(ext) && !needsUpdate(ext)) return "[-] "
       if (isChecked()) return "[x] "
       return "[ ] "
     }

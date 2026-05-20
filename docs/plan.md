@@ -73,6 +73,14 @@
 | T50 | 桌面端集成：登录与配置对话框 | 实现 setup 对话框（输入 api_base）、login 对话框（输入 username/password）、logout 按钮；调用 IPC handlers 完成认证和配置持久化；错误时弹窗提示 | 1.5h | ⏳ |
 | T51 | 桌面端集成：Spec 触发视图 | 实现已启用 spec 列表：每行展示 spec 名称 + `[触发]` 按钮；触发前检查当前是否在 session 中，不在则提示；触发时发送用户消息到当前 session；展示触发结果 | 1.5h | ⏳ |
 
+### P4 — IDE 插件集成
+
+| # | 任务 | 验收标准 | 预估 | 状态 |
+|---|---|---|---|---|
+| T52 | VS Code 插件集成 | VS Code 插件团队负责：在现有 VS Code 扩展中新增 Omni Studio 面板（Activity Bar WebView），支持市场浏览、安装/卸载/启用/禁用扩展、触发 spec；与 CLI 共用 `~/.omni_studio/` 配置和状态 | 可在 VS Code 中完成 Omni Studio 扩展的全生命周期管理 | — | ⏳ |
+| T53 | IDEA 插件集成 | IDEA 插件团队负责：在现有 IDEA 插件中新增 Omni Studio Tool Window，支持市场浏览、安装/卸载/启用/禁用扩展、触发 spec；与 CLI 共用 `~/.omni_studio/` 配置和状态 | 可在 IDEA 中完成 Omni Studio 扩展的全生命周期管理 | — | ⏳ |
+| T54 | Qt 插件集成 | Qt 插件团队负责：在现有 Qt 插件中新增 Omni Studio 管理面板，支持市场浏览、安装/卸载/启用/禁用扩展、触发 spec；与 CLI 共用 `~/.omni_studio/` 配置和状态 | 可在 Qt Creator 中完成 Omni Studio 扩展的全生命周期管理 | — | ⏳ |
+
 ## Task 交付规范
 
 每个 Task 完成后必须执行以下步骤：
@@ -95,7 +103,8 @@
 1. **第一周**：完成 T1–T7（核心 CLI 功能）
 2. **第二周**：完成 T8（集成测试）+ T9–T12（体验优化）
 3. **第三周**：完成 T13–T14（实时同步与自动清理）+ T24（dev 分支合并适配）
-4. 每完成一个任务后运行 `bun typecheck` 确保类型安全
+4. **第四周及以后**：完成 P3 品牌与体验升级 + P4 IDE 插件集成
+5. 每完成一个任务后运行 `bun typecheck` 确保类型安全
 5. 集成测试优先覆盖主流程，边缘情况后续补充
 
 ## 进度记录
@@ -151,3 +160,6 @@
 - [ ] T49 — 桌面端集成：本地管理视图
 - [ ] T50 — 桌面端集成：登录与配置对话框
 - [ ] T51 — 桌面端集成：Spec 触发视图
+- [ ] T52 — VS Code 插件集成
+- [ ] T53 — IDEA 插件集成
+- [ ] T54 — Qt 插件集成

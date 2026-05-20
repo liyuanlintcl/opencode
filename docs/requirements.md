@@ -41,6 +41,9 @@
 | F15 | **品牌统一**：将用户可见的产品品牌从 `OpenCode` / `opencode` 全面替换为 `Omni Studio` / `omni`。优先项：CLI 命令名（`opencode` → `omni`）、配置文件名/路径（`opencode.json` → `omni.json`、`.opencode/` → `.omni/`、`~/.config/opencode/` → `~/.config/omni/`）、桌面端应用名（窗口标题、菜单、i18n）、TUI 标题（`DEFAULT_TITLE`）、构建产物名（`opencode-desktop-*` → `omni-desktop-*`）、TUI 提示语、VS Code 扩展 ID | P0 |
 | F16 | **新 TUI 默认主题**：创建一套全新的 TUI 内置主题（`omni.json`），替换现有默认主题 `opencode.json`，作为 Omni Studio 品牌的视觉识别主题 | P1 |
 | F17 | **桌面端集成**：在桌面端应用（Electron）中添加 Omni Studio Extension 入口按钮，打开独立窗口/视图展示扩展管理界面。基本功能与 TUI 一致（浏览市场、安装/卸载/启用/禁用扩展、触发 spec），同时应用品牌修改和新主题 | P1 |
+| F18 | **VS Code 插件集成**：在 VS Code 中提供 Omni Studio Extension 管理侧边栏（WebView），支持浏览市场、搜索、安装/卸载/启用/禁用扩展、触发 spec，与 CLI 共用 `~/.omni_studio/` 配置和状态 | P1 |
+| F19 | **IDEA 插件集成**：在 IntelliJ IDEA 中提供 Omni Studio Extension 管理 Tool Window，功能与 VS Code 插件一致（浏览市场、搜索、安装/卸载/启用/禁用扩展、触发 spec），共用 CLI 配置和状态 | P2 |
+| F20 | **Qt 插件集成**：在 Qt Creator 中提供 Omni Studio Extension 管理面板，功能与 VS Code 插件一致（浏览市场、搜索、安装/卸载/启用/禁用扩展、触发 spec），共用 CLI 配置和状态 | P2 |
 
 ## 4. 非功能需求
 
@@ -64,7 +67,7 @@
 **不包含**：
 - Marketplace 后端服务开发
 - 扩展的运行时加载逻辑（由现有框架处理）
-- 图形界面
+- 除 VS Code / IDEA / Qt 插件和桌面端外的图形界面
 
 ## 6. 验收标准
 
@@ -91,3 +94,6 @@
 - [ ] 品牌统一：用户可见的 `OpenCode` / `opencode` 描述全部替换为 `Omni Studio` / `omni`。CLI 命令名、配置文件路径、桌面端应用名、i18n、TUI 标题、构建产物名、TUI 提示语、VS Code 扩展 ID 均已更新（F15）
 - [ ] 新 TUI 默认主题 `omni.json` 已创建并设为默认，dark/light 双模式完整定义 46 个颜色键 + thinkingOpacity，通过 `isTheme` 验证（F16）
 - [ ] 桌面端应用包含 Extensions 入口按钮，可打开扩展管理视图；支持市场浏览、安装/更新/卸载/启用/禁用、登录/配置、spec 触发；UI 风格与 TUI 一致并应用新主题（F17）
+- [ ] VS Code 插件侧边栏可展示扩展市场列表，支持搜索、安装、启用/禁用、卸载和 spec 触发，与 CLI 状态实时同步（F18）
+- [ ] IDEA 插件 Tool Window 可展示扩展市场列表，支持搜索、安装、启用/禁用、卸载和 spec 触发，与 CLI 状态实时同步（F19）
+- [ ] Qt Creator 插件面板可展示扩展市场列表，支持搜索、安装、启用/禁用、卸载和 spec 触发，与 CLI 状态实时同步（F20）

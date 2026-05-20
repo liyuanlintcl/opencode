@@ -736,3 +736,32 @@ async function refreshToken(): Promise<OmniStudioConfig>
 - 窗口标题、菜单项显示 "Omni Studio"
 - 应用图标、Dock 标签使用新品牌名
 - 错误报告链接、文档链接指向新域名（如有）
+
+---
+
+## 12. IDE 插件集成（F18 ~ F20）
+
+> **说明**：VS Code、IDEA、Qt 三个 IDE 的插件集成由对应插件团队负责详细设计与实现。本节仅列出功能范围与对接约束，作为跨团队协作的输入。
+
+### 12.1 功能范围（三个插件一致）
+
+- **市场浏览**：在 IDE 中展示 Omni Studio Marketplace 远程扩展列表，支持 skill/tool/plugin/agent/spec 类型切换和搜索
+- **安装/更新/卸载/启用/禁用**：完整的扩展生命周期管理，操作结果与 CLI 状态实时同步
+- **Spec 触发**：展示已启用的 spec 列表并支持手动触发
+- **登录/配置**：输入 api_base、username、password 完成认证
+- **状态同步**：与 CLI 共用 `~/.omni_studio/` 配置和状态文件
+
+### 12.2 对接约束
+
+- **配置文件**：必须读取/写入 `~/.omni_studio/omni-studio.json`（登录配置）和 `~/.omni_studio/state.json`（扩展状态），文件格式与 CLI 保持一致
+- **HTTP API**：可直接调用 Omni Studio Marketplace HTTP API（`GET /api/v1/packages` 等），接口契约与 CLI 使用的 Market Client 一致
+- **CLI 兜底**：对于扩展生命周期脚本执行等复杂操作，可通过调用 `omni` CLI 命令完成
+- **状态刷新**：需监听 `~/.omni_studio/state.json` 文件变化，实现与 CLI / TUI / 桌面端的跨进程状态同步
+
+### 12.3 各插件负责团队
+
+| 需求 | IDE | 负责团队 | 备注 |
+|---|---|---|---|
+| F18 | VS Code | VS Code 插件团队 | 现有 VS Code 扩展中新增 Omni Studio 面板 |
+| F19 | IntelliJ IDEA | IDEA 插件团队 | 现有 IDEA 插件中新增 Omni Studio Tool Window |
+| F20 | Qt Creator | Qt 插件团队 | 现有 Qt 插件中新增 Omni Studio 管理面板 |

@@ -42,6 +42,7 @@ await Bun.file(`./dist/${pkg.name}/package.json`).write(
       name: pkg.name + "-ai",
       bin: {
         [pkg.name]: `./bin/${pkg.name}`,
+        omni: `./bin/${pkg.name}`,
       },
       scripts: {
         postinstall: "bun ./postinstall.mjs || node ./postinstall.mjs",

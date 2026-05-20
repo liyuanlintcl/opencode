@@ -67,6 +67,69 @@ function show(out: string) {
   process.stderr.write(out)
 }
 
+async function selfInstall() {
+  const fsPromises = await import("fs/promises")
+  const fsSync = await import("fs")
+  const os = await import("os")
+  const path = await import("path")
+
+  const source = process.execPath
+  const platform = os.platform()
+
+  let targetDir: string
+  let targetFile: string
+
+  if (platform === "win32") {
+    targetDir = path.join(os.homedir(), "AppData", "Local", "Microsoft", "WindowsApps")
+    targetFile = path.join(targetDir, "omni.exe")
+  } else {
+    const candidates = [path.join(os.homedir(), ".local", "bin"), path.join(os.homedir(), "bin")]
+    targetDir = candidates.find((d) => {
+      try {
+        fsSync.accessSync(d)
+        return true
+      } catch {
+        return false
+      }
+    }) ?? candidates[0]
+    targetFile = path.join(targetDir, "omni")
+  }
+
+  try {
+    await fsPromises.mkdir(targetDir, { recursive: true })
+    await fsPromises.copyFile(source, targetFile)
+    if (platform !== "win32") {
+      await fsPromises.chmod(targetFile, 0o755)
+    }
+  } catch (e) {
+    process.stderr.write(`Failed to install: ${e instanceof Error ? e.message : String(e)}${EOL}`)
+    process.exit(1)
+  }
+
+  const pathEnv = process.env.PATH ?? ""
+  const pathDirs = pathEnv.split(platform === "win32" ? ";" : ":")
+  const inPath = pathDirs.some((d) => d.trim().toLowerCase() === targetDir.toLowerCase())
+
+  process.stderr.write(`Installed to ${targetFile}${EOL}`)
+  if (!inPath) {
+    process.stderr.write(EOL)
+    process.stderr.write(`WARNING: ${targetDir} is not in your PATH.${EOL}`)
+    process.stderr.write(`Add the following to your shell profile:${EOL}`)
+    if (platform === "win32") {
+      process.stderr.write(`  setx PATH "%PATH%;${targetDir}"${EOL}`)
+    } else {
+      const shell = process.env.SHELL ?? "/bin/bash"
+      const profile = shell.includes("zsh") ? "~/.zshrc" : "~/.bashrc"
+      process.stderr.write(`  echo 'export PATH="${targetDir}:\$PATH"' >> ${profile}${EOL}`)
+    }
+    process.stderr.write(EOL)
+    process.stderr.write(`Then restart your terminal or run: source ${platform === "win32" ? "your profile" : "your shell profile"}${EOL}`)
+  } else {
+    process.stderr.write(`Run 'omni --help' to get started.${EOL}`)
+  }
+  process.exit(0)
+}
+
 const cli = yargs(args)
   .parserConfiguration({ "populate--": true })
   .scriptName("omni")
@@ -88,7 +151,16 @@ const cli = yargs(args)
     describe: "run without external plugins",
     type: "boolean",
   })
+  .option("install", {
+    describe: "install omni to PATH",
+    type: "boolean",
+  })
   .middleware(async (opts) => {
+    if (opts.install) {
+      await selfInstall()
+      return
+    }
+
     if (opts.pure) {
       process.env.OPENCODE_PURE = "1"
     }

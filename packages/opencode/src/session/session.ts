@@ -1,6 +1,5 @@
 import { Slug } from "@opencode-ai/core/util/slug"
 import path from "path"
-import fsSync from "fs"
 import { BusEvent } from "@/bus/bus-event"
 import { Bus } from "@/bus"
 import { Decimal } from "decimal.js"
@@ -369,9 +368,7 @@ export const Event = {
 
 export function plan(input: { slug: string; time: { created: number } }, instance: InstanceContext) {
   const base = instance.project.vcs
-    ? (fsSync.existsSync(path.join(instance.worktree, ".omni"))
-        ? path.join(instance.worktree, ".omni", "plans")
-        : path.join(instance.worktree, ".opencode", "plans"))
+    ? path.join(instance.worktree, ".omni", "plans")
     : path.join(Global.Path.data, "plans")
   return path.join(base, [input.time.created, input.slug].join("-") + ".md")
 }

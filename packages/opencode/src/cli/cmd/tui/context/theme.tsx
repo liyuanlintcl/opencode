@@ -489,7 +489,7 @@ async function getCustomThemes() {
     Global.Path.config,
     ...(await Array.fromAsync(
       Filesystem.up({
-        targets: [".omni", ".opencode"],
+        targets: [".omni"],
         start: process.cwd(),
       }),
     )),

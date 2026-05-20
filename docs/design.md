@@ -33,6 +33,7 @@ omni-studio.json             {skills,tools,...}/
 | `types.ts` | 共享类型定义 | `src/omni-studio/types.ts` |
 | `spec-discovery.ts` | Spec 扩展发现机制：扫描 `~/.omni_studio/specs/` 下已启用 spec 的 `SPEC.md`，解析 YAML frontmatter（依赖声明），**只返回正文**（去掉 frontmatter）拼接到 instructions；扫描内嵌扩展（skills/tools/agents/plugins）的说明文件拼接到正文；提供依赖检查和级联管理辅助函数 | `src/omni-studio/spec-discovery.ts` |
 | `dialog-omni-studio.tsx` | TUI 对话框：展示 Omni Studio Extension 菜单（status/local/list/spec/login/logout/setup）。安装/卸载/启用/禁用操作在 list 和 local 视图中以行内按钮提供；spec 视图支持手动触发 | `src/cli/cmd/tui/component/dialog-omni-studio.tsx` |
+| `dialog-provider.tsx` | TUI 对话框：Provider 连接与自定义 Provider 配置管理。预置 provider 走 OAuth/API key 认证流程；自定义 provider 使用统一配置管理菜单（showProviderConfigMenu），支持 Base URL / API Key / 多 Model 的添加/编辑/删除 | `src/cli/cmd/tui/component/dialog-provider.tsx` |
 
 ## 3. 数据模型
 
@@ -358,7 +359,50 @@ function getScriptSuffix(): ".sh" | ".bat" | ".ps1"
 - spec 卸载后目录不存在，自然跳过
 ```
 
-### 5.8b Spec 触发流程（TUI）
+### 5.8b 自定义 Provider 配置流程（TUI）
+
+```
+背景：
+- TUI 中除预置 provider（OpenAI、Anthropic 等）外，支持用户配置自定义 OpenAI-compatible provider
+- 自定义 provider 通过 opencode.json 的 provider 字段配置，使用 @ai-sdk/openai-compatible SDK
+- API Key 通过 Auth Service 单独存储（不写入配置文件），支持 credential 安全隔离
+
+创建流程：
+1. TUI 中按 Ctrl+M 打开模型选择 → "Connect provider" → "Other"
+2. 输入 Provider ID（如 my-provider，只能包含小写字母、数字、下划线、连字符）
+3. 进入统一配置管理菜单（DialogSelect），显示：
+   - Base URL: (not set) — 点击输入 API 端点地址
+   - API Key: (not set) — 点击输入 API key
+   - + Add Model — 点击添加 model
+   - Save & Close / Cancel
+4. 添加 Model：
+   - 输入 Model ID（如 gpt-4，API 请求时使用的模型标识符）
+   - 输入 Model Name（如 GPT-4，显示名称，可选，默认使用 Model ID）
+   - 返回管理菜单，新 model 出现在列表中
+5. 可在管理菜单中继续添加多个 model、编辑已有 model、删除 model
+6. 点击 Save & Close：
+   - 校验：至少一个 model、Base URL 非空、API Key 非空
+   - 调用 config.update 写入 opencode.json：provider.{id}.options.baseURL、provider.{id}.models
+   - 调用 auth.set 存储 API Key
+   - instance.dispose() + sync.bootstrap() 刷新配置
+   - 自动打开模型选择框，新 provider 和 model 可见
+
+编辑流程：
+1. TUI 中按 Ctrl+M 打开模型选择 → "Connect provider"
+2. 选择已连接的自定义 provider（source === "config" 或 "custom"）
+3. 弹出选项：Edit configuration / Reconnect
+4. 选择 Edit configuration 进入管理菜单（预填充当前值）
+5. 修改 Base URL、API Key（留空保持原值）、添加/编辑/删除 model
+6. Save & Close：更新配置并刷新
+
+管理菜单交互：
+- 选择 Model 行 → 弹出 Edit / Delete / Cancel 子菜单
+- Edit：修改 Model ID 和 Name，返回管理菜单
+- Delete：从列表移除，返回管理菜单
+- Base URL 和 API Key 行直接点击即可编辑
+```
+
+### 5.8c Spec 触发流程（TUI）
 
 ```
 1. DialogOmniStudio 主菜单提供 "触发 Spec" 选项，点击进入 SpecTriggerView

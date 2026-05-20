@@ -38,6 +38,7 @@
 | F12 | Token 自动刷新：accessToken 过期时自动调用 refresh-token 接口，更新本地 token 并重试原请求 | P1 |
 | F13 | Spec 扩展支持：安装 spec 类型扩展后，自动扫描已启用的 spec，将其 SPEC.md **正文**（去掉 YAML frontmatter）作为 instructions 注入系统提示；自动拼接内嵌扩展（skills/tools/agents/plugins）的说明文件内容；skill/tool/agent/plugin 扫描自动覆盖 `specs/{slug}/` 子目录 | P0 |
 | F14 | Spec 触发：TUI 中提供手动触发 spec 的入口，执行其 SPEC.md 定义的组合流水线 | P0 |
+| F14a | **自定义 Provider 配置**：TUI 中支持创建和编辑自定义 OpenAI-compatible provider，配置 Base URL、多个 Model（ID + Name）和 API Key；自动写入 `opencode.json` 并存储 credential；编辑时可在统一菜单中添加/修改/删除 model、修改 Base URL 和 API Key | P1 |
 | F15 | **品牌统一**：将用户可见的产品品牌从 `OpenCode` / `opencode` 全面替换为 `Omni Studio` / `omni`。优先项：CLI 命令名（`opencode` → `omni`）、配置文件名/路径（`opencode.json` → `omni.json`、`.opencode/` → `.omni/`、`~/.config/opencode/` → `~/.config/omni/`）、桌面端应用名（窗口标题、菜单、i18n）、TUI 标题（`DEFAULT_TITLE`）、构建产物名（`opencode-desktop-*` → `omni-desktop-*`）、TUI 提示语、VS Code 扩展 ID | P0 |
 | F16 | **新 TUI 默认主题**：创建一套全新的 TUI 内置主题（`omni.json`），替换现有默认主题 `opencode.json`，作为 Omni Studio 品牌的视觉识别主题 | P1 |
 | F17 | **桌面端集成**：在桌面端应用（Electron）中添加 Omni Studio Extension 入口按钮，打开独立窗口/视图展示扩展管理界面。基本功能与 TUI 一致（浏览市场、安装/卸载/启用/禁用扩展、触发 spec），同时应用品牌修改和新主题 | P1 |

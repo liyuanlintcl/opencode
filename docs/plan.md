@@ -55,6 +55,7 @@
 | T37 | session-memory-plugin API 适配与响应解析修复 | plugin 中 v1 messages 调用需传 `path.id` 替换 URL 占位符；v2 调用需使用 `client._client.get()`；Anthropic 返回 content 数组含 thinking + text block，需过滤 `type === "text"` 后拼接；OpenAI 兼容格式也可能返回数组，统一处理 | 2h | ✅ |
 | T38 | Omni Studio TUI 安装成功 UI 优化 | 安装成功后移除 3 秒高亮 `setTimeout` 过渡，直接更新 `localVersions` Map 使按钮立即显示灰色 `[已安装]`，避免闪烁 | 1h | ✅ |
 | T39 | TUI 安装后自动启用扩展 | 安装成功后自动调用 `setEnabled(type, slug, true)`；启用成功行内提示绿色"安装并启用成功"，启用失败行内提示红色"安装成功，但启用失败: xxx"；安装失败也改为行内提示，不再弹出 DialogAlert | 1h | ✅ |
+| T39a | TUI 自定义 Provider 配置 | TUI 中支持创建自定义 OpenAI-compatible provider：输入 Provider ID、Base URL、Model ID/Name、API Key，自动写入 `opencode.json`；支持配置多个 model；支持编辑已有自定义 provider（修改 URL、Model、API Key） | 2h | ✅ |
 
 ### P3 — 品牌与体验升级
 
@@ -148,6 +149,7 @@
 - [x] T37 — session-memory-plugin API 适配与响应解析修复
 - [x] T38 — Omni Studio TUI 安装成功 UI 优化
 - [x] T39 — TUI 安装后自动启用扩展
+- [x] T39a — TUI 自定义 Provider 配置（创建/编辑多 model OpenAI-compatible provider）
 - [ ] T40 — 品牌统一：CLI 命令名
 - [ ] T41 — 品牌统一：配置文件与路径
 - [ ] T42 — 品牌统一：桌面端应用名与 i18n

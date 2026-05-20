@@ -151,6 +151,14 @@ export function createDialogProviderOptions() {
       if (selected === null || selected === "cancel") return null
 
       if (selected === "save") {
+        if (!baseURL.trim()) {
+          toast.show({ variant: "error", message: "Base URL is required" })
+          continue
+        }
+        if (models.length === 0) {
+          toast.show({ variant: "error", message: "At least one model is required" })
+          continue
+        }
         return { baseURL, models, apiKey }
       }
 
@@ -259,7 +267,7 @@ export function createDialogProviderOptions() {
       }
     }
 
-    await sdk.client.config.update({
+    await sdk.client.global.config.update({
       config: {
         provider: {
           [providerID]: {
@@ -315,7 +323,7 @@ export function createDialogProviderOptions() {
       }
     }
 
-    await sdk.client.config.update({
+    await sdk.client.global.config.update({
       config: {
         provider: {
           [providerID]: {

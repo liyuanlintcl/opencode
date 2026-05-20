@@ -109,46 +109,163 @@ export function createDialogProviderOptions() {
     return promptCustomProviderID()
   }
 
-  async function setupCustomProvider(providerID: string, existing?: { baseURL: string; modelID: string; modelName: string }) {
-    const baseURL = await DialogPrompt.show(dialog, "Base URL", {
-      placeholder: "https://api.example.com/v1",
-      description: () => <text fg={theme.textMuted}>The API endpoint URL for this provider.</text>,
-      value: existing?.baseURL,
-    })
-    if (!baseURL) return
+  async function showProviderConfigMenu(
+    providerID: string,
+    initial?: { baseURL: string; models: Array<{ id: string; name: string }>; hasKey: boolean },
+  ): Promise<{ baseURL: string; models: Array<{ id: string; name: string }>; apiKey: string | null } | null> {
+    let baseURL = initial?.baseURL ?? ""
+    const models = initial?.models ? [...initial.models] : []
+    let apiKey: string | null = null
 
-    const modelID = await DialogPrompt.show(dialog, "Model ID", {
-      placeholder: "e.g. gpt-4, claude-sonnet-4-5",
-      description: () => <text fg={theme.textMuted}>The model identifier used in API requests.</text>,
-      value: existing?.modelID,
-    })
-    if (!modelID) return
+    while (true) {
+      const menuOptions: Array<{
+        title: string
+        value: string
+        category: string
+      }> = [
+        { title: `Base URL: ${baseURL || "(not set)"}`, value: "baseURL", category: "Configuration" },
+        {
+          title: `API Key: ${apiKey !== null ? "(will update)" : initial?.hasKey ? "(set)" : "(not set)"}`,
+          value: "apiKey",
+          category: "Configuration",
+        },
+        ...models.map((m) => ({ title: `${m.name} (${m.id})`, value: `model:${m.id}`, category: "Models" })),
+        { title: "+ Add Model", value: "addModel", category: "Actions" },
+        { title: "Save & Close", value: "save", category: "Actions" },
+        { title: "Cancel", value: "cancel", category: "Actions" },
+      ]
 
-    const modelName = await DialogPrompt.show(dialog, "Model Name", {
-      placeholder: modelID,
-      description: () => <text fg={theme.textMuted}>Display name for this model (optional).</text>,
-      value: existing?.modelName,
-    })
-    if (modelName === null) return
+      const selected = await new Promise<string | null>((resolve) => {
+        dialog.replace(
+          () => (
+            <DialogSelect
+              title={`Configure ${providerID}`}
+              options={menuOptions}
+              onSelect={(option) => resolve(String(option.value))}
+            />
+          ),
+          () => resolve(null),
+        )
+      })
 
-    const apiKey = await DialogPrompt.show(dialog, "API Key", {
-      placeholder: "sk-...",
-      description: () => <text fg={theme.textMuted}>Your API key for this provider.</text>,
-    })
-    if (!apiKey) return
+      if (selected === null || selected === "cancel") return null
+
+      if (selected === "save") {
+        return { baseURL, models, apiKey }
+      }
+
+      if (selected === "baseURL") {
+        const value = await DialogPrompt.show(dialog, "Base URL", {
+          placeholder: "https://api.example.com/v1",
+          description: () => <text fg={theme.textMuted}>The API endpoint URL for this provider.</text>,
+          value: baseURL,
+        })
+        if (value !== null) baseURL = value.trim()
+        continue
+      }
+
+      if (selected === "apiKey") {
+        const value = await DialogPrompt.show(dialog, "API Key", {
+          placeholder: initial?.hasKey ? "Leave empty to keep current key" : "sk-...",
+          description: () => <text fg={theme.textMuted}>Your API key for this provider.</text>,
+        })
+        if (value !== null) apiKey = value.trim() || null
+        continue
+      }
+
+      if (selected === "addModel") {
+        const id = await DialogPrompt.show(dialog, "Model ID", {
+          placeholder: "e.g. gpt-4, claude-sonnet-4-5",
+          description: () => <text fg={theme.textMuted}>The model identifier used in API requests.</text>,
+        })
+        if (!id) continue
+        const name = await DialogPrompt.show(dialog, "Model Name", {
+          placeholder: id,
+          description: () => <text fg={theme.textMuted}>Display name for this model (optional).</text>,
+        })
+        if (name === null) continue
+        models.push({ id: id.trim(), name: name.trim() || id.trim() })
+        continue
+      }
+
+      if (selected.startsWith("model:")) {
+        const modelId = selected.slice(6)
+        const index = models.findIndex((m) => m.id === modelId)
+        if (index === -1) continue
+
+        const action = await new Promise<string | null>((resolve) => {
+          dialog.replace(
+            () => (
+              <DialogSelect
+                title={models[index].name}
+                options={[
+                  { title: "Edit", value: "edit", category: "Action" },
+                  { title: "Delete", value: "delete", category: "Action" },
+                  { title: "Cancel", value: "cancel", category: "Action" },
+                ]}
+                onSelect={(option) => resolve(String(option.value))}
+              />
+            ),
+            () => resolve(null),
+          )
+        })
+
+        if (action === null || action === "cancel") continue
+
+        if (action === "edit") {
+          const id = await DialogPrompt.show(dialog, "Model ID", {
+            placeholder: "e.g. gpt-4",
+            description: () => <text fg={theme.textMuted}>The model identifier used in API requests.</text>,
+            value: models[index].id,
+          })
+          if (!id) continue
+          const name = await DialogPrompt.show(dialog, "Model Name", {
+            placeholder: id,
+            description: () => <text fg={theme.textMuted}>Display name for this model (optional).</text>,
+            value: models[index].name,
+          })
+          if (name === null) continue
+          models[index] = { id: id.trim(), name: name.trim() || id.trim() }
+        }
+
+        if (action === "delete") {
+          models.splice(index, 1)
+        }
+      }
+    }
+  }
+
+  async function setupCustomProvider(providerID: string) {
+    const result = await showProviderConfigMenu(providerID)
+    if (!result) return
+    if (result.models.length === 0) {
+      toast.show({ variant: "error", message: "At least one model is required" })
+      return
+    }
+    if (!result.baseURL) {
+      toast.show({ variant: "error", message: "Base URL is required" })
+      return
+    }
+    if (!result.apiKey) {
+      toast.show({ variant: "error", message: "API Key is required" })
+      return
+    }
+
+    const modelsConfig: Record<string, { name: string; provider: { npm: string; api: string } }> = {}
+    for (const m of result.models) {
+      modelsConfig[m.id] = {
+        name: m.name,
+        provider: { npm: "@ai-sdk/openai-compatible", api: "openai-compatible" },
+      }
+    }
 
     await sdk.client.config.update({
       config: {
         provider: {
           [providerID]: {
             name: providerID,
-            options: { baseURL: baseURL.trim() },
-            models: {
-              [modelID.trim()]: {
-                name: modelName.trim() || modelID.trim(),
-                provider: { npm: "@ai-sdk/openai-compatible", api: "openai-compatible" },
-              },
-            },
+            options: { baseURL: result.baseURL },
+            models: modelsConfig,
           },
         },
       },
@@ -156,7 +273,7 @@ export function createDialogProviderOptions() {
 
     await sdk.client.auth.set({
       providerID,
-      auth: { type: "api", key: apiKey },
+      auth: { type: "api", key: result.apiKey },
     })
 
     await sdk.client.instance.dispose()
@@ -169,58 +286,51 @@ export function createDialogProviderOptions() {
     if (!providerInfo) return
 
     const existingBaseURL = typeof providerInfo.options.baseURL === "string" ? providerInfo.options.baseURL : ""
-    const modelEntries = Object.entries(providerInfo.models)
-    const [existingModelID, existingModel] = modelEntries.length > 0 ? modelEntries[0] : ["", null]
-    const existingModelName = existingModel?.name ?? ""
+    const existingModels = Object.entries(providerInfo.models).map(([id, m]) => ({
+      id,
+      name: m.name,
+    }))
+    const hasKey = sync.data.provider_next.connected.includes(providerID)
 
-    const baseURL = await DialogPrompt.show(dialog, "Base URL", {
-      placeholder: "https://api.example.com/v1",
-      description: () => <text fg={theme.textMuted}>The API endpoint URL for this provider.</text>,
-      value: existingBaseURL,
+    const result = await showProviderConfigMenu(providerID, {
+      baseURL: existingBaseURL,
+      models: existingModels,
+      hasKey,
     })
-    if (!baseURL) return
+    if (!result) return
+    if (result.models.length === 0) {
+      toast.show({ variant: "error", message: "At least one model is required" })
+      return
+    }
+    if (!result.baseURL) {
+      toast.show({ variant: "error", message: "Base URL is required" })
+      return
+    }
 
-    const modelID = await DialogPrompt.show(dialog, "Model ID", {
-      placeholder: "e.g. gpt-4, claude-sonnet-4-5",
-      description: () => <text fg={theme.textMuted}>The model identifier used in API requests.</text>,
-      value: existingModelID,
-    })
-    if (!modelID) return
-
-    const modelName = await DialogPrompt.show(dialog, "Model Name", {
-      placeholder: modelID,
-      description: () => <text fg={theme.textMuted}>Display name for this model (optional).</text>,
-      value: existingModelName,
-    })
-    if (modelName === null) return
-
-    const apiKey = await DialogPrompt.show(dialog, "API Key", {
-      placeholder: "Leave empty to keep current key",
-      description: () => <text fg={theme.textMuted}>Your API key for this provider (optional).</text>,
-    })
-    if (apiKey === null) return
+    const modelsConfig: Record<string, { name: string; provider: { npm: string; api: string } }> = {}
+    for (const m of result.models) {
+      modelsConfig[m.id] = {
+        name: m.name,
+        provider: { npm: "@ai-sdk/openai-compatible", api: "openai-compatible" },
+      }
+    }
 
     await sdk.client.config.update({
       config: {
         provider: {
           [providerID]: {
             name: providerID,
-            options: { baseURL: baseURL.trim() },
-            models: {
-              [modelID.trim()]: {
-                name: modelName.trim() || modelID.trim(),
-                provider: { npm: "@ai-sdk/openai-compatible", api: "openai-compatible" },
-              },
-            },
+            options: { baseURL: result.baseURL },
+            models: modelsConfig,
           },
         },
       },
     })
 
-    if (apiKey && apiKey.trim()) {
+    if (result.apiKey) {
       await sdk.client.auth.set({
         providerID,
-        auth: { type: "api", key: apiKey.trim() },
+        auth: { type: "api", key: result.apiKey },
       })
     }
 

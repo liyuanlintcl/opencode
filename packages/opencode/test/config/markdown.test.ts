@@ -90,6 +90,31 @@ describe("ConfigMarkdown: normal template", () => {
   })
 })
 
+describe("ConfigMarkdown: Windows paths", () => {
+  test("should extract backslash paths", () => {
+    const template = "Check @src\\main.ts and @C:\\Users\\file.txt"
+    const matches = ConfigMarkdown.files(template)
+    expect(matches.length).toBe(2)
+    expect(matches[0][1]).toBe("src\\main.ts")
+    expect(matches[1][1]).toBe("C:\\Users\\file.txt")
+  })
+
+  test("should extract mixed slash paths", () => {
+    const template = "Check @src/main.ts and @C:/Users/file.txt"
+    const matches = ConfigMarkdown.files(template)
+    expect(matches.length).toBe(2)
+    expect(matches[0][1]).toBe("src/main.ts")
+    expect(matches[1][1]).toBe("C:/Users/file.txt")
+  })
+
+  test("should extract Windows reference paths", () => {
+    const template = "Check @ref\\src\\main.ts"
+    const matches = ConfigMarkdown.files(template)
+    expect(matches.length).toBe(1)
+    expect(matches[0][1]).toBe("ref\\src\\main.ts")
+  })
+})
+
 describe("ConfigMarkdown: frontmatter parsing", async () => {
   const parsed = await ConfigMarkdown.parse(import.meta.dir + "/fixtures/frontmatter.md")
 

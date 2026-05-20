@@ -237,7 +237,7 @@ export const layer = Layer.effect(
           if (seen.has(name)) return
           seen.add(name)
 
-          const slash = name.indexOf("/")
+          const slash = name.search(/[\\/]/)
           const alias = slash === -1 ? name : name.slice(0, slash)
           const reference = yield* references.get(alias)
           if (reference) {
@@ -1167,7 +1167,7 @@ NOTE: At any point in time through this workflow you should feel free to ask the
       ) {
         const name = part.filename?.replace(/#\d+(?:-\d*)?$/, "")
         if (!name) return
-        const slash = name.indexOf("/")
+        const slash = name.search(/[\\/]/)
         if (slash === -1) return
 
         const reference = yield* references.get(name.slice(0, slash))

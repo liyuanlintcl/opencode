@@ -619,7 +619,7 @@ export function createPromptState(input: PromptInput): PromptState {
         return
       }
 
-      setQuery(displaySlice(text, at() + 1, cursor))
+      setQuery(displaySlice(text, at() + 1, cursor).replace(/\\/g, "/"))
       return
     }
 
@@ -632,7 +632,7 @@ export function createPromptState(input: PromptInput): PromptState {
       setAt(idx)
       menu.reset()
       setMode("mention")
-      setQuery(displaySlice(text, idx + 1, cursor))
+      setQuery(displaySlice(text, idx + 1, cursor).replace(/\\/g, "/"))
     }
   }
 

@@ -145,7 +145,7 @@ export function Autocomplete(props: {
   const [search, setSearch] = createSignal("")
   createEffect(() => {
     const next = filter()
-    setSearch(next ? next : "")
+    setSearch(next ? next.replace(/\\/g, "/") : "")
   })
 
   // When the filter changes due to how TUI works, the mousemove might still be triggered

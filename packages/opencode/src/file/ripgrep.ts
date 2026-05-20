@@ -173,7 +173,7 @@ function error(stderr: string, code: number) {
 }
 
 function clean(file: string) {
-  return path.normalize(file.replace(/^\.[\\/]/, ""))
+  return path.normalize(file.replace(/^\.[\\/]/, "")).replace(/\\/g, "/")
 }
 
 function row(data: Row): Row {
@@ -517,7 +517,7 @@ export const layer: Layer.Layer<Service, never, AppFileSystem.Service | ChildPro
         const root: Node = { name: "", children: new Map() }
         for (const file of list) {
           if (file.includes(".opencode")) continue
-          const parts = file.split(path.sep)
+          const parts = file.split("/")
           if (parts.length < 2) continue
           let node = root
           for (const part of parts.slice(0, -1)) {

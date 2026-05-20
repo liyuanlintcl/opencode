@@ -6,6 +6,7 @@ import { Agent } from "../../agent/agent"
 import { Provider } from "@/provider/provider"
 import path from "path"
 import fs from "fs/promises"
+import fsSync from "fs"
 import { Filesystem } from "@/util/filesystem"
 import matter from "gray-matter"
 import { InstanceRef } from "@/effect/instance-ref"
@@ -106,7 +107,8 @@ const AgentCreateCommand = effectCmd({
           if (prompts.isCancel(scopeResult)) throw new UI.CancelledError()
           scope = scopeResult
         }
-        targetPath = path.join(scope === "global" ? Global.Path.config : path.join(ctx.worktree, ".opencode"), "agents")
+        const projectConfigDir = fsSync.existsSync(path.join(ctx.worktree, ".omni")) ? path.join(ctx.worktree, ".omni") : path.join(ctx.worktree, ".opencode")
+        targetPath = path.join(scope === "global" ? Global.Path.config : projectConfigDir, "agents")
       }
 
       // Get description

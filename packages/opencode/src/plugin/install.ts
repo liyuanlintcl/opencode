@@ -1,4 +1,5 @@
 import path from "path"
+import fsSync from "fs"
 import {
   type ParseError as JsoncParseError,
   applyEdits,
@@ -334,7 +335,9 @@ function patchDir(input: PatchInput) {
   if (input.global) return input.config ?? Global.Path.config
   const git = input.vcs === "git" && input.worktree !== "/"
   const root = git ? input.worktree : input.directory
-  return path.join(root, ".opencode")
+  const omniDir = path.join(root, ".omni")
+  const opencodeDir = path.join(root, ".opencode")
+  return fsSync.existsSync(omniDir) ? omniDir : opencodeDir
 }
 
 function patchName(kind: Kind): "opencode" | "tui" {

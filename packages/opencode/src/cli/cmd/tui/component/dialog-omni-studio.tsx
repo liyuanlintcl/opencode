@@ -941,6 +941,38 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     },
   })
 
+  /** 按 `i` 键触发批量安装（当选中扩展且未在批量安装中时） */
+  useKeyboard((evt) => {
+    if (evt.name === "i" && selectedSlugs().size > 0 && !batchInstalling()) {
+      evt.preventDefault()
+      evt.stopPropagation()
+      void handleBatchInstall()
+    }
+  })
+
+  /** 按 `a` 键全选/取消全选当前可见的可勾选扩展 */
+  useKeyboard((evt) => {
+    if (evt.name === "a" && !batchInstalling()) {
+      evt.preventDefault()
+      evt.stopPropagation()
+      const items = (marketList() as Extract<ListResult, { kind: "ok" }>).data
+      const checkableKeys = items
+        .filter((ext) => !(isInstalled(ext) && !needsUpdate(ext)))
+        .map((ext) => `${ext.type}:${ext.slug}`)
+      if (checkableKeys.length === 0) return
+      const allSelected = checkableKeys.every((k) => selectedSlugs().has(k))
+      setSelectedSlugs((prev) => {
+        const next = new Set(prev)
+        if (allSelected) {
+          for (const k of checkableKeys) next.delete(k)
+        } else {
+          for (const k of checkableKeys) next.add(k)
+        }
+        return next
+      })
+    }
+  })
+
   /**
    * 切换扩展类型，重置到第 1 页和选中索引，保留搜索词。
    */
@@ -1113,11 +1145,11 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
     const isRowSelected = () => selectedIndex() === index()
     const isChecked = () => selectedSlugs().has(`${ext.type}:${ext.slug}`)
     const checkLabel = () => {
-      if (isInstalled(ext) && !needsUpdate(ext)) return "   "
-      if (batchInstalling()) return "   "
+      if (batchInstalling()) return "[ ] "
       if (isChecked()) return "[x] "
       return "[ ] "
     }
+    const isCheckable = () => !(isInstalled(ext) && !needsUpdate(ext)) && !batchInstalling()
     const buttons = () => {
       if (installResult()?.slug === ext.slug) {
         return [
@@ -1155,7 +1187,7 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
 
     return (
       <box flexDirection="row" gap={1}>
-        <text fg={isRowSelected() ? theme.primary : theme.textMuted} attributes={isRowSelected() ? TextAttributes.BOLD : undefined}>
+        <text fg={isCheckable() ? (isChecked() ? theme.primary : theme.textMuted) : theme.textMuted} attributes={isRowSelected() ? TextAttributes.BOLD : undefined}>
           {checkLabel()}
         </text>
         <box flexGrow={1}>
@@ -1219,9 +1251,12 @@ function OmniStudioListView(props: { dialog: DialogContext; onBack: () => void }
           onNext={() => { setCurrentPage((p) => p + 1); setSelectedIndex(0); setInstallResult(null) }}
         />
         <Show when={selectedSlugs().size > 0 && !batchInstalling()}>
-          <box flexDirection="row" justifyContent="center" paddingTop={1}>
+          <box flexDirection="row" justifyContent="center" paddingTop={1} gap={2}>
             <text fg={theme.primary} selectable={false} onMouseUp={handleBatchInstall}>
               [批量安装 ({selectedSlugs().size})]
+            </text>
+            <text fg={theme.textMuted} selectable={false}>
+              按 i 安装
             </text>
           </box>
         </Show>

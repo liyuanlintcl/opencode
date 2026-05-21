@@ -8,6 +8,7 @@ import type {
 import { Effect } from "effect"
 import { McpAuth } from "./auth"
 import * as Log from "@opencode-ai/core/util/log"
+import { BRAND } from "@opencode-ai/core/global"
 
 const log = Log.create({ service: "mcp.oauth" })
 
@@ -42,10 +43,12 @@ export class McpOAuthProvider implements OAuthClientProvider {
   }
 
   get clientMetadata(): OAuthClientMetadata {
+    const brandName = BRAND.toLowerCase()
+    const BrandName = brandName.charAt(0).toUpperCase() + brandName.slice(1)
     return {
       redirect_uris: [this.redirectUrl],
-      client_name: "OpenCode",
-      client_uri: "https://opencode.ai",
+      client_name: BrandName,
+      client_uri: `https://${brandName}.ai`,
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
       token_endpoint_auth_method: this.config.clientSecret ? "client_secret_post" : "none",

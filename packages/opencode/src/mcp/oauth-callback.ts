@@ -1,6 +1,7 @@
 import { createConnection } from "net"
 import { createServer } from "http"
 import * as Log from "@opencode-ai/core/util/log"
+import { BRAND } from "@opencode-ai/core/global"
 import { OAUTH_CALLBACK_PORT, OAUTH_CALLBACK_PATH, parseRedirectUri } from "./oauth-provider"
 
 const log = Log.create({ service: "mcp.oauth-callback" })
@@ -9,10 +10,13 @@ const log = Log.create({ service: "mcp.oauth-callback" })
 let currentPort = OAUTH_CALLBACK_PORT
 let currentPath = OAUTH_CALLBACK_PATH
 
+const brandName = BRAND.toLowerCase()
+const BrandName = brandName.charAt(0).toUpperCase() + brandName.slice(1)
+
 const HTML_SUCCESS = `<!DOCTYPE html>
 <html>
 <head>
-  <title>OpenCode - Authorization Successful</title>
+  <title>${BrandName} - Authorization Successful</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #1a1a2e; color: #eee; }
     .container { text-align: center; padding: 2rem; }
@@ -23,7 +27,7 @@ const HTML_SUCCESS = `<!DOCTYPE html>
 <body>
   <div class="container">
     <h1>Authorization Successful</h1>
-    <p>You can close this window and return to OpenCode.</p>
+    <p>You can close this window and return to ${BrandName}.</p>
   </div>
   <script>setTimeout(() => window.close(), 2000);</script>
 </body>
@@ -32,7 +36,7 @@ const HTML_SUCCESS = `<!DOCTYPE html>
 const HTML_ERROR = (error: string) => `<!DOCTYPE html>
 <html>
 <head>
-  <title>OpenCode - Authorization Failed</title>
+  <title>${BrandName} - Authorization Failed</title>
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #1a1a2e; color: #eee; }
     .container { text-align: center; padding: 2rem; }

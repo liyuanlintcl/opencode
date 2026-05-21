@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from "effect"
 
 import { InstanceState } from "@/effect/instance-state"
+import { BRAND } from "@opencode-ai/core/global"
 
 import PROMPT_ANTHROPIC from "./prompt/anthropic.txt"
 import PROMPT_DEFAULT from "./prompt/default.txt"
@@ -16,20 +17,27 @@ import type { Agent } from "@/agent/agent"
 import { Permission } from "@/permission"
 import { Skill } from "@/skill"
 
+const brandName = BRAND.toLowerCase()
+const BrandName = brandName.charAt(0).toUpperCase() + brandName.slice(1)
+
+function brandize(text: string): string {
+  return text.replace(/OpenCode/g, BrandName).replace(/opencode/g, brandName)
+}
+
 export function provider(model: Provider.Model) {
   if (model.api.id.includes("gpt-4") || model.api.id.includes("o1") || model.api.id.includes("o3"))
-    return [PROMPT_BEAST]
+    return [brandize(PROMPT_BEAST)]
   if (model.api.id.includes("gpt")) {
     if (model.api.id.includes("codex")) {
-      return [PROMPT_CODEX]
+      return [brandize(PROMPT_CODEX)]
     }
-    return [PROMPT_GPT]
+    return [brandize(PROMPT_GPT)]
   }
-  if (model.api.id.includes("gemini-")) return [PROMPT_GEMINI]
-  if (model.api.id.includes("claude")) return [PROMPT_ANTHROPIC]
-  if (model.api.id.toLowerCase().includes("trinity")) return [PROMPT_TRINITY]
-  if (model.api.id.toLowerCase().includes("kimi")) return [PROMPT_KIMI]
-  return [PROMPT_DEFAULT]
+  if (model.api.id.includes("gemini-")) return [brandize(PROMPT_GEMINI)]
+  if (model.api.id.includes("claude")) return [brandize(PROMPT_ANTHROPIC)]
+  if (model.api.id.toLowerCase().includes("trinity")) return [brandize(PROMPT_TRINITY)]
+  if (model.api.id.toLowerCase().includes("kimi")) return [brandize(PROMPT_KIMI)]
+  return [brandize(PROMPT_DEFAULT)]
 }
 
 export interface Interface {

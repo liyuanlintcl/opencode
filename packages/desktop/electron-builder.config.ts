@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process"
+import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
@@ -43,6 +44,13 @@ const getBase = (): Configuration => ({
       filter: ["index.js", "index.d.ts", "build/Release/mac_window.node", "swift-build/**"],
     },
   ],
+  extraFiles: (() => {
+    const rgPath = path.join(rootDir, "resources", "rg.exe")
+    if (fs.existsSync(rgPath)) {
+      return [{ from: "resources/rg.exe", to: "rg.exe" }]
+    }
+    return undefined
+  })(),
   mac: {
     category: "public.app-category.developer-tools",
     icon: `resources/icons/icon.icns`,

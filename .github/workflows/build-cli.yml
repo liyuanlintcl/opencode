@@ -128,3 +128,86 @@ jobs:
             --clobber \
             --repo ${{ github.repository }}
           echo "Linux release asset uploaded successfully."
+
+  build-desktop-windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.13
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Install project dependencies
+        run: bun install
+
+      - name: Download ripgrep for Windows
+        shell: pwsh
+        run: |
+          $rgVersion = "15.1.0"
+          $rgUrl = "https://github.com/BurntSushi/ripgrep/releases/download/${rgVersion}/ripgrep-${rgVersion}-x86_64-pc-windows-msvc.zip"
+          $rgZip = "rg.zip"
+          Invoke-WebRequest -Uri $rgUrl -OutFile $rgZip
+          Expand-Archive -Path $rgZip -DestinationPath rg-temp -Force
+          Move-Item -Path "rg-temp/ripgrep-${rgVersion}-x86_64-pc-windows-msvc/rg.exe" -Destination "packages/desktop/resources/rg.exe" -Force
+          Remove-Item -Path $rgZip -Force
+          Remove-Item -Path rg-temp -Recurse -Force
+          Write-Host "rg.exe downloaded and placed at packages/desktop/resources/rg.exe"
+
+      - name: Build desktop
+        run: |
+          cd packages/desktop
+          bun run build
+        env:
+          OPENCODE_CHANNEL: dev
+
+      - name: Package desktop (Windows)
+        run: |
+          cd packages/desktop
+          npx electron-builder --win --config electron-builder.config.ts --publish never
+        env:
+          OPENCODE_CHANNEL: dev
+
+      - name: Stage desktop artifact
+        run: |
+          New-Item -ItemType Directory -Force -Path artifact-desktop
+          Copy-Item packages/desktop/dist/*.exe artifact-desktop/
+          Copy-Item packages/desktop/dist/latest.yml artifact-desktop/ -ErrorAction SilentlyContinue
+
+      - name: Upload desktop artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: omni-desktop-windows
+          path: artifact-desktop/*
+          if-no-files-found: error
+
+      - name: Publish to GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $release = gh release view desktop-latest --repo ${{ github.repository }} 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Creating desktop-latest pre-release..."
+            gh release create desktop-latest `
+              --title "Desktop Nightly (Windows)" `
+              --notes "桌面端 Windows 自动构建产物，每次 push 到 cli 分支时更新。" `
+              --prerelease `
+              --target cli `
+              --repo ${{ github.repository }}
+          } else {
+            Write-Host "desktop-latest release exists, uploading asset..."
+          }
+          Get-ChildItem artifact-desktop -File | ForEach-Object {
+            gh release upload desktop-latest $_.FullName `
+              --clobber `
+              --repo ${{ github.repository }}
+          }
+          Write-Host "Desktop release asset uploaded successfully."

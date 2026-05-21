@@ -197,6 +197,45 @@ function draw(
   }
 }
 
+function drawMerged(
+  lines: Array<{ left: number; top: number; text: string; fg: ColorInput; bg?: ColorInput; attrs?: number }>,
+  leftRow: string,
+  rightRow: string,
+  input: {
+    top: number
+    leftFg: ColorInput
+    leftShadow: ColorInput
+    rightFg: ColorInput
+    rightShadow: ColorInput
+    attrs?: number
+  },
+) {
+  const maxLen = Math.max(leftRow.length, rightRow.length)
+  for (let i = 0; i < maxLen; i++) {
+    const lc = leftRow[i] ?? " "
+    const rc = rightRow[i] ?? " "
+    if (lc === " " && rc === " ") continue
+    const isRight = rc !== " "
+    const char = isRight ? rc : lc
+    const fg = isRight ? input.rightFg : input.leftFg
+    const shadow = isRight ? input.rightShadow : input.leftShadow
+
+    if (char === "_") {
+      push(lines, i, input.top, " ", fg, shadow, input.attrs)
+      continue
+    }
+    if (char === "^") {
+      push(lines, i, input.top, "▀", fg, shadow, input.attrs)
+      continue
+    }
+    if (char === "~") {
+      push(lines, i, input.top, "▀", shadow, undefined, input.attrs)
+      continue
+    }
+    push(lines, i, input.top, char, fg, undefined, input.attrs)
+  }
+}
+
 function build(input: SplashWriterInput, kind: "entry" | "exit", ctx: ScrollbackRenderContext): ScrollbackSnapshot {
   const width = Math.max(1, ctx.width)
   const meta = splashMeta(input)
@@ -210,20 +249,12 @@ function build(input: SplashWriterInput, kind: "entry" | "exit", ctx: Scrollback
     const rightShadow = color(input.theme.rightShadow, fallback(240, "#475569"))
 
     for (let i = 0; i < logo.left.length; i += 1) {
-      const leftText = logo.left[i] ?? ""
-      const rightText = logo.right[i] ?? ""
-
-      draw(lines, leftText, {
-        left: 0,
+      drawMerged(lines, logo.left[i] ?? "", logo.right[i] ?? "", {
         top: i,
-        fg: left,
-        shadow: leftShadow,
-      })
-      draw(lines, rightText, {
-        left: leftText.length + 1,
-        top: i,
-        fg: right,
-        shadow: rightShadow,
+        leftFg: left,
+        leftShadow,
+        rightFg: right,
+        rightShadow,
       })
     }
 

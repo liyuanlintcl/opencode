@@ -7,6 +7,7 @@ import { go, logo } from "@/cli/logo"
 export type LogoShape = {
   left: string[]
   right: string[]
+  overlapped?: boolean
 }
 
 type ShimmerConfig = {
@@ -296,8 +297,19 @@ type LogoContext = {
 }
 
 function build(shape: LogoShape): LogoContext {
+  const FULL = shape.overlapped
+    ? shape.left.map((line, i) => {
+        const right = shape.right[i] ?? ""
+        let merged = ""
+        for (let j = 0; j < Math.max(line.length, right.length); j++) {
+          const lc = line[j] ?? " "
+          const rc = right[j] ?? " "
+          merged += rc !== " " ? rc : lc
+        }
+        return merged
+      })
+    : shape.left.map((line, i) => line + " ".repeat(GAP) + shape.right[i])
   const LEFT = shape.left[0]?.length ?? 0
-  const FULL = shape.left.map((line, i) => line + " ".repeat(GAP) + shape.right[i])
   const SPAN = Math.hypot(FULL[0]?.length ?? 0, FULL.length * 2) * 0.94
   return { LEFT, FULL, SPAN, MAP: mapGlyphs(FULL), shape }
 }
@@ -854,25 +866,45 @@ export function Logo(props: { shape?: LogoShape; ink?: RGBA; idle?: boolean } = 
         onMouse={mouse}
       />
       <For each={ctx.shape.left}>
-        {(line, index) => (
-          <box flexDirection="row" gap={1}>
-            <box flexDirection="row">
-              {renderLine(line, index(), props.ink ?? theme.textMuted, !!props.ink, 0, frame(), dusk(), idleState())}
+        {(line, index) =>
+          ctx.shape.overlapped ? (
+            <box flexDirection="row" position="relative">
+              <box flexDirection="row">
+                {renderLine(line, index(), props.ink ?? theme.textMuted, !!props.ink, 0, frame(), dusk(), idleState())}
+              </box>
+              <box flexDirection="row" position="absolute" left={0} top={0}>
+                {renderLine(
+                  ctx.shape.right[index()],
+                  index(),
+                  props.ink ?? theme.text,
+                  true,
+                  0,
+                  frame(),
+                  dusk(),
+                  idleState(),
+                )}
+              </box>
             </box>
-            <box flexDirection="row">
-              {renderLine(
-                ctx.shape.right[index()],
-                index(),
-                props.ink ?? theme.text,
-                true,
-                ctx.LEFT + GAP,
-                frame(),
-                dusk(),
-                idleState(),
-              )}
+          ) : (
+            <box flexDirection="row" gap={1}>
+              <box flexDirection="row">
+                {renderLine(line, index(), props.ink ?? theme.textMuted, !!props.ink, 0, frame(), dusk(), idleState())}
+              </box>
+              <box flexDirection="row">
+                {renderLine(
+                  ctx.shape.right[index()],
+                  index(),
+                  props.ink ?? theme.text,
+                  true,
+                  ctx.LEFT + GAP,
+                  frame(),
+                  dusk(),
+                  idleState(),
+                )}
+              </box>
             </box>
-          </box>
-        )}
+          )
+        }
       </For>
     </box>
   )

@@ -1,9 +1,11 @@
-import { BRAND } from "@opencode-ai/core/global"
-
 export type LogoShape = {
   left: string[]
   right: string[]
+  overlapped?: boolean
 }
+
+const LOGO_NAME =
+  typeof process !== "undefined" ? process.env.LOGO_NAME ?? "Omni" : "Omni"
 
 // Bitmap font extracted from the original hand-crafted "opencode" logo.
 // Each glyph is 4 rows. Most are 4 columns wide; m needs 5, i needs 3
@@ -14,77 +16,79 @@ const FONT: Record<string, string[]> = {
   o: ["    ", "█▀▀█", "█__█", "▀▀▀▀"],
   p: ["    ", "█▀▀█", "█__█", "█▀▀▀"],
   e: ["    ", "█▀▀█", "█^^^", "▀▀▀▀"],
-  n: ["    ", "█▀▀▄", "█__█", "▀~~▀"],
+  n: ["    ", "█▀▀▄", "█__█", "▀  ▀"],
   c: ["    ", "█▀▀▀", "█___", "▀▀▀▀"],
-  d: ["    ", "█▀▀█", "█__█", "▀▀▀▀"],
+  d: ["   ▄", "█▀▀█", "█__█", "▀▀▀▀"],
 
   // New glyphs in the same style
-  a: ["    ", "█▀▀█", "█__█", "▀▀▀█"],
-  b: ["    ", "█▀▀█", "█__█", "█▀▀▀"],
-  f: ["    ", "████", "█___", "█   "],
-  g: ["    ", "█▀▀█", "█__█", "▀▀▀█"],
-  h: ["    ", "█▀▀▀", "█__█", "█__█"],
+  a: ["    ", "█▀▀ ", "█  █", "▀▀▀█"],
+  b: ["▄   ", "█▀▀█", "█__█", "▀▀▀▀"],
+  f: ["    ", "█▀▀▀", "█^^^", "█   "],
+  g: ["    ", "█▀▀█", "█__█", "▄▄▄█"],
+  h: ["▄   ", "█▀▀▄", "█__█", "▀  ▀"],
   i: [" ", "▀", "█", "▀"],
-  j: ["   ", "  █", "  █", "███"],
-  k: ["    ", "█  █", "█_█ ", "█__█"],
-  l: ["    ", " █  ", " █  ", " █  "],
-  m: ["     ", "█▀█▀█", "█_█_█", "▀~▀~▀"],
+  j: ["  ", " █", " █", "▀▀"],
+  k: ["    ", "█  █", "█_▀▄", "▀__▀"],
+  l: [" ", "█", "█", "▀"],
+  m: ["     ", "▄▀█▀▄", "█_█_█", "▀ ▀ ▀"],
   q: ["    ", "█▀▀█", "█__█", "▀▀▀█"],
-  r: ["    ", "████", "█___", "█   "],
-  s: ["    ", " ███", "██_ ", " ███"],
-  t: ["    ", "████", " █_ ", " ███"],
-  u: ["    ", "█  █", "█  █", "▀▀▀▀"],
-  v: ["    ", "█  █", "█  █", " ▀▀ "],
-  w: ["    ", "█  █", "█ ██", "▀▀▀▀"],
-  x: ["    ", "█  █", " ██ ", "█  █"],
-  y: ["    ", "█  █", "█__█", "   █"],
-  z: ["    ", "████", " _█ ", "████"],
-  " ": ["    ", "    ", "    ", "    "],
-  "0": ["    ", "█▀▀█", "█__█", "▀▀▀▀"],
-  "1": ["   ", " █ ", "██ ", " █ "],
-  "2": ["    ", "████", "  _█", "████"],
-  "3": ["    ", "████", "  ██", "████"],
-  "4": ["█  █", "█  █", "████", "   █"],
-  "5": ["    ", "████", "██_ ", "████"],
-  "6": ["    ", "█   ", "████", "▀▀▀▀"],
-  "7": ["    ", "████", "   █", "  █ "],
-  "8": ["    ", "█▀▀█", "█^^█", "▀▀▀▀"],
-  "9": ["    ", "█▀▀█", "█^^█", "   █"],
-  "-": ["    ", "████", "    ", "    "],
-  _: ["    ", "    ", "    ", "████"],
-  ".": ["    ", "    ", "    ", " █  "],
-  "?": ["    ", "█▀▀█", "  _█", " █  "],
+  r: ["    ", "█▄▀▀", "█__ ", "▀   "],
+  s: ["    ", "█▀▀▀", "▀▀▀█", "▀~~▀"],
+  t: ["    ", "▄█▄▄", " █_ ", " ▀▀▀"],
+  u: ["    ", "█  █", "█__█", "▀▀▀▀"],
+  v: ["     ", "█   █", " █_█ ", "  ▀  "],
+  w: ["     ", "█ █ █", "█_█_█", " ▀▀▀ "],
+  x: ["     ", "▀▄ ▄▀", " ▄▀▄ ", "▀   ▀"],
+  y: ["     ", "▀▄ ▄▀", "  █  ", "  ▀  "],
+  z: ["     ", "▀▀▀█▀", " ▄▀  ", "▀▀▀▀▀"],
+
 }
 
-function concatGlyphs(glyphs: string[][]): string[] {
+function concatGlyphs(glyphs: string[][], isCaps: boolean[]): LogoShape {
   const height = 4
-  const result: string[] = []
+  const left: string[] = []
+  const right: string[] = []
   for (let row = 0; row < height; row++) {
-    const parts: string[] = []
+    let leftRow = ""
+    let rightRow = ""
     for (let i = 0; i < glyphs.length; i++) {
-      parts.push(glyphs[i][row] ?? "")
-      if (i < glyphs.length - 1) parts.push(" ")
+      const glyph = glyphs[i]!
+      const caps = isCaps[i]!
+      const cell = glyph[row] ?? ""
+      const width = cell.length
+      if (caps) {
+        leftRow += " ".repeat(width)
+        rightRow += cell
+      } else {
+        leftRow += cell
+        rightRow += " ".repeat(width)
+      }
+      if (i < glyphs.length - 1) {
+        leftRow += " "
+        rightRow += " "
+      }
     }
-    result.push(parts.join(""))
+    left.push(leftRow)
+    right.push(rightRow)
   }
-  return result
+  return { left, right, overlapped: true }
 }
 
-export function renderLogo(text: string, splitAt?: number): LogoShape {
-  const chars = text.toLowerCase().split("")
-  const glyphs = chars.map((ch) => FONT[ch] ?? FONT["?"] ?? FONT[" "])
-
-  if (splitAt === undefined || splitAt <= 0 || splitAt >= chars.length) {
-    return { left: concatGlyphs(glyphs), right: ["", "", "", ""] }
-  }
-
-  return {
-    left: concatGlyphs(glyphs.slice(0, splitAt)),
-    right: concatGlyphs(glyphs.slice(splitAt)),
-  }
+export function renderLogo(text: string): LogoShape {
+  const chars = text.split("")
+  const glyphs = chars.map((ch) => {
+    const lower = ch.toLowerCase()
+    const glyph = FONT[lower]
+    if (glyph === undefined) {
+      throw new Error(`Unsupported character in logo: "${ch}"`)
+    }
+    return glyph
+  })
+  const isCaps = chars.map((ch) => ch !== ch.toLowerCase())
+  return concatGlyphs(glyphs, isCaps)
 }
 
-export const logo = renderLogo(BRAND)
+export const logo = renderLogo(LOGO_NAME)
 export const go = {
   left: ["    ", "█▀▀▀", "█_^█", "▀▀▀▀"],
   right: ["    ", "█▀▀█", "█__█", "▀▀▀▀"],

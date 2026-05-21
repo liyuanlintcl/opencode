@@ -19,9 +19,29 @@ import { Skill } from "@/skill"
 
 const brandName = BRAND.toLowerCase()
 const BrandName = brandName.charAt(0).toUpperCase() + brandName.slice(1)
+const DEVELOPER_NAME =
+  typeof process !== "undefined" ? process.env.DEVELOPER_NAME ?? "ValidantSec" : "ValidantSec"
+const FEEDBACK_URL =
+  typeof process !== "undefined" ? process.env.FEEDBACK_URL ?? "" : ""
 
 function brandize(text: string): string {
-  return text.replace(/OpenCode/g, BrandName).replace(/opencode/g, brandName)
+  let result = text
+    .replace(/OpenCode/g, BrandName)
+    .replace(/opencode/g, brandName)
+    .replace(/AnomalyCo/g, DEVELOPER_NAME)
+
+  if (FEEDBACK_URL) {
+    result = result
+      .replace(/https:\/\/github\.com\/anomalyco\/opencode\/issues/g, FEEDBACK_URL)
+      .replace(/https:\/\/github\.com\/anomalyco\/opencode/g, FEEDBACK_URL.replace(/\/issues$/, ""))
+  } else {
+    result = result.replace(
+      /- To give feedback, users should report the issue at[^\n]*(?:\n\s*https:\/\/github\.com\/anomalyco\/opencode(?:\/issues)?)?\n?/g,
+      "",
+    )
+  }
+
+  return result
 }
 
 export function provider(model: Provider.Model) {

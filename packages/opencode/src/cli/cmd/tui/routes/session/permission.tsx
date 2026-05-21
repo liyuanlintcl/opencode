@@ -18,6 +18,7 @@ import { getScrollAcceleration } from "../../util/scroll"
 import { useTuiConfig } from "../../context/tui-config"
 import { useBindings, useCommandShortcut } from "../../keymap"
 import { usePathFormatter } from "../../context/path-format"
+import { BRAND } from "@opencode-ai/core/global"
 
 type PermissionStage = "permission" | "always" | "reject"
 
@@ -145,11 +146,11 @@ export function PermissionPrompt(props: { request: PermissionRequest }) {
           body={
             <Switch>
               <Match when={props.request.always.length === 1 && props.request.always[0] === "*"}>
-                <TextBody title={"This will allow " + props.request.permission + " until OpenCode is restarted."} />
+                <TextBody title={"This will allow " + props.request.permission + " until " + BRAND + " is restarted."} />
               </Match>
               <Match when={true}>
                 <box paddingLeft={1} gap={1}>
-                  <text fg={theme.textMuted}>This will allow the following patterns until OpenCode is restarted</text>
+                  <text fg={theme.textMuted}>{`This will allow the following patterns until ${BRAND} is restarted`}</text>
                   <box>
                     <For each={props.request.always}>
                       {(pattern) => (
@@ -486,7 +487,7 @@ function RejectPrompt(props: { onConfirm: (message: string) => void; onCancel: (
           <text fg={theme.text}>Reject permission</text>
         </box>
         <box paddingLeft={1}>
-          <text fg={theme.textMuted}>Tell OpenCode what to do differently</text>
+          <text fg={theme.textMuted}>{`Tell ${BRAND} what to do differently`}</text>
         </box>
       </box>
       <box

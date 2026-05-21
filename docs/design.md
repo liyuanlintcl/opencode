@@ -639,6 +639,41 @@ async function refreshToken(): Promise<OmniStudioConfig>
 - **主命令名**：`opencode` → `omni`
 - **扩展市场入口**：TUI slash 命令 `/omni-extensions`（别名 `/ext`）
 
+### 9.1a Logo 品牌化（F15a）
+
+**Bitmap Font**：
+- 4 行 glyph，a–z 全部手调，支持 `_`（阴影空格）、`^`（混合半块）、`~`（阴影半块）三种深度标记
+- `▄`（U+2584，bottom half block）恢复于 `d` 的 top-right，与原始设计一致
+- 宽度不一致：`m`/`v`/`w`/`x`/`y`/`z` 为 5 列，`i`/`l` 为 1 列，其余多为 4 列
+
+**大写高亮机制**：
+- `renderLogo(text)` 按字符大小写分割：大写字符的 glyph 放入 `right`（亮色侧），小写放入 `left`（暗色侧）
+- `LogoShape` 新增 `overlapped?: boolean` 标记；`ui.ts`、`splash.ts`、`logo.tsx` 根据此标记以叠加方式渲染（right 叠在 left 上方）
+- `go` 常量（"go" 字样）保持旧有的物理左右分割布局，不受影响
+
+**环境变量**：
+- `LOGO_NAME`：运行时环境变量，默认 `"Omni"`；通过 `process.env.LOGO_NAME` 读取
+
+### 9.1b 系统提示词品牌化（F15b）
+
+**运行时替换**：
+- `session/system.ts` 的 `provider()` 返回提示词前调用 `brandize(text)`
+- 替换规则（按顺序）：
+  1. `OpenCode` → `BrandName`（BRAND 首字母大写）
+  2. `opencode` → `brandName`（BRAND 全小写）
+  3. `AnomalyCo` → `DEVELOPER_NAME`
+  4. 反馈链接 URL → `FEEDBACK_URL`
+
+**可配置项**：
+| 环境变量 | 默认值 | 说明 |
+|---|---|---|
+| `DEVELOPER_NAME` | `ValidantSec` | 替换提示词中的开发者名称 |
+| `FEEDBACK_URL` | `""` | 为空时自动移除所有反馈链接整行；非空时替换 txt 中的 GitHub issues URL |
+
+**反馈链接移除规则**：
+- `FEEDBACK_URL === ""` 时，`brandize()` 用正则匹配并删除 txt 中 `- To give feedback, users should report the issue at...` 整行（支持单行和多行两种格式）
+- `error-component.tsx` 同样读取 `FEEDBACK_URL`；为空时隐藏 "Please report an issue" 和复制按钮
+
 ### 9.2 配置文件与路径
 
 | 旧路径/文件名 | 新路径/文件名 | 说明 |

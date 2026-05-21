@@ -92,7 +92,8 @@
 - [x] TUI 安装成功后自动启用扩展，启用失败时行内提示红色错误信息（F4）
 - [x] 本地扩展列表显示 `name@version`，市场扩展列表只显示 `name`
 - [x] TUI 本地扩展列表支持 Space 多选、a 全选、e/d/u 批量启用/禁用/卸载（F8）
-- [ ] TUI 安装成功后 1 秒内行内提示自动消失（成功绿色、失败红色）（F4）
+- [x] Logo 品牌化：bitmap font 支持完整 a–z；大写字母自动亮色高亮；`LOGO_NAME` 环境变量可配置（默认 Omni）（F15a）
+- [x] 系统提示词品牌化：所有 txt 提示词模板运行时通过 `brandize()` 动态替换品牌名；`DEVELOPER_NAME`（默认 ValidantSec）和 `FEEDBACK_URL`（默认空，隐藏反馈链接）环境变量可配置（F15b）
 - [ ] 品牌统一：用户可见的 `OpenCode` / `opencode` 描述全部替换为 `Omni Studio` / `omni`。CLI 命令名（品牌重命名）、配置文件路径、桌面端应用名、i18n、TUI 标题、构建产物名、TUI 提示语、VS Code 扩展 ID 均已更新（F15）
 - [ ] 新 TUI 默认主题 `omni.json` 已创建并设为默认，dark/light 双模式完整定义 46 个颜色键 + thinkingOpacity，通过 `isTheme` 验证（F16）
 - [ ] 桌面端应用包含 Extensions 入口按钮，可打开扩展管理视图；支持市场浏览、安装/更新/卸载/启用/禁用、登录/配置、spec 触发；UI 风格与 TUI 一致并应用新主题（F17）

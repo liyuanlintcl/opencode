@@ -65,6 +65,9 @@
 | T41 | 品牌统一：配置文件与路径 | `global.ts` 中 XDG 目录与配置文件名改为编译时可配置（`BRAND_NAME` 环境变量注入 `__BRAND_NAME__`）；`flag.ts` 同时支持 `OMNI_*` 与 `OPENCODE_*` 环境变量；`config.ts` 全面使用 `Global.BRAND` 常量；`cli/cmd/` 下所有硬编码命令名/路径/包名替换为 `BRAND` | 2h | ✅ |
 | T42 | 品牌统一：桌面端应用名与 i18n | 新增 `src/shared/brand.ts` 从 `BRAND_NAME` 环境变量读取品牌；`index.ts` APP_NAMES/APP_IDS、menu.ts label、windows.ts title 全部引用品牌常量；`electron-builder.config.ts` artifactName/protocols.name/appId/productName/rpm 动态化；`package.json` author 改为 Omni；15 个 i18n 文件中的 "OpenCode"/"opencode" 改为 `{{brand}}`/`{{command}}` 模板变量，`cli.ts` 调用时传入 | 2h | ✅ |
 | T43 | 品牌统一：TUI 标题与提示语 | `attention.ts` DEFAULT_TITLE / DEFAULT_PACK_ID / 声音包显示名改为品牌变量；`tips-view.tsx` 中所有 "OpenCode"/"opencode" 残留（产品名、命令名、URL、Docker 镜像）改为 `omni`；`footer.tsx` 产品名同步；`keybind.ts` status_view 命令 ID 改为 `omni.status`；`tui.ts` sound_pack 默认值同步 | 1h | ✅ |
+| T43a | Logo 品牌化 | bitmap font 手调 a–z glyph，恢复 `▄` 支持，添加阴影标记；`renderLogo()` 按大小写分割到 left/right；`ui.ts`/`splash.ts`/`logo.tsx` 支持 overlapped 渲染；`LOGO_NAME` 环境变量默认 "Omni" | 2h | ✅ |
+| T43b | 系统提示词品牌化 | `session/system.ts` `brandize()` 运行时替换品牌名；`skill/index.ts` 内置 skill 内容 brandize；`mcp/oauth-callback.ts` 和 `oauth-provider.ts` 品牌动态化 | 2h | ✅ |
+| T43c | 开发者名称与反馈链接可配置 | `DEVELOPER_NAME` 环境变量默认 "ValidantSec"；`FEEDBACK_URL` 默认空字符串；为空时自动移除 txt 反馈链接行和 error-component 的 report-issue UI | 1h | ✅ |
 | T44 | 品牌统一：构建产物与 VS Code 扩展 | 修改 `scripts/utils.ts` 二进制文件名、`electron-builder.config.ts` artifactName；修改 `sdks/vscode/package.json` name/displayName/description | 1h | ⏳ |
 | T45 | 新 TUI 默认主题 | 创建 `packages/opencode/src/cli/cmd/tui/context/theme/omni.json`，定义完整的 dark/light 双模式色彩方案（46 个颜色键 + thinkingOpacity）；在 `theme.tsx` 中导入并设为默认 `active: "omni"`；确保主题通过 `isTheme` 验证 | 3h | ⏳ |
 | T46 | 桌面端集成：IPC 桥接与主进程集成 | 在 `main/ipc.ts` 中注册 omni-studio 相关 IPC handlers：`extension-list`、`extension-install`、`extension-uninstall`、`extension-enable`、`extension-disable`、`extension-status`、`extension-login`、`extension-logout`、`extension-setup`；通过 sidecar 或子进程调用核心 Effect Service（OmniStudioMarket / OmniStudioStore / OmniStudioAuth）；在 `preload/types.ts` 中声明 IPC 类型 | 3h | ⏳ |
@@ -154,6 +157,9 @@
 - [x] T41 — 品牌统一：配置文件与路径
 - [x] T42 — 品牌统一：桌面端应用名与 i18n
 - [x] T43 — 品牌统一：TUI 标题与提示语
+- [x] T43a — Logo 品牌化
+- [x] T43b — 系统提示词品牌化
+- [x] T43c — 开发者名称与反馈链接可配置
 - [ ] T44 — 品牌统一：构建产物与 VS Code 扩展
 - [ ] T45 — 新 TUI 默认主题
 - [ ] T46 — 桌面端集成：IPC 桥接与主进程集成

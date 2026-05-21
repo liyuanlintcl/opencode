@@ -18,6 +18,7 @@ import { Effect } from "effect"
 import { UI } from "../ui"
 import { effectCmd } from "../effect-cmd"
 import { Flag } from "@opencode-ai/core/flag/flag"
+import { BRAND } from "@opencode-ai/core/global"
 import { ServerAuth } from "@/server/auth"
 import { EOL } from "os"
 import { Filesystem } from "@/util/filesystem"
@@ -199,7 +200,7 @@ export const RunCommand = effectCmd({
       .option("username", {
         alias: ["u"],
         type: "string",
-        describe: "basic auth username (defaults to OPENCODE_SERVER_USERNAME or 'omni')",
+        describe: `basic auth username (defaults to OPENCODE_SERVER_USERNAME or '${BRAND}')`,
       })
       .option("dir", {
         type: "string",

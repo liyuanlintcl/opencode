@@ -136,11 +136,11 @@ async function backupAndStripLegacy(file: string, source: string) {
 
 async function opencodeFiles(input: { directories: string[]; cwd: string }) {
   const files = [
-    ...ConfigPaths.fileInDirectory(Global.Path.config, "omni"),
+    ...ConfigPaths.fileInDirectory(Global.Path.config, BRAND),
     ...(await Filesystem.findUp([`${BRAND}.json`, `${BRAND}.jsonc`], input.cwd, undefined, { rootFirst: true })),
   ]
   for (const dir of unique(input.directories)) {
-    files.push(...ConfigPaths.fileInDirectory(dir, "omni"))
+    files.push(...ConfigPaths.fileInDirectory(dir, BRAND))
   }
   if (Flag.OPENCODE_CONFIG) files.push(Flag.OPENCODE_CONFIG)
 

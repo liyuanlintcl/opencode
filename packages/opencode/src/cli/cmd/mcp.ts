@@ -397,7 +397,7 @@ export const McpLogoutCommand = effectCmd({
 })
 
 async function resolveConfigPath(baseDir: string, global = false) {
-  // Check for existing config files (prefer .jsonc over .json, check .omni/ subdirectory too)
+  // Check for existing config files (prefer .jsonc over .json, check .${BRAND}/ subdirectory too)
   const candidates = [
     path.join(baseDir, `${BRAND}.json`),
     path.join(baseDir, `${BRAND}.jsonc`),
@@ -416,7 +416,7 @@ async function resolveConfigPath(baseDir: string, global = false) {
     }
   }
 
-  // Default to omni.json if none exist
+  // Default to ${BRAND}.json if none exist
   return candidates[0]
 }
 

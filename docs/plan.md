@@ -62,7 +62,7 @@
 | # | 任务 | 验收标准 | 预估 | 状态 |
 |---|---|---|---|---|
 | T40 | 品牌统一：CLI 命令名 | 将 CLI 主命令从 `opencode` 改为 `omni`；TUI slash 命令从 `/omni-studio` 改为 `/omni-extensions`（别名 `/ext`）；修改 `package.json` bin 字段、`src/cli/index.ts` 命令注册、所有命令描述文案 | 2h | ✅ |
-| T41 | 品牌统一：配置文件与路径 | 修改 `packages/core/src/global.ts` 中 `const app = "opencode"` 为 `"omni"`；更新 `Flag.OPENCODE_CONFIG_DIR` 等常量；配置迁移逻辑：首次启动检测旧路径并自动复制；修改 `config.ts` 默认 schema URL | 2h | ⏳ |
+| T41 | 品牌统一：配置文件与路径 | `global.ts` 中 XDG 目录与配置文件名改为编译时可配置（`BRAND_NAME` 环境变量注入 `__BRAND_NAME__`）；`flag.ts` 同时支持 `OMNI_*` 与 `OPENCODE_*` 环境变量；`config.ts` 全面使用 `Global.BRAND` 常量；`cli/cmd/` 下所有硬编码命令名/路径/包名替换为 `BRAND` | 2h | ✅ |
 | T42 | 品牌统一：桌面端应用名与 i18n | 修改 `packages/desktop/src/main/index.ts` APP_NAMES、menu.ts 菜单项、`package.json` author；更新 15 个 i18n 语言文件中的产品名称；修改 `electron-builder.config.ts` 中 protocols.name、artifactName、appId | 2h | ⏳ |
 | T43 | 品牌统一：TUI 标题与提示语 | `attention.ts` DEFAULT_TITLE 改为 `"omni"`；`tips-view.tsx` 中所有产品名引用改为 `omni` 品牌；TUI 配置默认值同步更新 | 1h | ⏳ |
 | T44 | 品牌统一：构建产物与 VS Code 扩展 | 修改 `scripts/utils.ts` 二进制文件名、`electron-builder.config.ts` artifactName；修改 `sdks/vscode/package.json` name/displayName/description | 1h | ⏳ |
@@ -151,7 +151,7 @@
 - [x] T39 — TUI 安装后自动启用扩展
 - [x] T39a — TUI 自定义 Provider 配置（创建/编辑多 model OpenAI-compatible provider）
 - [x] T40 — 品牌统一：CLI 命令名
-- [ ] T41 — 品牌统一：配置文件与路径
+- [x] T41 — 品牌统一：配置文件与路径
 - [ ] T42 — 品牌统一：桌面端应用名与 i18n
 - [ ] T43 — 品牌统一：TUI 标题与提示语
 - [ ] T44 — 品牌统一：构建产物与 VS Code 扩展

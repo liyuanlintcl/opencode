@@ -5,6 +5,7 @@ import { TuiConfig } from "@/cli/cmd/tui/config/tui"
 import { errorMessage } from "@/util/error"
 import { validateSession } from "./validate-session"
 import { ServerAuth } from "@/server/auth"
+import { BRAND } from "@opencode-ai/core/global"
 
 export const AttachCommand = cmd({
   command: "attach <url>",
@@ -42,7 +43,7 @@ export const AttachCommand = cmd({
       .option("username", {
         alias: ["u"],
         type: "string",
-        describe: "basic auth username (defaults to OPENCODE_SERVER_USERNAME or 'omni')",
+        describe: `basic auth username (defaults to OPENCODE_SERVER_USERNAME or '${BRAND}')`,
       }),
   handler: async (args) => {
     const unguard = win32InstallCtrlCGuard()

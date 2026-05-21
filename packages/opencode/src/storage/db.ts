@@ -4,7 +4,7 @@ import { type SQLiteTransaction } from "drizzle-orm/sqlite-core"
 export * from "drizzle-orm"
 import { LocalContext } from "@/util/local-context"
 import { lazy } from "../util/lazy"
-import { Global } from "@opencode-ai/core/global"
+import { Global, BRAND } from "@opencode-ai/core/global"
 import * as Log from "@opencode-ai/core/util/log"
 import { NamedError } from "@opencode-ai/core/util/error"
 import path from "path"
@@ -26,9 +26,9 @@ const log = Log.create({ service: "db" })
 
 export function getChannelPath() {
   if (["latest", "beta", "prod"].includes(InstallationChannel) || Flag.OPENCODE_DISABLE_CHANNEL_DB)
-    return path.join(Global.Path.data, "opencode.db")
+    return path.join(Global.Path.data, `${BRAND}.db`)
   const safe = InstallationChannel.replace(/[^a-zA-Z0-9._-]/g, "-")
-  return path.join(Global.Path.data, `opencode-${safe}.db`)
+  return path.join(Global.Path.data, `${BRAND}-${safe}.db`)
 }
 
 export const Path = iife(() => {

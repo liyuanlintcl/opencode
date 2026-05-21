@@ -34,7 +34,7 @@ import { ModelID, ProviderID } from "@/provider/schema"
 
 import type { Provider } from "@/provider/provider"
 import { Permission } from "@/permission"
-import { Global } from "@opencode-ai/core/global"
+import { Global, BRAND } from "@opencode-ai/core/global"
 import { Effect, Layer, Option, Context, Schema, Types } from "effect"
 import { NonNegativeInt, optionalOmitUndefined } from "@opencode-ai/core/schema"
 import { RuntimeFlags } from "@/effect/runtime-flags"
@@ -368,7 +368,7 @@ export const Event = {
 
 export function plan(input: { slug: string; time: { created: number } }, instance: InstanceContext) {
   const base = instance.project.vcs
-    ? path.join(instance.worktree, ".omni", "plans")
+    ? path.join(instance.worktree, `.${BRAND}`, "plans")
     : path.join(Global.Path.data, "plans")
   return path.join(base, [input.time.created, input.slug].join("-") + ".md")
 }

@@ -290,6 +290,7 @@ for (const item of targets) {
       OPENCODE_WORKER_PATH: workerPath,
       OPENCODE_CHANNEL: `'${Script.channel}'`,
       OPENCODE_LIBC: item.os === "linux" ? `'${item.abi ?? "glibc"}'` : "",
+      __BRAND_NAME__: JSON.stringify(process.env.BRAND_NAME ?? "omni"),
     },
   })
 

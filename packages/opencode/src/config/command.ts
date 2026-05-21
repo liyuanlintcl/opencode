@@ -1,3 +1,4 @@
+import { BRAND } from "@opencode-ai/core/global"
 export * as ConfigCommand from "./command"
 
 import * as Log from "@opencode-ai/core/util/log"
@@ -43,7 +44,7 @@ export async function load(dir: string) {
     })
     if (!md) continue
 
-    const patterns = ["/.omni/command/", "/.omni/commands/", "/command/", "/commands/"]
+    const patterns = [`/.${BRAND}/command/`, `/.${BRAND}/commands/`, "/command/", "/commands/"]
     const name = configEntryNameFromPath(item, patterns)
 
     const config = {

@@ -1,3 +1,4 @@
+import { BRAND } from "@opencode-ai/core/global"
 export * as ConfigAgent from "./agent"
 
 import { Exit, Schema, SchemaGetter } from "effect"
@@ -123,7 +124,7 @@ export async function load(dir: string) {
     })
     if (!md) continue
 
-    const patterns = ["/.omni/agent/", "/.omni/agents/", "/agent/", "/agents/"]
+    const patterns = [`/.${BRAND}/agent/`, `/.${BRAND}/agents/`, "/agent/", "/agents/"]
     const name = configEntryNameFromPath(item, patterns)
 
     const config = {

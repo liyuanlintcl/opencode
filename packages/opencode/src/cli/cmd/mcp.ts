@@ -15,7 +15,7 @@ import { InstanceRef } from "@/effect/instance-ref"
 import { Installation } from "../../installation"
 import { InstallationVersion } from "@opencode-ai/core/installation/version"
 import path from "path"
-import { Global } from "@opencode-ai/core/global"
+import { Global, BRAND } from "@opencode-ai/core/global"
 import { modify, applyEdits } from "jsonc-parser"
 import { Filesystem } from "@/util/filesystem"
 import { Bus } from "../../bus"
@@ -399,14 +399,14 @@ export const McpLogoutCommand = effectCmd({
 async function resolveConfigPath(baseDir: string, global = false) {
   // Check for existing config files (prefer .jsonc over .json, check .omni/ subdirectory too)
   const candidates = [
-    path.join(baseDir, "omni.json"),
-    path.join(baseDir, "omni.jsonc"),
+    path.join(baseDir, `${BRAND}.json`),
+    path.join(baseDir, `${BRAND}.jsonc`),
   ]
 
   if (!global) {
     candidates.push(
-      path.join(baseDir, ".omni", "omni.json"),
-      path.join(baseDir, ".omni", "omni.jsonc"),
+      path.join(baseDir, `.${BRAND}`, `${BRAND}.json`),
+      path.join(baseDir, `.${BRAND}`, `${BRAND}.jsonc`),
     )
   }
 

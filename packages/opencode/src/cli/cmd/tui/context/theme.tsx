@@ -39,7 +39,7 @@ import carbonfox from "./theme/carbonfox.json" with { type: "json" }
 import { useKV } from "./kv"
 import { useRenderer } from "@opentui/solid"
 import { createStore, produce } from "solid-js/store"
-import { Global } from "@opencode-ai/core/global"
+import { Global, BRAND } from "@opencode-ai/core/global"
 import { Filesystem } from "@/util/filesystem"
 import { useTuiConfig } from "./tui-config"
 import { isRecord } from "@/util/record"
@@ -489,7 +489,7 @@ async function getCustomThemes() {
     Global.Path.config,
     ...(await Array.fromAsync(
       Filesystem.up({
-        targets: [".omni"],
+        targets: [`.${BRAND}`],
         start: process.cwd(),
       }),
     )),

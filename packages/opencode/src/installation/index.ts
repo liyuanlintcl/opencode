@@ -1,3 +1,4 @@
+import { BRAND } from "@opencode-ai/core/global"
 import { Effect, Layer, Schema, Context, Stream } from "effect"
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http"
 import { withTransientReadRetry } from "@/util/effect-http-client"
@@ -162,7 +163,7 @@ export const layer: Layer.Layer<Service, never, HttpClient.HttpClient | AppProce
         }
       }),
       method: Effect.fn("Installation.method")(function* () {
-        if (process.execPath.includes(path.join(".omni", "bin"))) return "curl" as Method
+        if (process.execPath.includes(path.join(`.${BRAND}`, "bin"))) return "curl" as Method
         if (process.execPath.includes(path.join(".local", "bin"))) return "curl" as Method
         const exec = process.execPath.toLowerCase()
 

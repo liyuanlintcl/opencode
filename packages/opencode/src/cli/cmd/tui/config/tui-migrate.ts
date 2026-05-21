@@ -4,7 +4,7 @@ import { unique } from "remeda"
 import { Option, Schema } from "effect"
 import { DiffStyle, ScrollAcceleration, ScrollSpeed } from "./tui-schema"
 import { Flag } from "@opencode-ai/core/flag/flag"
-import { Global } from "@opencode-ai/core/global"
+import { Global, BRAND } from "@opencode-ai/core/global"
 import { Filesystem } from "@/util/filesystem"
 import * as Log from "@opencode-ai/core/util/log"
 import * as ConfigPaths from "@/config/paths"
@@ -137,7 +137,7 @@ async function backupAndStripLegacy(file: string, source: string) {
 async function opencodeFiles(input: { directories: string[]; cwd: string }) {
   const files = [
     ...ConfigPaths.fileInDirectory(Global.Path.config, "omni"),
-    ...(await Filesystem.findUp(["omni.json", "omni.jsonc"], input.cwd, undefined, { rootFirst: true })),
+    ...(await Filesystem.findUp([`${BRAND}.json`, `${BRAND}.jsonc`], input.cwd, undefined, { rootFirst: true })),
   ]
   for (const dir of unique(input.directories)) {
     files.push(...ConfigPaths.fileInDirectory(dir, "omni"))

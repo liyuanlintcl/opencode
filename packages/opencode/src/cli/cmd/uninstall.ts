@@ -2,7 +2,7 @@ import type { Argv } from "yargs"
 import { UI } from "../ui"
 import * as prompts from "@clack/prompts"
 import { Installation } from "../../installation"
-import { Global } from "@opencode-ai/core/global"
+import { Global, BRAND } from "@opencode-ai/core/global"
 import fs from "fs/promises"
 import path from "path"
 import os from "os"
@@ -215,7 +215,7 @@ async function executeUninstall(method: Installation.Method, targets: RemovalTar
     prompts.log.info(`  rm "${targets.binary}"`)
 
     const binDir = path.dirname(targets.binary)
-    if (binDir.includes(".omni")) {
+    if (binDir.includes(`.${BRAND}`)) {
       prompts.log.info(`  rmdir "${binDir}" 2>/dev/null`)
     }
   }
@@ -298,7 +298,7 @@ async function cleanShellConfig(file: string) {
 
     if (
       (trimmed.startsWith("export PATH=") && trimmed.includes(".omni/bin")) ||
-      (trimmed.startsWith("fish_add_path") && trimmed.includes(".omni"))
+      (trimmed.startsWith("fish_add_path") && trimmed.includes(`.${BRAND}`))
     ) {
       continue
     }

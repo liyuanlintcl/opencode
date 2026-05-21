@@ -30,7 +30,7 @@ import { PluginLoader } from "@/plugin/loader"
 import { PluginMeta } from "@/plugin/meta"
 import { installPlugin as installModulePlugin, patchPluginConfig, readPluginManifest } from "@/plugin/install"
 import { hasTheme, upsertTheme } from "../context/theme"
-import { Global } from "@opencode-ai/core/global"
+import { Global, BRAND } from "@opencode-ai/core/global"
 import { Filesystem } from "@/util/filesystem"
 import { Process } from "@/util/process"
 import { Flock } from "@opencode-ai/core/util/flock"
@@ -243,9 +243,9 @@ function createThemeInstaller(
     const name = path.basename(src, path.extname(src))
     const source_dir = path.dirname(meta.source)
     const local_dir =
-      path.basename(source_dir) === ".omni"
+      path.basename(source_dir) === `.${BRAND}`
         ? path.join(source_dir, "themes")
-        : path.join(source_dir, ".omni", "themes")
+        : path.join(source_dir, `.${BRAND}`, "themes")
     const dest_dir = meta.scope === "local" ? local_dir : path.join(Global.Path.config, "themes")
     const dest = path.join(dest_dir, `${name}.json`)
     const stat = await Filesystem.statAsync(src)
@@ -830,7 +830,7 @@ function defaultPluginOrigin(state: RuntimeState, spec: string): ConfigPlugin.Or
   return {
     spec,
     scope: "local",
-    source: state.api.state.path.config || path.join(state.directory, ".omni", "tui.json"),
+    source: state.api.state.path.config || path.join(state.directory, `.${BRAND}`, "tui.json"),
   }
 }
 

@@ -3,7 +3,7 @@ import path from "path"
 import { pathToFileURL } from "url"
 import os from "os"
 import { mergeDeep } from "remeda"
-import { Global } from "@opencode-ai/core/global"
+import { Global, BRAND } from "@opencode-ai/core/global"
 import fsNode from "fs/promises"
 import { NamedError } from "@opencode-ai/core/util/error"
 import { Flag } from "@opencode-ai/core/flag/flag"
@@ -324,7 +324,7 @@ export interface Interface {
 export class Service extends Context.Service<Service, Interface>()("@opencode/Config") {}
 
 function globalConfigFile() {
-  const candidates = ["omni.jsonc", "omni.json", "config.json"].map((file) =>
+  const candidates = [`${BRAND}.jsonc`, `${BRAND}.json`, "config.json"].map((file) =>
     path.join(Global.Path.config, file),
   )
   for (const file of candidates) {
@@ -419,8 +419,8 @@ export const layer = Layer.effect(
         }
       }
       result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, "config.json")))
-      result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, "omni.json")))
-      result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, "omni.jsonc")))
+      result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, `${BRAND}.json`)))
+      result = mergeConfig(result, yield* loadFile(path.join(Global.Path.config, `${BRAND}.jsonc`)))
 
       const legacy = path.join(Global.Path.config, "config")
       if (existsSync(legacy)) {
@@ -583,8 +583,8 @@ export const layer = Layer.effect(
         const deps: Fiber.Fiber<void, never>[] = []
 
         for (const dir of directories) {
-          if (dir.endsWith(".omni") || dir === Flag.OPENCODE_CONFIG_DIR) {
-            for (const file of ["omni.json", "omni.jsonc"]) {
+          if (dir.endsWith(`.${BRAND}`) || dir === Flag.OPENCODE_CONFIG_DIR) {
+            for (const file of [`${BRAND}.json`, `${BRAND}.jsonc`]) {
               const source = path.join(dir, file)
               log.debug(`loading config from ${source}`)
               yield* merge(source, yield* loadFile(source))
@@ -752,7 +752,7 @@ export const layer = Layer.effect(
 
         const managedDir = ConfigManaged.managedConfigDir()
         if (existsSync(managedDir)) {
-          for (const file of ["omni.json", "omni.jsonc"]) {
+          for (const file of [`${BRAND}.json`, `${BRAND}.jsonc`]) {
             const source = path.join(managedDir, file)
             yield* merge(source, yield* loadFile(source), "global")
           }

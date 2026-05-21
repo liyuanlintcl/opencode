@@ -4,6 +4,7 @@ import type { KeyEvent, Renderable } from "@opentui/core"
 import type { Binding } from "@opentui/keymap"
 import type { BindingCommandMap, BindingConfig, BindingDefaults } from "@opentui/keymap/extras"
 import type { DeepMutable } from "@opencode-ai/core/schema"
+import { BRAND } from "@opencode-ai/core/global"
 import { Schema } from "effect"
 
 const KeyStroke = Schema.Struct({
@@ -253,7 +254,7 @@ export const CommandMap = {
   theme_mode_lock: "theme.mode.lock",
   sidebar_toggle: "session.sidebar.toggle",
   scrollbar_toggle: "session.toggle.scrollbar",
-  status_view: "opencode.status",
+  status_view: `${BRAND}.status`,
   session_export: "session.export",
   session_copy: "session.copy",
   session_new: "session.new",

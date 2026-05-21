@@ -30,7 +30,7 @@ import { PrCommand } from "./cli/cmd/pr"
 import { SessionCommand } from "./cli/cmd/session"
 import { DbCommand } from "./cli/cmd/db"
 import path from "path"
-import { Global } from "@opencode-ai/core/global"
+import { Global, BRAND } from "@opencode-ai/core/global"
 import { errorMessage } from "./util/error"
 import { PluginCommand } from "./cli/cmd/plug"
 import { Heap } from "./cli/heap"
@@ -88,7 +88,7 @@ async function selfInstall() {
         return false
       }
     }) ?? candidates[0]
-    targetFile = path.join(targetDir, "omni")
+    targetFile = path.join(targetDir, BRAND)
   }
 
   try {
@@ -152,14 +152,14 @@ async function selfInstall() {
       }
     }
   } else {
-    process.stderr.write(`Run 'omni --help' to get started.${EOL}`)
+    process.stderr.write(`Run '${BRAND} --help' to get started.${EOL}`)
   }
   process.exit(0)
 }
 
 const cli = yargs(args)
   .parserConfiguration({ "populate--": true })
-  .scriptName("omni")
+  .scriptName(BRAND)
   .wrap(100)
   .help("help", "show help")
   .alias("help", "h")

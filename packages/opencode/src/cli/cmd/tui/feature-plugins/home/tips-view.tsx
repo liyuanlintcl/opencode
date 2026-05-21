@@ -2,8 +2,10 @@ import type { TuiPluginApi } from "@opencode-ai/plugin/tui"
 import { createMemo, For, type Accessor } from "solid-js"
 import { DEFAULT_THEMES, useTheme } from "@tui/context/theme"
 import { Flag } from "@opencode-ai/core/flag/flag"
+import { BRAND } from "@opencode-ai/core/global"
 import { useCommandShortcut } from "../../keymap"
 
+const BRAND_CAPITALIZED = BRAND.charAt(0).toUpperCase() + BRAND.slice(1)
 const themeCount = Object.keys(DEFAULT_THEMES).length
 
 type TipPart = { text: string; highlight: boolean }
@@ -134,7 +136,7 @@ export function Tips(props: { api: TuiPluginApi; connected?: boolean }) {
     sessionSidebarToggle: configShortcut(props.api, "session.sidebar.toggle"),
     sessionTimeline: configShortcut(props.api, "session.timeline"),
     sessionToggleRecent: configShortcut(props.api, "session.toggle.recent"),
-    statusView: useCommandShortcut("opencode.status"),
+    statusView: useCommandShortcut(`${BRAND}.status`),
     terminalSuspend: useCommandShortcut("terminal.suspend"),
     themeList: useCommandShortcut("theme.switch"),
   }
@@ -168,7 +170,7 @@ const TIPS: Tip[] = [
   (shortcuts) => press(shortcuts.agentCycle(), "to cycle between Build and Plan agents"),
   "Use {highlight}/undo{/highlight} to revert the last message and file changes",
   "Use {highlight}/redo{/highlight} to restore previously undone messages and file changes",
-  "Run {highlight}/share{/highlight} to create a public link to your conversation at opencode.ai",
+  `Run {highlight}/share{/highlight} to create a public link to your conversation at ${BRAND}.ai`,
   "Drag and drop images or PDFs into the terminal to add them as context",
   (shortcuts) => press(shortcuts.inputPaste(), "to paste images from your clipboard into the prompt"),
   (shortcuts) => `Use ${commandText("/editor", shortcuts.editorOpen())} to compose messages in your external editor`,
@@ -245,13 +247,13 @@ const TIPS: Tip[] = [
   "Tool definitions can invoke scripts written in Python, Go, etc",
   "Add {highlight}.ts{/highlight} files to {highlight}.omni/plugins/{/highlight} for event hooks",
   "Use plugins to send OS notifications when sessions complete",
-  "Create a plugin to prevent OpenCode from reading sensitive files",
+  `Create a plugin to prevent ${BRAND} from reading sensitive files`,
   "Use {highlight}omni run{/highlight} for non-interactive scripting",
   "Use {highlight}omni --continue{/highlight} to resume the last session",
   "Use {highlight}omni run -f file.ts{/highlight} to attach files via CLI",
   "Use {highlight}--format json{/highlight} for machine-readable output in scripts",
   "Run {highlight}omni serve{/highlight} for headless API access to Omni Studio",
-  "Use {highlight}opencode run --attach{/highlight} to connect to a running server",
+  `Use {highlight}${BRAND} run --attach{/highlight} to connect to a running server`,
   "Run {highlight}omni upgrade{/highlight} to update to the latest version",
   "Run {highlight}omni auth list{/highlight} to see all configured providers",
   "Run {highlight}omni agent create{/highlight} for guided agent creation",
@@ -276,7 +278,7 @@ const TIPS: Tip[] = [
   "Run {highlight}/unshare{/highlight} to remove a session from public access",
   "Permission {highlight}doom_loop{/highlight} prevents infinite tool call loops",
   "Permission {highlight}external_directory{/highlight} protects files outside project",
-  "Run {highlight}opencode debug config{/highlight} to troubleshoot configuration",
+  `Run {highlight}${BRAND} debug config{/highlight} to troubleshoot configuration`,
   "Use {highlight}--print-logs{/highlight} flag to see detailed logs in stderr",
   (shortcuts) => `Use ${commandText("/timeline", shortcuts.sessionTimeline())} to jump to specific messages`,
   (shortcuts) => press(shortcuts.messagesToggleConceal(), "to toggle code block visibility in messages"),
@@ -286,8 +288,8 @@ const TIPS: Tip[] = [
     shortcuts.commandList()
       ? `Toggle username display in chat via the command palette (${shortcutText(shortcuts.commandList())})`
       : "Toggle username display in chat via the command palette",
-  "Run {highlight}docker run -it --rm ghcr.io/anomalyco/opencode{/highlight} for containerized use",
-  "Use {highlight}/connect{/highlight} with OpenCode Zen for curated, tested models",
+  `Run {highlight}docker run -it --rm ghcr.io/anomalyco/${BRAND}{/highlight} for containerized use`,
+  `Use {highlight}/connect{/highlight} with ${BRAND_CAPITALIZED} Zen for curated, tested models`,
   "Commit your project's {highlight}AGENTS.md{/highlight} file to Git for team sharing",
   "Use {highlight}/review{/highlight} to review uncommitted changes, branches, or PRs",
   (shortcuts) => `Use ${commandText("/help", shortcuts.helpShow())} to show the help dialog`,

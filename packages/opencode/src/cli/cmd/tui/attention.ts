@@ -21,6 +21,7 @@ import doneSoundPath from "@opencode-ai/ui/audio/bip-bop-01.mp3" with { type: "f
 import subagentDoneSoundPath from "@opencode-ai/ui/audio/yup-01.mp3" with { type: "file" }
 import * as Log from "@opencode-ai/core/util/log"
 import { BRAND } from "@opencode-ai/core/global"
+const BRAND_CAPITALIZED = BRAND.charAt(0).toUpperCase() + BRAND.slice(1)
 
 type FocusState = "unknown" | "focused" | "blurred"
 
@@ -42,13 +43,13 @@ type TuiAttentionHost = TuiAttention & {
 const log = Log.create({ service: "tui.attention" })
 
 const DEFAULT_TITLE = BRAND
-const DEFAULT_PACK_ID = "opencode.default"
+const DEFAULT_PACK_ID = `${BRAND}.default`
 const KV_SOUND_PACK = "attention_sound_pack"
 const TITLE_LIMIT = 80
 const MESSAGE_LIMIT = 240
 const BUILTIN_PACK: RegisteredSoundPack = {
   id: DEFAULT_PACK_ID,
-  name: "OpenCode Default",
+  name: `${BRAND_CAPITALIZED} Default`,
   builtin: true,
   sounds: {
     default: defaultSoundPath,

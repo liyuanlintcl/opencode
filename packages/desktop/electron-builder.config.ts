@@ -9,6 +9,9 @@ const execFileAsync = promisify(execFile)
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const signScript = path.join(rootDir, "script", "sign-windows.ps1")
 
+const BRAND = (process.env.BRAND_NAME ?? "omni").toLowerCase()
+const BRAND_CAPITALIZED = BRAND.charAt(0).toUpperCase() + BRAND.slice(1)
+
 async function signWindows(configuration: { path: string }) {
   if (process.platform !== "win32") return
   if (process.env.GITHUB_ACTIONS !== "true") return
@@ -27,7 +30,7 @@ const channel = (() => {
 })()
 
 const getBase = (): Configuration => ({
-  artifactName: "opencode-desktop-${os}-${arch}.${ext}",
+  artifactName: `${BRAND}-desktop-\${os}-\${arch}.\${ext}`,
   directories: {
     output: "dist",
     buildResources: "resources",
@@ -54,8 +57,8 @@ const getBase = (): Configuration => ({
     sign: true,
   },
   protocols: {
-    name: "OpenCode",
-    schemes: ["opencode"],
+    name: BRAND_CAPITALIZED,
+    schemes: [BRAND],
   },
   win: {
     icon: `resources/icons/icon.ico`,
@@ -85,29 +88,29 @@ function getConfig() {
     case "dev": {
       return {
         ...base,
-        appId: "ai.opencode.desktop.dev",
-        productName: "OpenCode Dev",
-        rpm: { packageName: "opencode-dev" },
+        appId: `ai.${BRAND}.desktop.dev`,
+        productName: `${BRAND_CAPITALIZED} Dev`,
+        rpm: { packageName: `${BRAND}-dev` },
       }
     }
     case "beta": {
       return {
         ...base,
-        appId: "ai.opencode.desktop.beta",
-        productName: "OpenCode Beta",
-        protocols: { name: "OpenCode Beta", schemes: ["opencode"] },
+        appId: `ai.${BRAND}.desktop.beta`,
+        productName: `${BRAND_CAPITALIZED} Beta`,
+        protocols: { name: `${BRAND_CAPITALIZED} Beta`, schemes: [BRAND] },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode-beta", channel: "latest" },
-        rpm: { packageName: "opencode-beta" },
+        rpm: { packageName: `${BRAND}-beta` },
       }
     }
     case "prod": {
       return {
         ...base,
-        appId: "ai.opencode.desktop",
-        productName: "OpenCode",
-        protocols: { name: "OpenCode", schemes: ["opencode"] },
+        appId: `ai.${BRAND}.desktop`,
+        productName: BRAND_CAPITALIZED,
+        protocols: { name: BRAND_CAPITALIZED, schemes: [BRAND] },
         publish: { provider: "github", owner: "anomalyco", repo: "opencode", channel: "latest" },
-        rpm: { packageName: "opencode" },
+        rpm: { packageName: BRAND },
       }
     }
   }

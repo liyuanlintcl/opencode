@@ -2,6 +2,7 @@ import { Menu, shell } from "electron"
 
 import { UPDATER_ENABLED } from "./constants"
 import { createMainWindow } from "./windows"
+import { BRAND_CAPITALIZED } from "../shared/brand"
 
 type Deps = {
   trigger: (id: string) => void
@@ -15,7 +16,7 @@ export function createMenu(deps: Deps) {
 
   const template: Electron.MenuItemConstructorOptions[] = [
     {
-      label: "OpenCode",
+      label: BRAND_CAPITALIZED,
       submenu: [
         { role: "about" },
         {

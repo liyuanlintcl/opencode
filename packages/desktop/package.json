@@ -4,9 +4,9 @@
   "version": "1.14.49",
   "type": "module",
   "license": "MIT",
-  "homepage": "https://opencode.ai",
+  "homepage": "https://omni.ai",
   "author": {
-    "name": "OpenCode",
+    "name": "Omni",
     "email": "hello@opencode.ai"
   },
   "scripts": {

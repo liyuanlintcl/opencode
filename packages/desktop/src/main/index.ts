@@ -37,16 +37,17 @@ import {
 import { migrate } from "./migrate"
 import { checkUpdate, checkForUpdates, installUpdate, setupAutoUpdater } from "./updater"
 import { Deferred, Effect, Fiber } from "effect"
+import { BRAND, BRAND_CAPITALIZED } from "../shared/brand"
 
 const APP_NAMES: Record<string, string> = {
-  dev: "OpenCode Dev",
-  beta: "OpenCode Beta",
-  prod: "OpenCode",
+  dev: `${BRAND_CAPITALIZED} Dev`,
+  beta: `${BRAND_CAPITALIZED} Beta`,
+  prod: BRAND_CAPITALIZED,
 }
 const APP_IDS: Record<string, string> = {
-  dev: "ai.opencode.desktop.dev",
-  beta: "ai.opencode.desktop.beta",
-  prod: "ai.opencode.desktop",
+  dev: `ai.${BRAND}.desktop.dev`,
+  beta: `ai.${BRAND}.desktop.beta`,
+  prod: `ai.${BRAND}.desktop`,
 }
 const TEST_ONBOARDING = process.env.OPENCODE_TEST_ONBOARDING === "1"
 

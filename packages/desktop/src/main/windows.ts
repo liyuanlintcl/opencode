@@ -3,6 +3,7 @@ import { app, BrowserWindow, net, nativeImage, nativeTheme, protocol } from "ele
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { TitlebarTheme } from "../preload/types"
+import { BRAND_CAPITALIZED } from "../shared/brand"
 
 const root = dirname(fileURLToPath(import.meta.url))
 const rendererRoot = join(root, "../renderer")
@@ -84,7 +85,7 @@ export function createMainWindow() {
     width: state.width,
     height: state.height,
     show: false,
-    title: "OpenCode",
+    title: BRAND_CAPITALIZED,
     icon: iconPath(),
     backgroundColor,
     ...(process.platform === "darwin"
